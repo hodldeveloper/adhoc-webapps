@@ -35,27 +35,25 @@
     // ── DOM Elements ──────────────────
     const homeScreen = document.getElementById('homeScreen'),
         resultsScreen = document.getElementById('resultsScreen');
-    const homeSearchInput = document.getElementById('homeSearchInput'),
-        resultsSearchInput = document.getElementById('resultsSearchInput');
+    const homeSearchInput = document.getElementById('homeSearchInput');
     const homeAnalyzeBtn = document.getElementById('homeAnalyzeBtn'),
         homeClearBtn = document.getElementById('homeClearBtn');
-    const homeLuckyBtn = document.getElementById('homeLuckyBtn'),
-        errorMsg = document.getElementById('errorMsg');
+    const homeLuckyBtn = document.getElementById('homeLuckyBtn');
+    const errorMsg = document.getElementById('errorMsg');
     const loadingOverlay = document.getElementById('loadingOverlay'),
         loadingText = document.getElementById('loadingText');
-    const tabsNav = document.getElementById('tabsNav'),
-        toastContainer = document.getElementById('toastContainer');
+    const toastContainer = document.getElementById('toastContainer');
     const modalContainer = document.getElementById('modalContainer');
-    const resultsSearchBtn = document.getElementById('resultsSearchBtn');
+    const resultsSearchInput = document.getElementById('resultsSearchInput');
+    const resultsBackBtn = document.getElementById('resultsBackBtn');
     const resultsLoginBtn = document.getElementById('resultsLoginBtn'),
-        resultsLogoutBtn = document.getElementById('resultsLogoutBtn');
+        resultsAccountBtn = document.getElementById('resultsAccountBtn');
     const resultsUserStatus = document.getElementById('resultsUserStatus');
     const homeLoginBtn = document.getElementById('homeLoginBtn'),
         homeLogoutBtn = document.getElementById('homeLogoutBtn');
     const homeUserStatus = document.getElementById('homeUserStatus');
     const homeAccountBtn = document.getElementById('homeAccountBtn');
-    const resultsAccountBtn = document.getElementById('resultsAccountBtn');
-    const profileTabBtn = document.getElementById('profileTabBtn');
+    const bottomNav = document.querySelector('.bottom-nav');
 
     // ── Bech32 & Utilities ────────────
     function bech32Polymod(values) {
@@ -256,71 +254,33 @@
         getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
     }
 
-    // ── User Profile Investigator (FIXED race condition) ──
+    // ── User Profile Investigator (fixed) ──
     class UserProfileInvestigator {
         constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; }
         async investigate(pubkey, hints = []) {
-            const allRelays = [...new Set([...activeRelays, ...hints])];
-            this.rm.relayUrls = allRelays;
-            this.rm.connections.clear();
-            this.rm.subscriptions.clear();
-            relayStats.clear();
+            const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
             for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-            showLoading('Connecting to relays...');
-            await this.rm.connectAll(10000);
+            showLoading('Connecting to relays...'); await this.rm.connectAll(10000);
             const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-            if (connected === 0) {
-                hideLoading();
-                showToast('No relays connected.', 'error');
-                return;
-            }
+            if (connected === 0) { hideLoading(); showToast('No relays connected.', 'error'); return; }
             showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
-
-            // Set event handlers BEFORE subscribing to avoid race conditions
             this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
             const pending = new Set();
             const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
             const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
             const relaySub = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
-            pending.add(profileSub);
-            pending.add(followsSub);
-            pending.add(relaySub);
-
+            pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
             this.rm.onEvent = (ev) => {
                 if (ev.pubkey === pubkey) {
-                    if (ev.kind === 0) {
-                        try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
-                        this.profileEvent = ev;
-                    }
+                    if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; }
                     if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
                     if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
                 }
             };
-            this.rm.onEOSE = (subId) => {
-                pending.delete(subId);
-                if (pending.size === 0) {
-                    this.rm.onEvent = null;
-                    this.rm.onEOSE = null;
-                    resolve();
-                }
-            };
-
             return new Promise((resolve) => {
-                setTimeout(() => {
-                    for (const sid of pending) this.rm.closeSubscription(sid);
-                    pending.clear();
-                    this.rm.onEvent = null;
-                    this.rm.onEOSE = null;
-                    resolve();
-                }, 10000);
-            }).then(() => {
-                hideLoading();
-                if (!this.profile && this.follows.length === 0 && this.relays.length === 0) {
-                    showToast('No profile found.', 'info');
-                } else {
-                    showToast('Profile loaded.', 'success');
-                }
-            });
+                this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
+                setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000);
+            }).then(() => { hideLoading(); if (!this.profile && this.follows.length === 0 && this.relays.length === 0) showToast('No profile found.', 'info'); else showToast('Profile loaded.', 'success'); });
         }
     }
 
@@ -334,14 +294,14 @@
         const npub = currentUser ? npubFromHex(currentUser.publicKey).substring(0,12)+'...' : '';
         window._currentUser = currentUser;
         if (currentUser) {
-            homeUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
-            resultsUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
+            homeUserStatus.innerHTML = `<span class="user-badge">${npub}</span>`;
+            resultsUserStatus.innerHTML = `<span class="user-badge">${npub}</span>`;
             homeLoginBtn.style.display='none'; homeLogoutBtn.style.display='inline-block'; homeAccountBtn.style.display='inline-block';
-            resultsLoginBtn.style.display='none'; resultsLogoutBtn.style.display='inline-block'; resultsAccountBtn.style.display='inline-block';
+            resultsLoginBtn.style.display='none'; resultsAccountBtn.style.display='inline-block';
         } else {
             homeUserStatus.textContent='Not logged in'; resultsUserStatus.textContent='Not logged in';
             homeLoginBtn.style.display='inline-block'; homeLogoutBtn.style.display='none'; homeAccountBtn.style.display='none';
-            resultsLoginBtn.style.display='inline-block'; resultsLogoutBtn.style.display='none'; resultsAccountBtn.style.display='none';
+            resultsLoginBtn.style.display='inline-block'; resultsAccountBtn.style.display='none';
         }
     }
 
@@ -366,15 +326,15 @@
             const bchAddress = profile.bch_address || '';
             const bchTipWallet = profile.bch_tip_wallet || '';
             let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
-                <div class="modal" style="max-width:600px; max-height:80vh; overflow-y:auto;">
-                    <button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button>
+                <div class="modal" style="max-width:360px;">
+                    <button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button>
                     <h3>👤 My Account</h3>
                     <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
                     <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p>
                     <hr/>
                     <div id="accountEditForm">
                         <label>Name:</label><br/><input type="text" id="editName" value="${escapeHtml(name)}" style="width:100%;"/><br/>
-                        <label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="3">${escapeHtml(about)}</textarea><br/>
+                        <label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="2">${escapeHtml(about)}</textarea><br/>
                         <label>Picture URL:</label><br/><input type="text" id="editPicture" value="${escapeHtml(picture)}" style="width:100%;"/><br/>
                         <label>Banner URL:</label><br/><input type="text" id="editBanner" value="${escapeHtml(banner)}" style="width:100%;"/><br/>
                         <label>NIP-05:</label><br/><input type="text" id="editNip05" value="${escapeHtml(nip05)}" style="width:100%;"/><br/>
@@ -423,7 +383,7 @@
 
     // ── Login Modal (unchanged) ────────
     function showLoginModal() {
-        modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
+        modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-outline" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
         backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
         backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
@@ -439,7 +399,6 @@
                 updateUserUI();
                 showToast('Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
                 backdrop.remove();
-                const boostBtn = document.getElementById('boostBtn'); if (boostBtn) boostBtn.disabled = false;
             } catch (e) { showToast('Invalid nsec.', 'error'); }
         });
     }
@@ -448,7 +407,6 @@
         currentUser = null;
         clearLogin();
         updateUserUI();
-        const boostBtn = document.getElementById('boostBtn'); if (boostBtn) boostBtn.disabled = true;
         showToast('Logged out.', 'info');
     }
 
@@ -462,9 +420,9 @@
         while ((match = urlRegex.exec(content)) !== null) {
             const url = match[0];
             if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
-                mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:4px;display:block;margin:4px 0;" onerror="this.style.display='none'">`;
+                mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onerror="this.style.display='none'">`;
             } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
-                mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:4px 0;"><source src="${url}" type="video/mp4"></video>`;
+                mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;"><source src="${url}" type="video/mp4"></video>`;
             }
         }
         html = html.replace(urlRegex, (u) => {
@@ -497,12 +455,12 @@
                     <span class="event-time">${time}</span>
                     <span class="event-author">${authorShort}</span>
                 </div>
-                <div class="event-content" id="${contentId}" style="${isLong ? 'max-height:100px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
+                <div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
                 ${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}
                 ${media ? `<div class="media-preview">${media}</div>` : ''}
                 <div class="thread-actions">
-                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">JSON</button>
-                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}
+                    <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>
+                    ${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}
                 </div>
             </div>
         </div>`;
@@ -522,7 +480,7 @@
         const p = document.getElementById('panel-thread');
         const tree = inv.getThreadTree();
         if (!tree || !tree.rootEvent) { p.innerHTML = '<div class="card"><p>No thread data.</p></div>'; return; }
-        let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span><div style="display:flex; gap:8px;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div></div><div class="thread-tree-container">';
+        let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span><div style="display:flex; gap:6px;"><button class="btn btn-sm btn-outline" onclick="window._expandAll()">Expand</button><button class="btn btn-sm btn-outline" onclick="window._collapseAll()">Collapse</button></div></div><div class="thread-tree-container">';
         html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
         html += '</div></div>';
         p.innerHTML = html;
@@ -533,9 +491,9 @@
         const p = document.getElementById('panel-timeline');
         const sorted = [...inv.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
         if (!sorted.length) { p.innerHTML = '<div class="card"><p>No events.</p></div>'; return; }
-        let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ' + (sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼') + '</button></div><div class="timeline-list">';
+        let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-sm btn-outline" onclick="window._toggleSortOrder()">Sort: ' + (sortOrder === 'oldest-first' ? 'Oldest ▲' : 'Newest ▼') + '</button></div><div class="timeline-list">';
         sorted.forEach(e => {
-            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const kind = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
             const isOrig = e.id === investigationHexId;
             const { text, media } = renderMediaFromContent(e.content);
@@ -546,13 +504,13 @@
                 <span class="timeline-time">${time}</span>
                 <span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span>
                 <div class="timeline-content">
-                    <code style="font-size:0.65rem;color:var(--text2);">${e.id.substring(0,10)}...</code>
+                    <code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code>
                     <div>${text || ''}</div>
-                    ${media ? `<div class="media-preview">${media}</div>` : ''}
+                    ${media ? `<div style="margin-top:4px;">${media}</div>` : ''}
                 </div>
-                <div class="timeline-actions">
-                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button>
-                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}
+                <div class="timeline-actions" style="margin-top:4px;">
+                    <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>
+                    ${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}
                 </div>
             </div>`;
         });
@@ -570,26 +528,26 @@
             nested = count(tree.rootId, 0);
         }
         const stats = [
-            { l: 'Original Event', v: originalEvent ? 1 : 0 },
+            { l: 'Original', v: originalEvent ? 1 : 0 },
             { l: 'Replies', v: inv.getEventsByKind(1).filter(e => e.id !== investigationHexId && inv.getParentIds(e).includes(investigationHexId)).length },
-            { l: 'Nested Replies', v: nested },
+            { l: 'Nested', v: nested },
             { l: 'Quotes', v: inv.events.filter(e => e.kind === 1 && e.content && e.content.includes(investigationHexId || '') && !inv.getParentIds(e).includes(investigationHexId || '')).length },
             { l: 'Mentions', v: inv.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] === investigationHexId)).length },
             { l: 'Reposts', v: inv.getEventsByKind(6).length },
             { l: 'Reactions', v: inv.getEventsByKind(7).length },
-            { l: 'Zap Events', v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length },
+            { l: 'Zaps', v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length },
             { l: 'BCH Tips', v: inv.getBchPaymentEvents().length },
-            { l: 'Unknown Events', v: inv.getUnknownEvents().length },
-            { l: 'Unique Authors', v: inv.getUniqueAuthors() },
-            { l: 'Connected Relays', v: [...relayStats.values()].filter(s => s.status === 'connected').length },
-            { l: 'Successful Relays', v: [...relayStats.values()].filter(s => s.events > 0).length },
-            { l: 'Failed Relays', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status === 'disconnected').length },
+            { l: 'Unknown', v: inv.getUnknownEvents().length },
+            { l: 'Authors', v: inv.getUniqueAuthors() },
+            { l: 'Relays', v: [...relayStats.values()].filter(s => s.status === 'connected').length },
+            { l: 'Success', v: [...relayStats.values()].filter(s => s.events > 0).length },
+            { l: 'Failed', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status === 'disconnected').length },
             { l: 'Images', v: inv.getMediaCounts().images },
             { l: 'Videos', v: inv.getMediaCounts().videos },
-            { l: 'Attachments', v: inv.getMediaCounts().attachments },
+            { l: 'Files', v: inv.getMediaCounts().attachments },
             { l: 'Hashtags', v: inv.getHashtags() },
             { l: 'Links', v: inv.getLinks() },
-            { l: 'Total Events', v: inv.events.length },
+            { l: 'Total', v: inv.events.length },
         ];
         let h = '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';
         stats.forEach(s => h += `<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);
@@ -600,14 +558,14 @@
     // ── JSON Viewer ─────────────────────
     function renderJson(inv) {
         const p = document.getElementById('panel-json');
-        let h = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span><div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div></div>';
+        let h = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>';
         if (originalEvent) {
-            h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' + syntaxHighlight(JSON.stringify(originalEvent, null, 2)) + '</div><button class="btn btn-small btn-secondary" onclick="window._copyEventJson(\'' + originalEvent.id + '\')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson(\'' + originalEvent.id + '\')">Download</button>';
+            h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' + syntaxHighlight(JSON.stringify(originalEvent, null, 2)) + '</div><button class="btn btn-sm btn-outline" onclick="window._copyEventJson(\'' + originalEvent.id + '\')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson(\'' + originalEvent.id + '\')">Download</button>';
         }
-        h += '<h4 style="margin:16px 0 8px;">All Events (' + inv.events.length + ')</h4><input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
+        h += '<h4 style="margin:16px 0 8px;">All Events (' + inv.events.length + ')</h4><input type="text" placeholder="Search JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
         for (const e of inv.events) {
             const isOrig = e.id === investigationHexId;
-            h += `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0,12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
+            h += `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0,12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-sm btn-outline" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
         }
         h += '</div></div>';
         p.innerHTML = h;
@@ -616,13 +574,13 @@
     // ── Relays ──────────────────────────
     function renderRelays() {
         const p = document.getElementById('panel-relays');
-        let h = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span><button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';
+        let h = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relays</span><button class="btn btn-sm btn-outline" onclick="window._addCustomRelay()">+ Add</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>URL</th><th>Status</th><th>RT</th><th>Events</th><th>Errors</th><th></th></tr></thead><tbody>';
         [...new Set([...activeRelays, ...relayStats.keys()])].forEach(url => {
             const s = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0, responseTime: null };
             let cls = 'status-connecting', txt = s.status || 'unknown';
             if (s.status === 'connected') { cls = 'status-connected'; txt = 'Connected'; } else if (s.status === 'failed') { cls = 'status-failed'; txt = 'Failed'; } else if (s.status === 'disconnected') { cls = 'status-failed'; txt = 'Disconnected'; }
             const rt = s.responseTime ? `${s.responseTime}ms` : '—';
-            h += `<tr><td style="word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events || 0}</td><td>${s.errors || 0}</td><td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td></tr>`;
+            h += `<tr><td style="word-break:break-all;"><code style="font-size:0.65rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events || 0}</td><td>${s.errors || 0}</td><td><button class="btn btn-sm btn-outline" onclick="window._reconnectRelay('${escapeHtml(url)}')">↻</button></td></tr>`;
         });
         h += '</tbody></table></div></div>';
         p.innerHTML = h;
@@ -630,7 +588,7 @@
 
     // ── Export ──────────────────────────
     function renderExport() {
-        document.getElementById('panel-export').innerHTML = '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML</button></div></div>';
+        document.getElementById('panel-export').innerHTML = '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-sm btn-outline" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-sm btn-outline" onclick="window._exportHTML()">🌐 HTML</button></div></div>';
     }
 
     // ── BCH Payments ────────────────────
@@ -645,7 +603,14 @@
             const amount = e.tags ? (e.tags.find(t => t[0] === 'amount')?.[1] || 'N/A') : 'N/A';
             const curr = e.paymentType === 'zap' ? 'BTC (Zap)' : e.paymentType === 'bch_tip' ? 'BCH' : '?';
             const txid = e.tags ? (e.tags.find(t => t[0] === 'txid' || t[0] === 'cashtoken')?.[1] || 'N/A') : 'N/A';
-            h += `<div class="bch-card"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code style="word-break:break-all;">${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;
+            h += `<div class="bch-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+                <div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div>
+                <div>${sender} → ${recipient}</div>
+                <div>Amount: ${amount} ${curr}</div>
+                ${txid!=='N/A'?`<div>TXID: <code style="word-break:break-all;">${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}
+                <div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div>
+                <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">View JSON</button>
+            </div>`;
         });
         h += '</div>';
         p.innerHTML = h;
@@ -659,15 +624,14 @@
         html += `<p><strong>npub:</strong> <code>${npubFromHex(pubkey)}</code></p>`;
         if (profile.name) html += `<p><strong>Name:</strong> ${escapeHtml(profile.name)}</p>`;
         if (profile.about) html += `<p><strong>About:</strong> ${escapeHtml(profile.about)}</p>`;
-        if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:100px;border-radius:50%;"/></p>`;
+        if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
         if (data.follows.length) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
         if (!profile.name && !profile.about && !profile.picture && !data.follows.length && !data.relays.length) {
-            html += '<p style="color:var(--text2);">No public profile data found for this user.</p>';
+            html += '<p style="color:var(--text2);">No public profile data found.</p>';
         }
         html += '</div>';
         p.innerHTML = html;
-        profileTabBtn.style.display = 'inline-block';
         switchTab('profile');
     }
 
@@ -682,13 +646,13 @@
         userProfileData = { profile: upi.profile, follows: upi.follows, relays: upi.relays };
         renderProfileTab(userProfileData, pubkey);
         resultsScreen.classList.add('active');
-        homeScreen.style.display = 'none';
+        homeScreen.classList.remove('active');
     }
 
     // ── Modal for event JSON ────────────
     function showEventModal(ev) {
         const json = JSON.stringify(ev, null, 2);
-        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;
+        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
         const b = modalContainer.querySelector('.modal-backdrop');
         b.querySelector('.copy-json-btn').addEventListener('click', () => {
             navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId), null, 2)).then(() => showToast('Copied!'));
@@ -699,7 +663,7 @@
         });
     }
 
-    // ── Exports ─────────────────────────
+    // ── Exports (unchanged) ─────────────
     function exportJSON(type) {
         let data, filename;
         if (type === 'original' && originalEvent) { data = JSON.stringify(originalEvent, null, 2); filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`; }
@@ -724,17 +688,19 @@
         downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html');
     }
 
-    // ── Tab switching ────────────────────
+    // ── Tab switching (updated for bottom nav) ──
     function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
         document.getElementById(`panel-${tabName}`)?.classList.add('active');
+        // Update bottom nav active state
+        document.querySelectorAll('.nav-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tabName);
+        });
         if (investigator && tabName === 'relays') renderRelays();
         if (investigator && tabName === 'export') renderExport();
     }
 
-    // ── Global window functions ──────────
+    // ── Global window functions (simplified, boost in boost.js) ──
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !== investigationHexId) threadCollapsed.add(k); }); renderThread(investigator); } };
@@ -777,9 +743,10 @@
         investigator.onComplete = inv => {
             renderAll(inv);
             hideLoading();
-            resultsScreen.classList.add('active'); homeScreen.style.display = 'none';
+            resultsScreen.classList.add('active');
+            homeScreen.classList.remove('active');
             resultsSearchInput.value = homeSearchInput.value;
-            document.querySelector('.tab-btn.active')?.click();
+            switchTab('thread');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
@@ -788,8 +755,8 @@
     function renderAll(inv) {
         allEvents = inv.events; originalEvent = inv.originalEvent; eventMap = inv.eventMap; investigationHexId = inv.hexId;
         window._originalEvent = originalEvent; window._investigationHexId = investigationHexId;
-        if (allEvents.length === 0 && !originalEvent) { resultsScreen.classList.remove('active'); homeScreen.style.display = 'flex'; return; }
-        resultsScreen.classList.add('active'); homeScreen.style.display = 'none';
+        if (allEvents.length === 0 && !originalEvent) { resultsScreen.classList.remove('active'); homeScreen.classList.add('active'); return; }
+        resultsScreen.classList.add('active'); homeScreen.classList.remove('active');
         renderThread(inv); renderTimeline(inv); renderStats(inv); renderJson(inv); renderRelays(); renderExport(); renderBch(inv);
     }
 
@@ -800,22 +767,35 @@
         } else { setTimeout(initApp, 200); }
     }
 
+    // Home screen listeners
     homeAnalyzeBtn.addEventListener('click', () => runAnalysis());
     homeClearBtn.addEventListener('click', () => { homeSearchInput.value = ''; hideError(); });
     homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
-    homeLuckyBtn.addEventListener('click', () => { const tips = ['6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a']; homeSearchInput.value = tips[Math.floor(Math.random()*tips.length)]; runAnalysis(); });
-    resultsSearchBtn.addEventListener('click', () => runAnalysis(resultsSearchInput.value));
-    resultsSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(resultsSearchInput.value); });
-    document.getElementById('resultsLogo').addEventListener('click', () => { resultsScreen.classList.remove('active'); homeScreen.style.display = 'flex'; homeSearchInput.value = ''; hideError(); });
-    tabsNav.addEventListener('click', e => { const btn = e.target.closest('.tab-btn'); if (btn) switchTab(btn.dataset.tab); });
     homeLoginBtn.addEventListener('click', showLoginModal);
     homeLogoutBtn.addEventListener('click', logout);
-    resultsLoginBtn.addEventListener('click', showLoginModal);
-    resultsLogoutBtn.addEventListener('click', logout);
     homeAccountBtn.addEventListener('click', showAccountModal);
+
+    // Results screen listeners
+    resultsBackBtn.addEventListener('click', () => {
+        resultsScreen.classList.remove('active');
+        homeScreen.classList.add('active');
+        homeSearchInput.value = '';
+        hideError();
+    });
+    resultsLoginBtn.addEventListener('click', showLoginModal);
     resultsAccountBtn.addEventListener('click', showAccountModal);
+
+    // Bottom navigation
+    if (bottomNav) {
+        bottomNav.addEventListener('click', (e) => {
+            const btn = e.target.closest('.nav-btn');
+            if (btn) {
+                switchTab(btn.dataset.tab);
+            }
+        });
+    }
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
     initApp();
-    console.log('🔍 NostrScope ready — race condition fixed, user scanning works.');
+    console.log('🔍 NostrScope ready — mobile app interface.');
 })();
