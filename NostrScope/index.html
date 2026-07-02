@@ -3,501 +3,2187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NostrScope — Nostr Event Explorer</title>
+    <title>NostrScope — Nostr Event Inspector</title>
     <style>
         :root {
-            --bg: #0f0f0f;
-            --surface: #1a1a1a;
-            --surface-hover: #242424;
-            --border: #2a2a2a;
-            --text: #e0e0e0;
-            --text-secondary: #a0a0a0;
-            --accent: #7c8aff;
-            --accent-hover: #5f6fd1;
-            --danger: #ff6b6b;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #1c2333;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text2: #8b949e;
+            --accent: #7c3aed;
+            --accent2: #a78bfa;
+            --green: #3fb950;
+            --red: #f85149;
+            --yellow: #d2991d;
+            --blue: #58a6ff;
+            --orange: #f0883e;
             --radius: 8px;
-            --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            --radius-sm: 4px;
+            --font: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            --transition: 0.15s ease;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            background: var(--bg); color: var(--text); font-family: var(--font);
-            line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column;
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        .header { border-bottom: 1px solid var(--border); padding: 1.5rem 1rem; text-align: center; }
-        .header-inner { max-width: 800px; margin: 0 auto; }
-        .logo { font-size: 2rem; font-weight: 600; }
-        .subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem; }
-        .main-container { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
-        .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
-        .input-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-        .event-input {
-            flex: 1 1 200px; background: var(--bg); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: 0.7rem 1rem; color: var(--text);
-            font-size: 0.95rem; outline: none;
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: var(--shadow);
         }
-        .event-input:focus { border-color: var(--accent); }
-        .input-hints { margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); }
-        .input-hints code { background: var(--surface-hover); padding: 0.1rem 0.4rem; border-radius: 4px; }
+        .header-inner {
+            max-width: 1300px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent), #9333ea);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .logo-subtitle {
+            font-size: 0.75rem;
+            color: var(--text2);
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        /* Input Area */
+        .input-section {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px 20px 12px;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 8px;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px;
+            transition: border-color var(--transition);
+            flex-wrap: wrap;
+        }
+        .input-wrapper:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            padding: 12px 14px;
+            outline: none;
+        }
+        .input-field::placeholder {
+            color: var(--text2);
+            font-family: var(--font);
+            font-size: 0.85rem;
+        }
         .btn {
-            padding: 0.5rem 1rem; border: 1px solid transparent; border-radius: var(--radius);
-            cursor: pointer; font-size: 0.9rem; font-weight: 500; background: var(--surface-hover);
-            color: var(--text); white-space: nowrap; transition: background 0.2s;
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            border: none;
+            transition: all var(--transition);
+            white-space: nowrap;
+            font-family: var(--font);
+            letter-spacing: -0.01em;
         }
-        .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-secondary { background: transparent; border-color: var(--border); }
-        .btn-secondary:hover { background: var(--surface-hover); border-color: #555; }
-        .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
-        .btn-text { background: none; border: none; color: var(--accent); padding: 0.25rem 0.5rem; text-decoration: underline; cursor: pointer; }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
-        .card-section-title { font-size: 1.1rem; margin-bottom: 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
-        .status-section { display: flex; justify-content: center; }
-        .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; width: 100%; text-align: center; }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #6d28d9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: #252d3a;
+            border-color: #4a5568;
+        }
+        .btn-small {
+            padding: 5px 12px;
+            font-size: 0.75rem;
+        }
+        .btn-danger {
+            background: var(--red);
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #d63d33;
+        }
+        .btn-green {
+            background: var(--green);
+            color: #000;
+        }
+        .btn-green:hover {
+            background: #2ea043;
+        }
+        .error-msg {
+            color: var(--red);
+            font-size: 0.8rem;
+            margin-top: 6px;
+            padding: 0 4px;
+            display: none;
+        }
+        .error-msg.visible {
+            display: block;
+        }
+        .hint-text {
+            color: var(--text2);
+            font-size: 0.7rem;
+            margin-top: 6px;
+            padding: 0 4px;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+            display: none;
+        }
+        .main-content.active {
+            display: block;
+        }
+
+        /* Tabs */
+        .tabs-nav {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .tabs-nav::-webkit-scrollbar {
+            display: none;
+        }
+        .tab-btn {
+            padding: 10px 18px;
+            background: transparent;
+            border: none;
+            color: var(--text2);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all var(--transition);
+            white-space: nowrap;
+            font-family: var(--font);
+        }
+        .tab-btn:hover {
+            color: var(--text);
+        }
+        .tab-btn.active {
+            color: var(--accent2);
+            border-bottom-color: var(--accent2);
+        }
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .card-title {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text);
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .badge-purple {
+            background: rgba(124, 58, 237, 0.2);
+            color: var(--accent2);
+        }
+        .badge-green {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--green);
+        }
+        .badge-blue {
+            background: rgba(88, 166, 255, 0.2);
+            color: var(--blue);
+        }
+        .badge-orange {
+            background: rgba(240, 136, 62, 0.2);
+            color: var(--orange);
+        }
+        .badge-red {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--red);
+        }
+        .badge-yellow {
+            background: rgba(210, 153, 29, 0.2);
+            color: var(--yellow);
+        }
+
+        /* Thread Tree */
+        .thread-tree {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            line-height: 1.8;
+            padding: 12px;
+            background: var(--surface2);
+            border-radius: var(--radius);
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .thread-node {
+            cursor: pointer;
+            color: var(--accent2);
+            transition: color var(--transition);
+        }
+        .thread-node:hover {
+            color: #c4b5fd;
+            text-decoration: underline;
+        }
+        .thread-original {
+            color: var(--green);
+            font-weight: 700;
+        }
+        .thread-reply {
+            color: var(--blue);
+        }
+        .thread-quote {
+            color: var(--orange);
+        }
+        .thread-collapsed {
+            opacity: 0.5;
+            cursor: pointer;
+        }
+
+        /* Timeline */
+        .timeline-item {
+            display: flex;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .timeline-time {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text2);
+            min-width: 55px;
+            flex-shrink: 0;
+        }
+        .timeline-kind {
+            font-size: 0.7rem;
+            font-weight: 600;
+            min-width: 70px;
+            flex-shrink: 0;
+        }
+        .timeline-preview {
+            flex: 1;
+            min-width: 150px;
+            word-break: break-word;
+            font-size: 0.82rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .stat-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent2);
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text2);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* JSON Viewer */
+        .json-viewer {
+            background: #0a0e14;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            max-height: 55vh;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            position: relative;
+        }
+        .json-key {
+            color: #79c0ff;
+        }
+        .json-string {
+            color: #a5d6ff;
+        }
+        .json-number {
+            color: #f2a65a;
+        }
+        .json-boolean {
+            color: #ff7b72;
+        }
+        .json-null {
+            color: #8b949e;
+        }
+        .json-toggle {
+            cursor: pointer;
+            color: var(--text2);
+            margin-right: 4px;
+            user-select: none;
+        }
+        .json-toggle:hover {
+            color: #fff;
+        }
+
+        /* Relay Inspector */
+        .relay-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        .relay-table th,
+        .relay-table td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .relay-table th {
+            color: var(--text2);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-connected {
+            background: var(--green);
+        }
+        .status-connecting {
+            background: var(--yellow);
+            animation: pulse 1s infinite;
+        }
+        .status-failed {
+            background: var(--red);
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* Loading */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
         .spinner {
-            width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent);
-            border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 0.8rem;
+            width: 44px;
+            height: 44px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .status-messages { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; }
-        .progress-bar { width: 100%; height: 6px; border-radius: 4px; appearance: none; background: var(--surface-hover); }
-        .progress-bar::-webkit-progress-value { background: var(--accent); border-radius: 4px; }
-        .error-card { border-left: 4px solid var(--danger); color: #ffaaaa; padding: 1rem; }
-        .original-event-card .event-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: 0.8rem; }
-        .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hover); object-fit: cover; }
-        .event-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.85rem; color: var(--text-secondary); }
-        .event-content { white-space: pre-wrap; word-break: break-word; margin: 0.8rem 0; }
-        .event-images img { max-width: 100%; border-radius: var(--radius); margin-top: 0.5rem; }
-        .hashtags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
-        .hashtag { background: var(--surface-hover); color: var(--accent); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
-        .event-actions { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
-        .stat-item { background: var(--surface-hover); padding: 0.5rem; border-radius: var(--radius); display: flex; justify-content: space-between; }
-        .stat-label { color: var(--text-secondary); font-size: 0.85rem; }
-        .stat-value { font-weight: 600; }
-        .filter-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-        .chip {
-            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
-            padding: 0.3rem 0.8rem; border-radius: 16px; font-size: 0.85rem; cursor: pointer;
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
-        .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .timeline-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
-        .event-count { font-size: 0.85rem; color: var(--text-secondary); }
-        .sort-select { background: var(--surface-hover); border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.6rem; border-radius: var(--radius); }
-        .timeline { display: flex; flex-direction: column; gap: 0.5rem; max-height: 600px; overflow-y: auto; }
-        .timeline-item { background: var(--surface-hover); border-radius: var(--radius); padding: 0.75rem; border-left: 3px solid var(--border); }
-        .timeline-item.reply { border-left-color: #7c8aff; }
-        .timeline-item.reaction { border-left-color: #ff8b8b; }
-        .timeline-item.repost { border-left-color: #6fcf97; }
-        .timeline-item.quote { border-left-color: #f2c94c; }
-        .timeline-item.payment { border-left-color: #bb6bd9; }
-        .export-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; width: 100%; max-width: 500px; }
-        .modal-wide { max-width: 700px; }
-        .relay-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.75rem; border-radius: var(--radius); resize: vertical; font-family: monospace; }
-        .json-viewer { background: #0c0c0c; color: #d4d4d4; padding: 1rem; border-radius: var(--radius); max-height: 60vh; overflow: auto; font-family: monospace; white-space: pre-wrap; }
-        .footer { border-top: 1px solid var(--border); padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); }
+        .loading-text {
+            color: var(--text2);
+            margin-top: 16px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease;
+            max-width: 380px;
+            word-break: break-word;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .toast-success {
+            border-left: 3px solid var(--green);
+        }
+        .toast-error {
+            border-left: 3px solid var(--red);
+        }
+        .toast-info {
+            border-left: 3px solid var(--blue);
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 250;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 700px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .modal-close {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        /* Export */
+        .export-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-inner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .input-wrapper {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 6px;
+            }
+            .stat-card {
+                padding: 10px 8px;
+            }
+            .stat-value {
+                font-size: 1.2rem;
+            }
+            .tabs-nav {
+                gap: 0;
+            }
+            .tab-btn {
+                padding: 8px 12px;
+                font-size: 0.75rem;
+            }
+            .timeline-item {
+                flex-direction: column;
+                gap: 2px;
+            }
+            .relay-table {
+                font-size: 0.7rem;
+            }
+            .relay-table th,
+            .relay-table td {
+                padding: 6px 4px;
+            }
+        }
+        @media (max-width: 400px) {
+            .logo-text {
+                font-size: 1rem;
+            }
+            .logo-subtitle {
+                font-size: 0.65rem;
+            }
+            .card {
+                padding: 10px;
+            }
+            .json-viewer {
+                font-size: 0.65rem;
+                padding: 8px;
+            }
+        }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.10.1/lib/nostr.bundle.js" defer></script>
-    <script defer>
-        const AppState = {
-            relays: [],
-            pool: null,
-            originalEvent: null,
-            relatedEvents: [],
-            profiles: {},
-            filter: 'all',
-            sort: 'newest',
-            activeSubs: []
-        };
-        const DEFAULT_RELAYS = [
-            'wss://relay.damus.io',
-            'wss://relay.primal.net',
-            'wss://nos.lol',
-        ];
-
-        function escapeHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-        function formatTime(ts) { return new Date(ts * 1000).toLocaleString(); }
-        function shortId(id) { return id ? id.slice(0,8)+'…' : ''; }
-
-        function parseRef(input) {
-            input = input.trim();
-            if (!input) return null;
-            if (input.startsWith('http')) {
-                try { const u = new URL(input); return parseRef(u.pathname.split('/').pop()); } catch{}
-            }
-            if (input.startsWith('nostr:')) return parseRef(input.slice(6));
-            if (input.startsWith('note1') || input.startsWith('nevent1')) {
-                try {
-                    const { type, data } = NostrTools.nip19.decode(input);
-                    return type === 'note' ? { id: data } : type === 'nevent' ? { id: data.id } : null;
-                } catch {}
-            }
-            return /^[0-9a-fA-F]{64}$/.test(input) ? { id: input } : null;
-        }
-
-        // ---------- UI helpers ----------
-        function status(msg, pct) {
-            document.getElementById('statusSection').style.display = 'block';
-            document.getElementById('statusMessages').textContent = msg;
-            if (pct != null) document.getElementById('progressBar').value = pct;
-        }
-        function hideStatus() { document.getElementById('statusSection').style.display = 'none'; }
-        function showError(msg) {
-            document.getElementById('errorSection').style.display = 'block';
-            document.getElementById('errorCard').textContent = '⚠️ ' + msg;
-        }
-        function hideError() { document.getElementById('errorSection').style.display = 'none'; }
-        function showResults() { document.getElementById('resultsPanel').style.display = 'flex'; }
-        function hideResults() { document.getElementById('resultsPanel').style.display = 'none'; }
-
-        // ---------- Pool with safe init ----------
-        async function getPool() {
-            if (AppState.pool && typeof AppState.pool.sub === 'function') return AppState.pool;
-            if (typeof NostrTools === 'undefined' || !NostrTools.SimplePool) {
-                throw new Error('Nostr tools not loaded. Refresh the page.');
-            }
-            AppState.pool = new NostrTools.SimplePool();
-            const urls = AppState.relays.length ? AppState.relays : DEFAULT_RELAYS;
-            AppState.relays = urls;
-            const results = await Promise.allSettled(
-                urls.map(url => AppState.pool.ensureRelay(url).catch(e => {
-                    console.warn(`Relay ${url} unreachable: ${e?.message || e}`);
-                }))
-            );
-            return AppState.pool;
-        }
-
-        async function fetchOriginal(eventId) {
-            status('Connecting...', 5);
-            const pool = await getPool();
-            status('Fetching original event...', 10);
-            const events = await pool.querySync(AppState.relays, { ids: [eventId] }, { maxWait: 8000 });
-            if (!events.length) throw new Error('Event not found on any relay.');
-            AppState.originalEvent = events[0];
-            await loadProfiles([AppState.originalEvent.pubkey]);
-            return AppState.originalEvent;
-        }
-
-        async function loadProfiles(pubkeys) {
-            const missing = pubkeys.filter(pk => !AppState.profiles[pk]);
-            if (!missing.length) return;
-            status('Loading profiles...', 30);
-            const events = await AppState.pool.querySync(AppState.relays, { kinds: [0], authors: missing }, { maxWait: 5000 });
-            for (const ev of events) {
-                try {
-                    const meta = JSON.parse(ev.content);
-                    AppState.profiles[ev.pubkey] = {
-                        name: meta.name || meta.display_name || shortId(ev.pubkey),
-                        picture: meta.picture || '',
-                        nip05: meta.nip05 || '',
-                        npub: NostrTools.nip19.npubEncode(ev.pubkey)
-                    };
-                } catch {}
-            }
-            for (const pk of missing) {
-                if (!AppState.profiles[pk]) AppState.profiles[pk] = {
-                    name: shortId(pk), picture: '', nip05: '', npub: NostrTools.nip19.npubEncode(pk)
-                };
-            }
-        }
-
-        async function searchRelated(eventId) {
-            status('Searching replies, reactions, zaps...', 40);
-            AppState.relatedEvents = [];
-            AppState.activeSubs.forEach(s => s.unsub());
-            AppState.activeSubs = [];
-            const pool = AppState.pool;
-            if (!pool || typeof pool.sub !== 'function') throw new Error('Relay pool not ready.');
-
-            const filters = [
-                { kinds: [1, 6, 7, 9735, 9734], '#e': [eventId] }
-            ];
-            const sub = pool.sub(AppState.relays, filters);
-            AppState.activeSubs.push(sub);
-            return new Promise((resolve) => {
-                const timeout = setTimeout(() => {
-                    sub.unsub();
-                    resolve(AppState.relatedEvents);
-                }, 15000);
-                sub.on('event', (ev) => {
-                    if (!AppState.relatedEvents.some(e => e.id === ev.id)) {
-                        AppState.relatedEvents.push(ev);
-                        document.getElementById('progressBar').value = Math.min(60 + AppState.relatedEvents.length, 95);
-                    }
-                });
-                sub.on('eose', () => {
-                    clearTimeout(timeout);
-                    resolve(AppState.relatedEvents);
-                });
-            });
-        }
-
-        function categorize() {
-            const e = AppState.originalEvent;
-            return {
-                replies: AppState.relatedEvents.filter(ev => ev.kind === 1 && ev.tags.some(t => t[0]==='e' && t[1]===e?.id)),
-                reactions: AppState.relatedEvents.filter(ev => ev.kind === 7),
-                reposts: AppState.relatedEvents.filter(ev => ev.kind === 6),
-                quotes: AppState.relatedEvents.filter(ev => ev.kind === 1 && ev.tags.some(t => t[0]==='e' && t[1]===e?.id) && ev.content.includes('nostr:')),
-                payments: AppState.relatedEvents.filter(ev => [9735,9734].includes(ev.kind)),
-                other: AppState.relatedEvents.filter(ev => ![1,6,7,9735,9734].includes(ev.kind))
-            };
-        }
-
-        function renderOriginal() {
-            const ev = AppState.originalEvent;
-            if (!ev) return;
-            const p = AppState.profiles[ev.pubkey] || {};
-            const hashtags = ev.tags.filter(t => t[0]==='t').map(t => t[1]);
-            const images = ev.tags.filter(t => t[0]==='image').map(t => t[1]);
-            const html = `
-                <div class="event-detail">
-                    <img class="avatar" src="${escapeHTML(p.picture)}" onerror="this.style.display='none'">
-                    <div>
-                        <strong>${escapeHTML(p.name)}</strong>
-                        <div class="event-meta">
-                            <span>npub: ${escapeHTML(shortId(p.npub,12))}</span>
-                            <span>Kind ${ev.kind}</span>
-                            <span>${formatTime(ev.created_at)}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="event-content">${escapeHTML(ev.content)}</div>
-                ${images.length ? '<div class="event-images">'+images.map(u=>`<img src="${escapeHTML(u)}">`).join('')+'</div>' : ''}
-                ${hashtags.length ? '<div class="hashtags">'+hashtags.map(h=>`<span class="hashtag">#${escapeHTML(h)}</span>`).join('')+'</div>' : ''}
-                <div class="event-actions">
-                    <button class="btn btn-secondary btn-sm raw-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Raw JSON</button>
-                    <button class="btn btn-secondary btn-sm copy-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Copy JSON</button>
-                    <button class="btn btn-secondary btn-sm dl-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Download</button>
-                </div>`;
-            document.getElementById('originalEventContent').innerHTML = html;
-            bindButtons(document.getElementById('originalEventContent'));
-        }
-
-        function renderStats() {
-            const cats = categorize();
-            const authors = new Set(AppState.relatedEvents.map(e=>e.pubkey)).size;
-            document.getElementById('statsGrid').innerHTML = `
-                <div class="stat-item"><span class="stat-label">Replies</span><span class="stat-value">${cats.replies.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Reposts</span><span class="stat-value">${cats.reposts.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Reactions</span><span class="stat-value">${cats.reactions.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Quotes</span><span class="stat-value">${cats.quotes.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Payments</span><span class="stat-value">${cats.payments.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Unique Authors</span><span class="stat-value">${authors}</span></div>
-                <div class="stat-item"><span class="stat-label">Events Loaded</span><span class="stat-value">${AppState.relatedEvents.length}</span></div>`;
-        }
-
-        function renderTimeline() {
-            const cats = categorize();
-            let list = AppState.relatedEvents;
-            if (AppState.filter === 'replies') list = cats.replies;
-            else if (AppState.filter === 'reactions') list = cats.reactions;
-            else if (AppState.filter === 'reposts') list = cats.reposts;
-            else if (AppState.filter === 'quotes') list = cats.quotes;
-            else if (AppState.filter === 'payments') list = cats.payments;
-            else if (AppState.filter === 'other') list = cats.other;
-            if (AppState.sort === 'newest') list.sort((a,b)=>b.created_at - a.created_at);
-            else list.sort((a,b)=>a.created_at - b.created_at);
-            document.getElementById('eventCount').textContent = `${list.length} events`;
-            document.getElementById('timeline').innerHTML = list.map(ev => {
-                const p = AppState.profiles[ev.pubkey] || {};
-                let cls = '';
-                if (cats.replies.includes(ev)) cls='reply';
-                else if (cats.reactions.includes(ev)) cls='reaction';
-                else if (cats.reposts.includes(ev)) cls='repost';
-                else if (cats.quotes.includes(ev)) cls='quote';
-                else if (cats.payments.includes(ev)) cls='payment';
-                return `<div class="timeline-item ${cls}">
-                    <strong>${escapeHTML(p.name)}</strong> <small>${formatTime(ev.created_at)} · Kind ${ev.kind}</small>
-                    <div>${escapeHTML(ev.content)}</div>
-                    <button class="btn btn-secondary btn-sm raw-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}' style="margin-top:0.3rem">Raw JSON</button>
-                </div>`;
-            }).join('');
-            bindButtons(document.getElementById('timeline'));
-        }
-
-        function bindButtons(parent) {
-            parent.querySelectorAll('.raw-btn').forEach(b => b.onclick = () => openJsonModal(decodeURIComponent(b.dataset.json)));
-            parent.querySelectorAll('.copy-btn').forEach(b => b.onclick = () => navigator.clipboard.writeText(decodeURIComponent(b.dataset.json)).then(()=>alert('Copied!')));
-            parent.querySelectorAll('.dl-btn').forEach(b => {
-                b.onclick = () => {
-                    const blob = new Blob([decodeURIComponent(b.dataset.json)],{type:'application/json'});
-                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                    a.download = 'event.json'; a.click();
-                };
-            });
-        }
-
-        function openJsonModal(json) {
-            document.getElementById('jsonViewer').textContent = json;
-            document.getElementById('jsonModal').style.display = 'flex';
-        }
-
-        // Export helpers
-        function downloadFile(name, content) {
-            const blob = new Blob([content],{type:'text/plain'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
-        }
-
-        async function analyze() {
-            hideError(); hideResults();
-            const input = document.getElementById('eventInput').value.trim();
-            const ref = parseRef(input);
-            if (!ref) return showError('Invalid identifier. Use note1, nevent1, hex ID, or URL.');
-            try {
-                AppState.originalEvent = null; AppState.relatedEvents = []; AppState.profiles = {};
-                AppState.activeSubs.forEach(s=>s.unsub()); AppState.activeSubs = [];
-                await fetchOriginal(ref.id);
-                await searchRelated(ref.id);
-                status('Complete.', 100);
-                setTimeout(() => { hideStatus(); showResults(); renderAll(); }, 200);
-            } catch (err) {
-                hideStatus();
-                showError(err.message || 'Unknown error');
-            }
-        }
-
-        function renderAll() { renderOriginal(); renderStats(); renderTimeline(); }
-
-        function clearAll() {
-            document.getElementById('eventInput').value = '';
-            hideResults(); hideError(); hideStatus();
-            AppState.originalEvent = null; AppState.relatedEvents = [];
-        }
-
-        // Init
-        document.addEventListener('DOMContentLoaded', () => {
-            AppState.relays = (localStorage.getItem('nostrscope_relays') || DEFAULT_RELAYS.join('\n')).split('\n').map(s=>s.trim()).filter(Boolean);
-            document.getElementById('analyzeBtn').onclick = analyze;
-            document.getElementById('clearBtn').onclick = clearAll;
-            document.getElementById('copyIdBtn').onclick = () => {
-                const id = AppState.originalEvent?.id || parseRef(document.getElementById('eventInput').value)?.id;
-                if (id) navigator.clipboard.writeText(id).then(()=>alert('Copied!'));
-                else alert('No event ID to copy.');
-            };
-            document.getElementById('filterChips').addEventListener('click', e => {
-                if (e.target.classList.contains('chip')) {
-                    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-                    e.target.classList.add('active');
-                    AppState.filter = e.target.dataset.filter;
-                    renderTimeline();
-                }
-            });
-            document.getElementById('sortOrder').onchange = e => { AppState.sort = e.target.value; renderTimeline(); };
-            document.getElementById('exportOriginalJson').onclick = () => AppState.originalEvent && downloadFile('original.json', JSON.stringify(AppState.originalEvent,null,2));
-            document.getElementById('exportRelatedJson').onclick = () => downloadFile('related.json', JSON.stringify(AppState.relatedEvents,null,2));
-            document.getElementById('exportCombinedJson').onclick = () => downloadFile('combined.json', JSON.stringify({original:AppState.originalEvent,related:AppState.relatedEvents},null,2));
-            document.getElementById('exportCsv').onclick = () => {
-                const all = [AppState.originalEvent, ...AppState.relatedEvents];
-                const csv = 'id,pubkey,kind,created_at,content\n' + all.map(e=>`"${e.id}","${e.pubkey}",${e.kind},${e.created_at},"${e.content.replace(/"/g,'""')}"`).join('\n');
-                downloadFile('nostrscope.csv', csv);
-            };
-            // Relay settings modal
-            const relayModal = document.getElementById('relayModal');
-            document.getElementById('relaySettingsBtn').onclick = () => {
-                document.getElementById('relayTextarea').value = AppState.relays.join('\n');
-                relayModal.style.display = 'flex';
-            };
-            document.getElementById('relaySaveBtn').onclick = () => {
-                const urls = document.getElementById('relayTextarea').value.split('\n').map(s=>s.trim()).filter(Boolean);
-                localStorage.setItem('nostrscope_relays', urls.join('\n'));
-                AppState.relays = urls;
-                relayModal.style.display = 'none';
-            };
-            document.getElementById('relayResetBtn').onclick = () => {
-                document.getElementById('relayTextarea').value = DEFAULT_RELAYS.join('\n');
-                localStorage.setItem('nostrscope_relays', DEFAULT_RELAYS.join('\n'));
-                AppState.relays = DEFAULT_RELAYS;
-                relayModal.style.display = 'none';
-            };
-            document.getElementById('relayCancelBtn').onclick = () => relayModal.style.display = 'none';
-            relayModal.onclick = e => { if (e.target === relayModal) relayModal.style.display = 'none'; };
-            // JSON modal
-            const jsonModal = document.getElementById('jsonModal');
-            document.getElementById('jsonCloseBtn').onclick = () => jsonModal.style.display = 'none';
-            document.getElementById('jsonCopyBtn').onclick = () => navigator.clipboard.writeText(document.getElementById('jsonViewer').textContent).then(()=>alert('Copied!'));
-            document.getElementById('jsonDownloadBtn').onclick = () => downloadFile('event.json', document.getElementById('jsonViewer').textContent);
-            jsonModal.onclick = e => { if (e.target === jsonModal) jsonModal.style.display = 'none'; };
-        });
-    </script>
 </head>
 <body>
-    <header class="header"><div class="header-inner"><h1 class="logo">NostrScope</h1><p class="subtitle">Explore everything connected to a Nostr event</p></div></header>
-    <main class="main-container">
-        <section class="input-section">
-            <div class="input-row">
-                <input type="text" id="eventInput" class="event-input" placeholder="Paste a Nostr event ID, note1..., nevent1..., or URL..." autocomplete="off">
-                <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
-                <button id="clearBtn" class="btn btn-secondary">Clear</button>
-                <button id="copyIdBtn" class="btn btn-secondary">Copy ID</button>
-            </div>
-            <div class="input-hints"><span>Accepts: <code>note1…</code> <code>nevent1…</code> <code>hex ID</code> <code>nostr:…</code> <code>https://…</code></span></div>
-        </section>
-        <section class="status-section" id="statusSection" style="display:none;">
-            <div class="status-card">
-                <div class="spinner"></div>
-                <div class="status-messages" id="statusMessages"></div>
-                <progress id="progressBar" class="progress-bar" value="0" max="100"></progress>
-            </div>
-        </section>
-        <section class="error-section" id="errorSection" style="display:none;"><div class="card error-card" id="errorCard"></div></section>
-        <section class="results-panel" id="resultsPanel" style="display:none; flex-direction:column; gap:1.5rem;">
-            <div class="card"><h2 class="card-section-title">📌 Original Event</h2><div id="originalEventContent"></div></div>
-            <div class="card"><h2 class="card-section-title">📊 Statistics</h2><div class="stats-grid" id="statsGrid"></div></div>
-            <div class="card">
-                <h2 class="card-section-title">🔍 Filters</h2>
-                <div class="filter-chips" id="filterChips">
-                    <button class="chip active" data-filter="all">All</button>
-                    <button class="chip" data-filter="replies">💬 Replies</button>
-                    <button class="chip" data-filter="reactions">❤️ Reactions</button>
-                    <button class="chip" data-filter="reposts">🔄 Reposts</button>
-                    <button class="chip" data-filter="quotes">💬 Quotes</button>
-                    <button class="chip" data-filter="payments">⚡ Payments</button>
-                    <button class="chip" data-filter="other">📦 Other</button>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo-area">
+                <div class="logo-icon">🔍</div>
+                <div>
+                    <div class="logo-text">NostrScope</div>
+                    <div class="logo-subtitle">Explore every piece of information connected to any Nostr event.</div>
                 </div>
-            </div>
-            <div class="card">
-                <h2 class="card-section-title">🕒 Related Events</h2>
-                <div class="timeline-controls">
-                    <span id="eventCount" class="event-count"></span>
-                    <select id="sortOrder" class="sort-select"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
-                </div>
-                <div class="timeline" id="timeline"></div>
-            </div>
-            <div class="card">
-                <h2 class="card-section-title">📥 Export</h2>
-                <div class="export-buttons">
-                    <button id="exportOriginalJson" class="btn btn-secondary">Original JSON</button>
-                    <button id="exportRelatedJson" class="btn btn-secondary">Related JSON</button>
-                    <button id="exportCombinedJson" class="btn btn-secondary">Combined JSON</button>
-                    <button id="exportCsv" class="btn btn-secondary">CSV Summary</button>
-                </div>
-            </div>
-        </section>
-    </main>
-    <div class="modal-overlay" id="relayModal" style="display:none;">
-        <div class="modal">
-            <h2>⚙️ Relay Settings</h2>
-            <textarea id="relayTextarea" class="relay-textarea" rows="8"></textarea>
-            <div class="modal-buttons" style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;">
-                <button id="relaySaveBtn" class="btn btn-primary">Save & Close</button>
-                <button id="relayResetBtn" class="btn btn-secondary">Reset Defaults</button>
-                <button id="relayCancelBtn" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
-    </div>
-    <div class="modal-overlay" id="jsonModal" style="display:none;">
-        <div class="modal modal-wide">
-            <h2>📄 Raw Event JSON</h2>
-            <div style="display:flex; gap:0.5rem; margin-bottom:0.8rem;">
-                <button id="jsonCopyBtn" class="btn btn-secondary btn-sm">Copy</button>
-                <button id="jsonDownloadBtn" class="btn btn-secondary btn-sm">Download</button>
-                <button id="jsonCloseBtn" class="btn btn-secondary btn-sm">Close</button>
-            </div>
-            <pre class="json-viewer" id="jsonViewer"></pre>
+    </header>
+
+    <!-- Input Section -->
+    <section class="input-section">
+        <div class="input-wrapper" id="inputWrapper">
+            <input
+            type="text"
+            class="input-field"
+            id="eventInput"
+            placeholder="Paste event ID, note1..., nevent1..., nostr:..., or URL (njump, primal, snort, etc.)"
+            autocomplete="off"
+            spellcheck="false"
+            >
+            <button class="btn btn-primary" id="analyzeBtn" title="Analyze Event">🔎 Analyze</button>
+            <button class="btn btn-secondary" id="clearBtn" title="Clear">✕</button>
+        </div>
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="hint-text">Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>nostr:note1...</code> · <code>https://njump.me/note1...</code> · <code>https://primal.net/e/note1...</code></div>
+    </section>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align:center;">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">Connecting to relays...</div>
         </div>
     </div>
-    <footer class="footer"><div class="footer-inner"><span>NostrScope</span> <button id="relaySettingsBtn" class="btn btn-text">⚙️ Relay Settings</button></div></footer>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <!-- Tabs -->
+        <nav class="tabs-nav" id="tabsNav">
+            <button class="tab-btn active" data-tab="thread">🌳 Thread View</button>
+            <button class="tab-btn" data-tab="timeline">⏱ Timeline</button>
+            <button class="tab-btn" data-tab="stats">📊 Statistics</button>
+            <button class="tab-btn" data-tab="json">{ } Raw JSON</button>
+            <button class="tab-btn" data-tab="relays">🔗 Relays</button>
+            <button class="tab-btn" data-tab="export">💾 Export</button>
+            <button class="tab-btn" data-tab="bch">💸 BCH Payments</button>
+        </nav>
+
+        <!-- Tab Panels -->
+        <div class="tab-panel active" id="panel-thread"></div>
+        <div class="tab-panel" id="panel-timeline"></div>
+        <div class="tab-panel" id="panel-stats"></div>
+        <div class="tab-panel" id="panel-json"></div>
+        <div class="tab-panel" id="panel-relays"></div>
+        <div class="tab-panel" id="panel-export"></div>
+        <div class="tab-panel" id="panel-bch"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Modal Container -->
+    <div id="modalContainer"></div>
+
+    <script>
+        (function() {
+            // ─────────────────────────────────────
+            // NostrScope — Complete Application
+            // ─────────────────────────────────────
+
+            // ── Constants ────────────────────────
+            const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+            const BECH32_ALPHABET_MAP = {};
+            for (let i = 0; i < BECH32_ALPHABET.length; i++) {
+                BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
+            }
+            const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+            const HEX_CHARS = '0123456789abcdef';
+
+            const DEFAULT_RELAYS = [
+                'wss://relay.damus.io',
+                'wss://relay.nostr.band',
+                'wss://nos.lol',
+                'wss://relay.primal.net',
+                'wss://purplepag.es',
+                'wss://relay.nostr.net',
+                'wss://bostr.fount.org',
+                'wss://relay.plebstr.com',
+                'wss://offchain.pub',
+                'wss://relay.snort.social',
+            ];
+
+            const KNOWN_KINDS = {
+                0: 'Profile Metadata',
+                1: 'Text Note',
+                2: 'Recommend Relay',
+                3: 'Follow List',
+                4: 'Encrypted DM',
+                5: 'Deletion Request',
+                6: 'Repost',
+                7: 'Reaction',
+                8: 'Badge Award',
+                16: 'Generic Repost',
+                40: 'Channel Creation',
+                41: 'Channel Metadata',
+                42: 'Channel Message',
+                43: 'Channel Hide Message',
+                44: 'Channel Mute User',
+                1984: 'Report',
+                3000: 'Follow Sets',
+                3001: 'Bookmark Sets',
+                3002: 'Relay Sets',
+                3003: 'Bookmark Sets v2',
+                9734: 'Zap Receipt',
+                9735: 'Zap Event',
+                10000: 'Mute List',
+                10001: 'Pin List',
+                10002: 'Relay List Metadata',
+                13194: 'Wallet Info',
+                22242: 'Auth Request',
+                23194: 'Wallet Request',
+                23195: 'Wallet Response',
+                27235: 'BCH Tip',
+            };
+
+            // ── State ────────────────────────────
+            let allEvents = [];
+            let originalEvent = null;
+            let eventMap = new Map(); // id -> event
+            let relayStats = new Map(); // url -> {status, events, errors, responseTime}
+            let activeRelays = [...DEFAULT_RELAYS];
+            let investigationHexId = null;
+            let activeTab = 'thread';
+            let threadCollapsed = new Set();
+            let sortOrder = 'oldest-first';
+
+            // ── DOM References ───────────────────
+            const eventInput = document.getElementById('eventInput');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const mainContent = document.getElementById('mainContent');
+            const tabsNav = document.getElementById('tabsNav');
+            const toastContainer = document.getElementById('toastContainer');
+            const modalContainer = document.getElementById('modalContainer');
+
+            // ── Bech32 Implementation ────────────
+            function bech32Polymod(values) {
+                let chk = 1;
+                for (let i = 0; i < values.length; i++) {
+                    const top = chk >> 25;
+                    chk = ((chk & 0x1ffffff) << 5) ^ values[i];
+                    for (let j = 0; j < 5; j++) {
+                        if ((top >> j) & 1) chk ^= BECH32_GENERATOR[j];
+                    }
+                }
+                return chk;
+            }
+
+            function bech32HRPExpand(hrp) {
+                const ret = [];
+                for (let i = 0; i < hrp.length; i++) ret.push(hrp.charCodeAt(i) >> 5);
+                ret.push(0);
+                for (let i = 0; i < hrp.length; i++) ret.push(hrp.charCodeAt(i) & 31);
+                return ret;
+            }
+
+            function bech32Decode(str) {
+                // Find separator
+                let sep = str.lastIndexOf('1');
+                if (sep < 1 || sep + 7 > str.length) return null;
+                const hrp = str.substring(0, sep);
+                const data = str.substring(sep + 1);
+                // Validate characters
+                const dataValues = [];
+                for (let i = 0; i < data.length; i++) {
+                    const ch = data[i];
+                    if (!(ch in BECH32_ALPHABET_MAP)) return null;
+                    dataValues.push(BECH32_ALPHABET_MAP[ch]);
+                }
+                // Verify checksum
+                const combined = bech32HRPExpand(hrp).concat(dataValues);
+                if (bech32Polymod(combined) !== 1) return null;
+                // Remove checksum (last 6)
+                const payload = dataValues.slice(0, -6);
+                // Convert 5-bit to 8-bit
+                const bytes = [];
+                let bits = 0;
+                let accum = 0;
+                for (let i = 0; i < payload.length; i++) {
+                    accum = (accum << 5) | payload[i];
+                    bits += 5;
+                    while (bits >= 8) {
+                        bits -= 8;
+                        bytes.push((accum >> bits) & 0xff);
+                    }
+                }
+                if (bits >= 5 || accum & ((1 << bits) - 1)) return null;
+                return { hrp, bytes };
+            }
+
+            function decodeNote1(bech32Str) {
+                const decoded = bech32Decode(bech32Str);
+                if (!decoded) return null;
+                if (decoded.hrp !== 'note') return null;
+                if (decoded.bytes.length !== 32) return null;
+                return bytesToHex(decoded.bytes);
+            }
+
+            function decodeNevent1(bech32Str) {
+                const decoded = bech32Decode(bech32Str);
+                if (!decoded) return null;
+                if (decoded.hrp !== 'nevent') return null;
+                if (decoded.bytes.length < 32) return null;
+                const eventId = bytesToHex(decoded.bytes.slice(0, 32));
+                // Parse TLV from remaining bytes
+                const tlvs = [];
+                let idx = 32;
+                while (idx < decoded.bytes.length) {
+                    if (idx + 2 > decoded.bytes.length) break;
+                    const tlvType = decoded.bytes[idx];
+                    const tlvLen = decoded.bytes[idx + 1];
+                    idx += 2;
+                    if (idx + tlvLen > decoded.bytes.length) break;
+                    const tlvValue = decoded.bytes.slice(idx, idx + tlvLen);
+                    tlvs.push({ type: tlvType, value: tlvValue });
+                    idx += tlvLen;
+                }
+                const relayHints = tlvs.filter(t => t.type === 1 || t.type === 2).map(t =>
+                    new TextDecoder().decode(new Uint8Array(t.value))
+                );
+                return { eventId, relayHints };
+            }
+
+            function bytesToHex(bytes) {
+                let hex = '';
+                for (let i = 0; i < bytes.length; i++) {
+                    hex += HEX_CHARS[(bytes[i] >> 4) & 0xf];
+                    hex += HEX_CHARS[bytes[i] & 0xf];
+                }
+                return hex;
+            }
+
+            function hexToBytes(hex) {
+                const bytes = [];
+                for (let i = 0; i < hex.length; i += 2) {
+                    bytes.push(parseInt(hex.substring(i, i + 2), 16));
+                }
+                return bytes;
+            }
+
+            function isValidHex64(str) {
+                return /^[0-9a-fA-F]{64}$/.test(str);
+            }
+
+            // ── Input Parser ─────────────────────
+            function parseInput(input) {
+                const trimmed = input.trim();
+                if (!trimmed) return { error: 'Please enter an event identifier.' };
+
+                // Raw hex ID
+                if (isValidHex64(trimmed)) {
+                    return { hexId: trimmed.toLowerCase(), source: 'hex' };
+                }
+
+                // Try bech32 directly
+                if (trimmed.startsWith('note1')) {
+                    const hexId = decodeNote1(trimmed);
+                    if (hexId) return { hexId, source: 'note1' };
+                    return { error: 'Invalid note1 identifier.' };
+                }
+                if (trimmed.startsWith('nevent1')) {
+                    const result = decodeNevent1(trimmed);
+                    if (result && result.eventId) {
+                        const hints = result.relayHints || [];
+                        return { hexId: result.eventId, source: 'nevent1', relayHints: hints };
+                    }
+                    return { error: 'Invalid nevent1 identifier.' };
+                }
+                if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) {
+                    return { error: 'This appears to be a profile identifier (npub/nprofile). Please enter an event identifier (note/nevent/hex).' };
+                }
+
+                // nostr: URI
+                const nostrUriMatch = trimmed.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);
+                if (nostrUriMatch) {
+                    return parseInput(nostrUriMatch[1]);
+                }
+
+                // URL parsing
+                let urlMatch;
+                // njump.me
+                urlMatch = trimmed.match(
+                    /https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // primal.net
+                urlMatch = trimmed.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // bchnostr.com
+                urlMatch = trimmed.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // snort.social
+                urlMatch = trimmed.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // coracle
+                urlMatch = trimmed.match(
+                    /https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // iris
+                urlMatch = trimmed.match(
+                    /https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // damus.io
+                urlMatch = trimmed.match(
+                    /https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // Generic: any URL containing note1... or nevent1...
+                urlMatch = trimmed.match(
+                    /https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+                // Generic: URL with hex ID in path
+                urlMatch = trimmed.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i);
+                if (urlMatch) return parseInput(urlMatch[1]);
+
+                return { error: 'Unable to parse input. Please provide a valid event ID, note1..., nevent1..., nostr: URI, or supported URL.' };
+            }
+
+            // ── Toast ────────────────────────────
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3500);
+            }
+
+            // ── Loading ──────────────────────────
+            function showLoading(text = 'Connecting to relays...') {
+                loadingText.textContent = text;
+                loadingOverlay.classList.add('active');
+            }
+
+            function hideLoading() {
+                loadingOverlay.classList.remove('active');
+            }
+
+            // ── Relay Manager ────────────────────
+            class RelayManager {
+                constructor(relayUrls) {
+                    this.relayUrls = relayUrls;
+                    this.connections = new Map();
+                    this.subscriptions = new Map();
+                    this.subIdCounter = 0;
+                }
+
+                getNextSubId() {
+                    return 'sub_' + (++this.subIdCounter);
+                }
+
+                async connectAll(timeoutMs = 8000) {
+                    const promises = this.relayUrls.map(url => this.connect(url, timeoutMs));
+                    await Promise.allSettled(promises);
+                }
+
+                async connect(url, timeoutMs = 8000) {
+                    if (this.connections.has(url)) {
+                        const existing = this.connections.get(url);
+                        if (existing.ws && existing.ws.readyState === WebSocket.OPEN) {
+                            relayStats.set(url, { ...relayStats.get(url), status: 'connected' });
+                            return existing.ws;
+                        }
+                    }
+                    relayStats.set(url, { status: 'connecting', events: 0, errors: 0, responseTime: null, startTime: Date
+                            .now() });
+                    return new Promise((resolve, reject) => {
+                        try {
+                            const ws = new WebSocket(url);
+                            const timeout = setTimeout(() => {
+                                ws.close();
+                                relayStats.set(url, { ...relayStats.get(url), status: 'failed', errors: 1 });
+                                reject(new Error(`Timeout connecting to ${url}`));
+                            }, timeoutMs);
+                            ws.onopen = () => {
+                                clearTimeout(timeout);
+                                const rt = Date.now() - (relayStats.get(url)?.startTime || Date.now());
+                                relayStats.set(url, { status: 'connected', events: 0, errors: 0, responseTime: rt,
+                                    startTime: Date.now() });
+                                this.connections.set(url, { ws, pendingSubs: new Set() });
+                                resolve(ws);
+                            };
+                            ws.onerror = () => {
+                                clearTimeout(timeout);
+                                relayStats.set(url, { ...relayStats.get(url), status: 'failed', errors: 1 });
+                                reject(new Error(`WebSocket error for ${url}`));
+                            };
+                            ws.onclose = () => {
+                                const current = relayStats.get(url) || {};
+                                if (current.status === 'connecting') {
+                                    relayStats.set(url, { ...current, status: 'failed', errors: 1 });
+                                } else if (current.status === 'connected') {
+                                    relayStats.set(url, { ...current, status: 'disconnected' });
+                                }
+                                this.connections.delete(url);
+                            };
+                            ws.onmessage = (msg) => this.handleMessage(url, msg);
+                        } catch (e) {
+                            relayStats.set(url, { status: 'failed', events: 0, errors: 1, responseTime: null,
+                                startTime: Date.now() });
+                            reject(e);
+                        }
+                    });
+                }
+
+                handleMessage(relayUrl, msg) {
+                    try {
+                        const data = JSON.parse(msg.data);
+                        if (data[0] === 'EVENT' && data[1] && data[2]) {
+                            const subId = data[1];
+                            const event = data[2];
+                            const stats = relayStats.get(relayUrl) || { events: 0 };
+                            stats.events = (stats.events || 0) + 1;
+                            relayStats.set(relayUrl, stats);
+                            if (this.onEvent) this.onEvent(event, relayUrl, subId);
+                        }
+                        if (data[0] === 'EOSE' && data[1]) {
+                            if (this.onEOSE) this.onEOSE(data[1], relayUrl);
+                        }
+                        if (data[0] === 'NOTICE') {
+                            const stats = relayStats.get(relayUrl) || { errors: 0 };
+                            stats.errors = (stats.errors || 0) + 1;
+                            relayStats.set(relayUrl, stats);
+                            console.warn(`Relay ${relayUrl} notice:`, data[1]);
+                        }
+                        if (data[0] === 'OK') {
+                            // Acknowledgment, can be used for tracking
+                        }
+                    } catch (e) {
+                        console.warn('Error handling message from', relayUrl, e);
+                    }
+                }
+
+                subscribe(filters, relayUrl = null) {
+                    const subId = this.getNextSubId();
+                    const reqMsg = JSON.stringify(['REQ', subId, ...filters]);
+                    const targets = relayUrl ? [relayUrl] : this.relayUrls;
+                    const pendingSubs = new Set();
+                    for (const url of targets) {
+                        const conn = this.connections.get(url);
+                        if (conn && conn.ws && conn.ws.readyState === WebSocket.OPEN) {
+                            conn.ws.send(reqMsg);
+                            conn.pendingSubs.add(subId);
+                            pendingSubs.add(url);
+                        }
+                    }
+                    this.subscriptions.set(subId, { filters, pendingSubs, createdAt: Date.now() });
+                    return subId;
+                }
+
+                closeSubscription(subId) {
+                    for (const [url, conn] of this.connections) {
+                        if (conn.ws && conn.ws.readyState === WebSocket.OPEN) {
+                            conn.ws.send(JSON.stringify(['CLOSE', subId]));
+                            conn.pendingSubs.delete(subId);
+                        }
+                    }
+                    this.subscriptions.delete(subId);
+                }
+
+                closeAll() {
+                    for (const subId of this.subscriptions.keys()) {
+                        this.closeSubscription(subId);
+                    }
+                    for (const [url, conn] of this.connections) {
+                        if (conn.ws && conn.ws.readyState === WebSocket.OPEN) {
+                            conn.ws.close();
+                        }
+                    }
+                    this.connections.clear();
+                    this.subscriptions.clear();
+                }
+
+                reconnect(url) {
+                    const conn = this.connections.get(url);
+                    if (conn && conn.ws) {
+                        try { conn.ws.close(); } catch (e) {}
+                    }
+                    this.connections.delete(url);
+                    return this.connect(url);
+                }
+            }
+
+            // ── Event Investigator ───────────────
+            class EventInvestigator {
+                constructor(relayManager) {
+                    this.rm = relayManager;
+                    this.events = [];
+                    this.eventMap = new Map();
+                    this.originalEvent = null;
+                    this.hexId = null;
+                    this.pendingSubs = new Set();
+                    this.allDone = false;
+                    this.onUpdate = null;
+                    this.onComplete = null;
+                    this.investigationDepth = 0;
+                    this.maxDepth = 4;
+                }
+
+                async investigate(hexId, relayHints = []) {
+                    this.hexId = hexId;
+                    this.events = [];
+                    this.eventMap = new Map();
+                    this.originalEvent = null;
+                    this.pendingSubs = new Set();
+                    this.allDone = false;
+                    this.investigationDepth = 0;
+
+                    // Add relay hints to active relays temporarily
+                    const allRelays = [...new Set([...activeRelays, ...relayHints])];
+                    this.rm.relayUrls = allRelays;
+                    this.rm.connections.clear();
+                    this.rm.subscriptions.clear();
+
+                    // Reset relay stats
+                    relayStats.clear();
+                    for (const url of allRelays) {
+                        relayStats.set(url, { status: 'pending', events: 0, errors: 0, responseTime: null,
+                            startTime: Date.now() });
+                    }
+
+                    // Set up event handler
+                    this.rm.onEvent = (event, relayUrl, subId) => {
+                        this.addEvent(event);
+                        if (this.onUpdate) this.onUpdate(this);
+                    };
+                    this.rm.onEOSE = (subId, relayUrl) => {
+                        const sub = this.rm.subscriptions.get(subId);
+                        if (sub) {
+                            sub.pendingSubs.delete(relayUrl);
+                            if (sub.pendingSubs.size === 0) {
+                                this.pendingSubs.delete(subId);
+                                this.rm.closeSubscription(subId);
+                                if (this.pendingSubs.size === 0) {
+                                    this.onAllEOSE();
+                                }
+                            }
+                        }
+                    };
+
+                    // Connect to all relays
+                    showLoading('Connecting to relays...');
+                    await this.rm.connectAll(10000);
+                    const connectedCount = [...relayStats.values()].filter(s => s.status === 'connected').length;
+                    if (connectedCount === 0) {
+                        hideLoading();
+                        showToast('No relays connected. Please check relay availability.', 'error');
+                        if (this.onComplete) this.onComplete(this);
+                        return;
+                    }
+                    showLoading(`Connected to ${connectedCount} relays. Fetching event...`);
+
+                    // Subscribe to the original event
+                    const sub1 = this.rm.subscribe([{ ids: [hexId] }]);
+                    this.pendingSubs.add(sub1);
+
+                    // Also subscribe to related events
+                    const sub2 = this.rm.subscribe([{ '#e': [hexId], limit: 200 }]);
+                    this.pendingSubs.add(sub2);
+
+                    // Subscribe to specific kinds
+                    const sub3 = this.rm.subscribe([{ kinds: [6], '#e': [hexId], limit: 100 }]);
+                    this.pendingSubs.add(sub3);
+                    const sub4 = this.rm.subscribe([{ kinds: [7], '#e': [hexId], limit: 200 }]);
+                    this.pendingSubs.add(sub4);
+                    const sub5 = this.rm.subscribe([{ kinds: [9735], '#e': [hexId], limit: 100 }]);
+                    this.pendingSubs.add(sub5);
+                    const sub6 = this.rm.subscribe([{ kinds: [9734], '#e': [hexId], limit: 100 }]);
+                    this.pendingSubs.add(sub6);
+                    const sub7 = this.rm.subscribe([{ kinds: [5], '#e': [hexId], limit: 50 }]);
+                    this.pendingSubs.add(sub7);
+
+                    // Set a global timeout
+                    setTimeout(() => {
+                        if (this.pendingSubs.size > 0) {
+                            for (const sid of this.pendingSubs) {
+                                this.rm.closeSubscription(sid);
+                            }
+                            this.pendingSubs.clear();
+                            this.onAllEOSE();
+                        }
+                    }, 15000);
+                }
+
+                addEvent(event) {
+                    if (this.eventMap.has(event.id)) return;
+                    this.eventMap.set(event.id, event);
+                    this.events.push(event);
+                    if (event.id === this.hexId && !this.originalEvent) {
+                        this.originalEvent = event;
+                    }
+                    // Check for nested replies (depth > 1)
+                    if (this.investigationDepth < this.maxDepth && event.kind === 1) {
+                        const replyToIds = this.extractReplyTargets(event);
+                        for (const rid of replyToIds) {
+                            if (!this.eventMap.has(rid) && rid !== this.hexId) {
+                                // Fetch this nested event
+                                const subNested = this.rm.subscribe([{ ids: [rid] }]);
+                                this.pendingSubs.add(subNested);
+                                const subNestedRel = this.rm.subscribe([{ '#e': [rid], limit: 100 }]);
+                                this.pendingSubs.add(subNestedRel);
+                                this.investigationDepth++;
+                            }
+                        }
+                    }
+                }
+
+                extractReplyTargets(event) {
+                    const targets = [];
+                    if (event.tags) {
+                        for (const tag of event.tags) {
+                            if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) {
+                                targets.push(tag[1]);
+                            }
+                        }
+                    }
+                    return targets;
+                }
+
+                onAllEOSE() {
+                    this.allDone = true;
+                    hideLoading();
+                    if (this.originalEvent) {
+                        showToast(`Investigation complete: ${this.events.length} events found.`, 'success');
+                    } else if (this.events.length > 0) {
+                        showToast(`Original event not found, but ${this.events.length} related events discovered.`,
+                            'info');
+                    } else {
+                        showToast('No events found. The event may not exist on connected relays.', 'error');
+                    }
+                    if (this.onComplete) this.onComplete(this);
+                }
+
+                getThreadTree() {
+                    if (!this.hexId) return null;
+                    const rootEvent = this.eventMap.get(this.hexId) || this.originalEvent;
+                    if (!rootEvent && this.events.length === 0) return null;
+                    // Build tree
+                    const childrenMap = new Map(); // parentId -> [childEvents]
+                    for (const event of this.events) {
+                        if (event.id === this.hexId) continue;
+                        const parentIds = this.getParentIds(event);
+                        for (const pid of parentIds) {
+                            if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+                            const existing = childrenMap.get(pid);
+                            if (!existing.find(e => e.id === event.id)) {
+                                existing.push(event);
+                            }
+                        }
+                    }
+                    // Sort children by created_at
+                    for (const [pid, children] of childrenMap) {
+                        children.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+                    }
+                    return {
+                        rootId: this.hexId,
+                        rootEvent: rootEvent,
+                        childrenMap,
+                    };
+                }
+
+                getParentIds(event) {
+                    const parentIds = [];
+                    if (event.tags) {
+                        const eTags = event.tags.filter(t => t[0] === 'e' && t[1] && isValidHex64(t[1]));
+                        if (eTags.length > 0) {
+                            // Check for marked tags
+                            const replyTag = eTags.find(t => t[3] === 'reply');
+                            const rootTag = eTags.find(t => t[3] === 'root');
+                            if (replyTag) {
+                                parentIds.push(replyTag[1]);
+                            } else if (eTags.length === 1) {
+                                parentIds.push(eTags[0][1]);
+                            } else if (eTags.length >= 2) {
+                                // Last e-tag is typically the immediate parent
+                                parentIds.push(eTags[eTags.length - 1][1]);
+                            }
+                            // Also add root if different
+                            if (rootTag && rootTag[1] !== parentIds[0]) {
+                                parentIds.push(rootTag[1]);
+                            }
+                        }
+                    }
+                    // If no parent found via tags, check if it's a quote (references hexId in content)
+                    if (parentIds.length === 0 && this.hexId && event.content && event.content.includes(this.hexId)) {
+                        parentIds.push(this.hexId);
+                    }
+                    return [...new Set(parentIds)];
+                }
+
+                getEventsByKind(kind) {
+                    return this.events.filter(e => e.kind === kind);
+                }
+
+                getEventsByKindRange(minKind, maxKind) {
+                    return this.events.filter(e => e.kind >= minKind && e.kind <= maxKind);
+                }
+
+                getUnknownEvents() {
+                    return this.events.filter(e => !KNOWN_KINDS[e.kind]);
+                }
+
+                getUniqueAuthors() {
+                    const authors = new Set();
+                    for (const e of this.events) {
+                        if (e.pubkey) authors.add(e.pubkey);
+                    }
+                    return authors.size;
+                }
+
+                getMediaCounts() {
+                    let images = 0,
+                        videos = 0,
+                        attachments = 0;
+                    for (const e of this.events) {
+                        if (e.tags) {
+                            for (const tag of e.tags) {
+                                if (tag[0] === 'imeta') {
+                                    const urlTag = tag.find(t => t.startsWith('url '));
+                                    if (urlTag) {
+                                        const url = urlTag.split(' ')[1] || '';
+                                        if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) images++;
+                                        else if (/\.(mp4|mov|webm|avi)/i.test(url)) videos++;
+                                        else attachments++;
+                                    }
+                                }
+                            }
+                        }
+                        if (e.content) {
+                            const imgMatches = e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi);
+                            if (imgMatches) images += imgMatches.length;
+                            const vidMatches = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi);
+                            if (vidMatches) videos += vidMatches.length;
+                        }
+                    }
+                    return { images, videos, attachments };
+                }
+
+                getHashtags() {
+                    const tags = new Set();
+                    for (const e of this.events) {
+                        if (e.tags) {
+                            for (const tag of e.tags) {
+                                if (tag[0] === 't' && tag[1]) tags.add(tag[1].toLowerCase());
+                            }
+                        }
+                        if (e.content) {
+                            const matches = e.content.match(/#(\w+)/g);
+                            if (matches) matches.forEach(m => tags.add(m.slice(1).toLowerCase()));
+                        }
+                    }
+                    return tags.size;
+                }
+
+                getLinks() {
+                    let count = 0;
+                    for (const e of this.events) {
+                        if (e.content) {
+                            const matches = e.content.match(/https?:\/\/[^\s]+/g);
+                            if (matches) count += matches.length;
+                        }
+                    }
+                    return count;
+                }
+
+                getBchPaymentEvents() {
+                    const bchEvents = [];
+                    for (const e of this.events) {
+                        // Check for BCH-related kinds or content
+                        if (e.kind === 9735) {
+                            bchEvents.push({ ...e, paymentType: 'zap' });
+                        } else if (e.kind === 9734) {
+                            bchEvents.push({ ...e, paymentType: 'zap_receipt' });
+                        } else if (e.kind === 27235) {
+                            bchEvents.push({ ...e, paymentType: 'bch_tip' });
+                        } else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] ===
+                                'txid')) {
+                            bchEvents.push({ ...e, paymentType: 'bch_payment' });
+                        } else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(
+                                e.content)) {
+                            bchEvents.push({ ...e, paymentType: 'possible_bch' });
+                        }
+                    }
+                    return bchEvents;
+                }
+            }
+
+            // ── UI Manager ───────────────────────
+            function renderAll(investigator) {
+                allEvents = investigator.events;
+                originalEvent = investigator.originalEvent;
+                eventMap = investigator.eventMap;
+                investigationHexId = investigator.hexId;
+
+                if (allEvents.length === 0 && !originalEvent) {
+                    mainContent.classList.remove('active');
+                    return;
+                }
+                mainContent.classList.add('active');
+                renderThreadView(investigator);
+                renderTimelineView(investigator);
+                renderStatsView(investigator);
+                renderJsonView(investigator);
+                renderRelaysView();
+                renderExportView();
+                renderBchView(investigator);
+            }
+
+            function renderThreadView(investigator) {
+                const panel = document.getElementById('panel-thread');
+                const tree = investigator.getThreadTree();
+                if (!tree || !tree.rootEvent) {
+                    panel.innerHTML =
+                        '<div class="card"><p style="color:var(--text2);">No thread data available. The original event was not found.</p></div>';
+                    return;
+                }
+                let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span>';
+                html +=
+                    '<div><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button> <button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div>';
+                html += '</div><div class="thread-tree" id="threadTreeContainer">';
+                html += buildThreadLines(tree.rootId, tree.childrenMap, 0, new Set(), investigator);
+                html += '</div></div>';
+                // Legend
+                html +=
+                    '<div class="card" style="font-size:0.75rem;color:var(--text2);"><span style="color:var(--green);">● Original</span> &nbsp;<span style="color:var(--blue);">● Reply</span> &nbsp;<span style="color:var(--orange);">● Quote</span> &nbsp;<span style="color:var(--accent2);">● Mention</span> &nbsp;Click any event ID to inspect its JSON.</div>';
+                panel.innerHTML = html;
+
+                // Attach click handlers
+                panel.querySelectorAll('.thread-node').forEach(el => {
+                    el.addEventListener('click', function() {
+                        const eid = this.getAttribute('data-eid');
+                        if (eid && eventMap.has(eid)) {
+                            showEventModal(eventMap.get(eid));
+                        }
+                    };
+                });
+                panel.querySelectorAll('.thread-collapsed').forEach(el => {
+                    el.addEventListener('click', function() {
+                        const eid = this.getAttribute('data-eid');
+                        if (eid) {
+                            threadCollapsed.delete(eid);
+                            renderThreadView(investigator);
+                        }
+                    };
+                });
+            }
+
+            function buildThreadLines(eventId, childrenMap, depth, visited, investigator) {
+                if (visited.has(eventId) && depth > 0) return '';
+                visited.add(eventId);
+                const event = eventMap.get(eventId);
+                if (!event && depth > 0) return '';
+                let lines = '';
+                const prefix = depth === 0 ? '' : '  '.repeat(depth - 1) + (depth > 0 ? '├── ' : '');
+                const isOriginal = eventId === investigationHexId;
+                let cssClass = 'thread-node';
+                if (isOriginal) cssClass += ' thread-original';
+                else if (event && event.kind === 1) cssClass += ' thread-reply';
+                else if (event && event.kind === 6) cssClass += ' thread-quote';
+                const shortId = eventId.substring(0, 8) + '...';
+                const kindLabel = event ? (KNOWN_KINDS[event.kind] || `Kind ${event.kind}`) : 'Unknown';
+                const timeStr = event ? new Date((event.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit',
+                    minute: '2-digit' }) : '';
+                const contentPreview = event ? (event.content || '').replace(/\n/g, ' ').substring(0, 60) : '';
+
+                if (threadCollapsed.has(eventId) && depth > 0) {
+                    lines +=
+                        `<span class="thread-collapsed" data-eid="${eventId}" title="Click to expand">${prefix}[+] ${shortId} (${kindLabel}) - collapsed</span>\n`;
+                    return lines;
+                }
+
+                lines +=
+                    `<span class="${cssClass}" data-eid="${eventId}" title="Click to inspect | ${kindLabel} | ${timeStr}">${prefix}${isOriginal ? '★ ' : ''}${shortId} [${kindLabel}] ${timeStr} ${contentPreview.substring(0, 40)}</span>\n`;
+
+                const children = childrenMap.get(eventId) || [];
+                const uniqueChildren = children.filter(c => !visited.has(c.id));
+                for (let i = 0; i < uniqueChildren.length; i++) {
+                    const child = uniqueChildren[i];
+                    const childPrefix = depth === 0 ? '  ' : '  '.repeat(depth) + (i < uniqueChildren.length - 1 ? '├── ' :
+                        '└── ');
+                    const childLines = buildThreadLines(child.id, childrenMap, depth + 1, new Set(visited), investigator);
+                    if (childLines) {
+                        const childLinesArr = childLines.split('\n').filter(l => l.trim());
+                        for (const cl of childLinesArr) {
+                            lines += cl + '\n';
+                        }
+                    }
+                }
+                return lines;
+            }
+
+            function renderTimelineView(investigator) {
+                const panel = document.getElementById('panel-timeline');
+                const sorted = [...investigator.events].sort((a, b) => {
+                    return sortOrder === 'newest-first' ?
+                        (b.created_at || 0) - (a.created_at || 0) :
+                        (a.created_at || 0) - (b.created_at || 0);
+                });
+                if (sorted.length === 0) {
+                    panel.innerHTML =
+                        '<div class="card"><p style="color:var(--text2);">No events to display in timeline.</p></div>';
+                    return;
+                }
+                let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span>';
+                html +=
+                    `<div><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ${sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼'}</button></div>`;
+                html += '</div><div>';
+                for (const event of sorted) {
+                    const time = new Date((event.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit',
+                        minute: '2-digit', second: '2-digit' });
+                    const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
+                    const isOriginal = event.id === investigationHexId;
+                    const preview = (event.content || '').replace(/\n/g, ' ').substring(0, 100);
+                    const badgeClass = isOriginal ? 'badge-green' : 'badge-purple';
+                    html +=
+                        `<div class="timeline-item" style="${isOriginal ? 'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;' : ''}">`;
+                    html +=
+                        `<span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${badgeClass}">${kindName}</span>${isOriginal ? ' <span class="badge badge-green">★ Original</span>' : ''}</span>`;
+                    html +=
+                        `<span class="timeline-preview"><code style="font-size:0.65rem;color:var(--text2);">${event.id.substring(0, 10)}...</code> ${escapeHtml(preview)}</span>`;
+                    html +=
+                        `<button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')" style="flex-shrink:0;">JSON</button>`;
+                    html += '</div>';
+                }
+                html += '</div></div>';
+                panel.innerHTML = html;
+            }
+
+            function renderStatsView(investigator) {
+                const panel = document.getElementById('panel-stats');
+                const tree = investigator.getThreadTree();
+                let nestedReplies = 0;
+                if (tree && tree.childrenMap) {
+                    const countNested = (eid, depth) => {
+                        const children = tree.childrenMap.get(eid) || [];
+                        let count = 0;
+                        for (const child of children) {
+                            if (depth >= 1) count++;
+                            count += countNested(child.id, depth + 1);
+                        }
+                        return count;
+                    };
+                    nestedReplies = countNested(tree.rootId, 0);
+                }
+                const uniqueAuthors = investigator.getUniqueAuthors();
+                const media = investigator.getMediaCounts();
+                const hashtags = investigator.getHashtags();
+                const links = investigator.getLinks();
+                const unknownEvents = investigator.getUnknownEvents().length;
+                const relayStatsArr = [...relayStats.values()];
+                const connectedRelays = relayStatsArr.filter(s => s.status === 'connected').length;
+                const failedRelays = relayStatsArr.filter(s => s.status === 'failed' || s.status === 'disconnected').length;
+                const successfulRelays = relayStatsArr.filter(s => s.events > 0).length;
+                const zapEvents = investigator.getEventsByKind(9735).length + investigator.getEventsByKind(9734).length;
+                const bchTips = investigator.getBchPaymentEvents().length;
+
+                const stats = [
+                    { label: 'Original Event', value: originalEvent ? 1 : 0 },
+                    { label: 'Replies', value: investigator.getEventsByKind(1).filter(e => e.id !== investigationHexId &&
+                            investigator.getParentIds(e).includes(investigationHexId)).length },
+                    { label: 'Nested Replies', value: nestedReplies },
+                    { label: 'Quotes', value: investigator.events.filter(e => e.kind === 1 && e.content && e.content
+                            .includes(investigationHexId || '') && !investigator.getParentIds(e).includes(
+                                investigationHexId || '')).length },
+                    { label: 'Mentions', value: investigator.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' &&
+                            t[1] === investigationHexId)).length },
+                    { label: 'Reposts', value: investigator.getEventsByKind(6).length },
+                    { label: 'Reactions', value: investigator.getEventsByKind(7).length },
+                    { label: 'Zap Events', value: zapEvents },
+                    { label: 'BCH Tips', value: bchTips },
+                    { label: 'Unknown Events', value: unknownEvents },
+                    { label: 'Unique Authors', value: uniqueAuthors },
+                    { label: 'Connected Relays', value: connectedRelays },
+                    { label: 'Successful Relays', value: successfulRelays },
+                    { label: 'Failed Relays', value: failedRelays },
+                    { label: 'Images', value: media.images },
+                    { label: 'Videos', value: media.videos },
+                    { label: 'Attachments', value: media.attachments },
+                    { label: 'Hashtags', value: hashtags },
+                    { label: 'Links', value: links },
+                    { label: 'Total Events', value: investigator.events.length },
+                ];
+
+                let html = '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics Dashboard</span></div>';
+                html += '<div class="stats-grid">';
+                for (const stat of stats) {
+                    html +=
+                        `<div class="stat-card"><div class="stat-value">${stat.value}</div><div class="stat-label">${stat.label}</div></div>`;
+                }
+                html += '</div></div>';
+                panel.innerHTML = html;
+            }
+
+            function renderJsonView(investigator) {
+                const panel = document.getElementById('panel-json');
+                let html = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span>';
+                html +=
+                    '<div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div>';
+                html += '</div>';
+                if (originalEvent) {
+                    html += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4>';
+                    html +=
+                        `<div class="json-viewer" id="jsonOriginal">${syntaxHighlightJSON(JSON.stringify(originalEvent, null, 2))}</div>`;
+                    html +=
+                        '<button class="btn btn-small btn-secondary" style="margin-top:6px;" onclick="window._copyEventJson(\'' +
+                        originalEvent.id + '\')">Copy Original</button> ';
+                    html += '<button class="btn btn-small btn-secondary" style="margin-top:6px;" onclick="window._downloadEventJson(\'' +
+                        originalEvent.id + '\')">Download Original</button>';
+                }
+                html += '<h4 style="margin:16px 0 8px;">All Events (' + investigator.events.length + ')</h4>';
+                html += '<input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)">';
+                html += '<div class="json-viewer" id="jsonAll" style="max-height:50vh;">';
+                for (const event of investigator.events) {
+                    const isOrig = event.id === investigationHexId;
+                    html +=
+                        `<div style="margin-bottom:4px;"><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${event.id}">${isOrig ? '★ ' : '▸ '}${event.id.substring(0, 12)}... [Kind ${event.kind}]</span>`;
+                    html +=
+                        `<div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">`;
+                    html += syntaxHighlightJSON(JSON.stringify(event, null, 2));
+                    html +=
+                        `<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${event.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${event.id}')">Download</button>`;
+                    html += '</div></div>';
+                }
+                html += '</div></div>';
+                panel.innerHTML = html;
+            }
+
+            function renderRelaysView() {
+                const panel = document.getElementById('panel-relays');
+                let html = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span>';
+                html +=
+                    '<button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div>';
+                html += '<div style="overflow-x:auto;"><table class="relay-table"><thead><tr>';
+                html += '<th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th>';
+                html += '</tr></thead><tbody>';
+                const allUrls = [...new Set([...activeRelays, ...relayStats.keys()])];
+                for (const url of allUrls) {
+                    const stats = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0, responseTime: null };
+                    let statusClass = 'status-connecting';
+                    let statusText = stats.status || 'unknown';
+                    if (stats.status === 'connected') { statusClass = 'status-connected';
+                        statusText = 'Connected'; } else if (stats.status === 'failed') { statusClass = 'status-failed';
+                        statusText = 'Failed'; } else if (stats.status === 'disconnected') { statusClass = 'status-failed';
+                        statusText = 'Disconnected'; } else if (stats.status === 'connecting') { statusClass =
+                            'status-connecting';
+                        statusText = 'Connecting...'; }
+                    const rt = stats.responseTime ? `${stats.responseTime}ms` : '—';
+                    const isActive = activeRelays.includes(url);
+                    html += '<tr>';
+                    html +=
+                        `<td style="max-width:200px;word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code>${isActive ? '' : ' <span class="badge badge-yellow">custom</span>'}</td>`;
+                    html +=
+                        `<td><span class="status-dot ${statusClass}"></span>${statusText}</td><td>${rt}</td><td>${stats.events || 0}</td><td>${stats.errors || 0}</td>`;
+                    html +=
+                        `<td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td>`;
+                    html += '</tr>';
+                }
+                html += '</tbody></table></div></div>';
+                panel.innerHTML = html;
+            }
+
+            function renderExportView() {
+                const panel = document.getElementById('panel-export');
+                let html = '<div class="card"><div class="card-header"><span class="card-title">💾 Export Investigation</span></div>';
+                html += '<div class="export-btns">';
+                html +=
+                    '<button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original Event JSON</button>';
+                html +=
+                    '<button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 Entire Investigation JSON</button>';
+                html += '<button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV Summary</button>';
+                html += '<button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown Report</button>';
+                html += '<button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML Report</button>';
+                html += '</div></div>';
+                panel.innerHTML = html;
+            }
+
+            function renderBchView(investigator) {
+                const panel = document.getElementById('panel-bch');
+                const bchEvents = investigator.getBchPaymentEvents();
+                if (bchEvents.length === 0) {
+                    panel.innerHTML =
+                        '<div class="card"><p style="color:var(--text2);">💸 No BCH payment events discovered in this investigation.</p></div>';
+                    return;
+                }
+                let html =
+                    '<div class="card"><div class="card-header"><span class="card-title">💸 BCH & Payment Events</span></div>';
+                for (const event of bchEvents) {
+                    const sender = event.pubkey ? event.pubkey.substring(0, 12) + '...' : 'Unknown';
+                    const recipient = event.tags ? (event.tags.find(t => t[0] === 'p')?.[1]?.substring(0, 12) + '...' ||
+                        'Unknown') : 'Unknown';
+                    const amount = event.tags ? (event.tags.find(t => t[0] === 'amount')?.[1] || 'N/A') : 'N/A';
+                    const currency = event.paymentType === 'zap' ? 'BTC (Zap)' : event.paymentType === 'bch_tip' ? 'BCH' :
+                        'Unknown';
+                    const txid = event.tags ? (event.tags.find(t => t[0] === 'txid' || t[0] === 'cashtoken')?.[1] || 'N/A') :
+                        'N/A';
+                    const memo = event.content || 'No memo';
+                    const time = new Date((event.created_at || 0) * 1000).toLocaleString();
+                    html += '<div class="card" style="margin-bottom:8px;">';
+                    html +=
+                        `<div><strong>Type:</strong> <span class="badge badge-orange">${event.paymentType}</span> | <strong>Time:</strong> ${time}</div>`;
+                    html +=
+                        `<div><strong>Sender:</strong> <code>${sender}</code> → <strong>Recipient:</strong> <code>${recipient}</code></div>`;
+                    html += `<div><strong>Amount:</strong> ${amount} | <strong>Currency:</strong> ${currency}</div>`;
+                    if (txid !== 'N/A') {
+                        html +=
+                            `<div><strong>TXID:</strong> <code>${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`;
+                    }
+                    html += `<div><strong>Memo:</strong> ${escapeHtml(memo.substring(0, 200))}</div>`;
+                    html +=
+                        `<button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">View Raw JSON</button>`;
+                    html += '</div>';
+                }
+                html += '</div>';
+                panel.innerHTML = html;
+            }
+
+            function showEventModal(event) {
+                const jsonStr = JSON.stringify(event, null, 2);
+                const html = `
+                <div class="modal-backdrop" onclick="if(event.target===this)this.remove();">
+                    <div class="modal">
+                        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button>
+                        <h3 style="margin-bottom:8px;">Event: <code style="font-size:0.7rem;word-break:break-all;">${event.id}</code></h3>
+                        <p style="color:var(--text2);font-size:0.8rem;">Kind: ${KNOWN_KINDS[event.kind] || event.kind} | Created: ${new Date((event.created_at||0)*1000).toLocaleString()}</p>
+                        <div class="json-viewer" style="max-height:50vh;">${syntaxHighlightJSON(jsonStr)}</div>
+                        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-small btn-secondary" onclick="navigator.clipboard.writeText(\`${jsonStr.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/"/g,'\\"')}\`);showToast('Copied!','success')">📋 Copy JSON</button>
+                            <button class="btn btn-small btn-green" onclick="window._downloadEventJson('${event.id}')">⬇ Download</button>
+                        </div>
+                    </div>
+                </div>`;
+                modalContainer.innerHTML = html;
+            }
+
+            function syntaxHighlightJSON(json) {
+                return json
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(
+                        /("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+                        function(match) {
+                            let cls = 'json-number';
+                            if (/^"/.test(match)) {
+                                if (/:$/.test(match)) {
+                                    cls = 'json-key';
+                                } else {
+                                    cls = 'json-string';
+                                }
+                            } else if (/true|false/.test(match)) {
+                                cls = 'json-boolean';
+                            } else if (/null/.test(match)) {
+                                cls = 'json-null';
+                            }
+                            return '<span class="' + cls + '">' + match + '</span>';
+                        }
+                    );
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // ── Export Functions ──────────────────
+            function exportJSON(type) {
+                let data, filename;
+                if (type === 'original' && originalEvent) {
+                    data = JSON.stringify(originalEvent, null, 2);
+                    filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`;
+                } else {
+                    const exportData = {
+                        investigationHexId,
+                        originalEvent,
+                        allEvents,
+                        relayStats: [...relayStats.entries()].map(([url, stats]) => ({ url, ...stats })),
+                        exportedAt: new Date().toISOString(),
+                        totalEvents: allEvents.length,
+                    };
+                    data = JSON.stringify(exportData, null, 2);
+                    filename = `nostrscope-investigation-${investigationHexId?.substring(0,12) || 'all'}.json`;
+                }
+                downloadFile(data, filename, 'application/json');
+                showToast('Export complete!', 'success');
+            }
+
+            function exportCSV() {
+                let csv = 'Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n';
+                for (const event of allEvents) {
+                    const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
+                    const content = (event.content || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 200);
+                    const isOrig = event.id === investigationHexId ? 'Yes' : 'No';
+                    const time = new Date((event.created_at || 0) * 1000).toISOString();
+                    csv +=
+                        `"${event.id}",${event.kind},"${kindName}","${event.pubkey || ''}","${time}","${content}","${isOrig}"\n`;
+                }
+                downloadFile(csv, `nostrscope-summary-${investigationHexId?.substring(0,12) || 'events'}.csv`, 'text/csv');
+                showToast('CSV exported!', 'success');
+            }
+
+            function exportMarkdown() {
+                let md = `# NostrScope Investigation Report\n\n`;
+                md += `**Event ID:** \`${investigationHexId || 'N/A'}\`\n`;
+                md += `**Generated:** ${new Date().toISOString()}\n`;
+                md += `**Total Events Found:** ${allEvents.length}\n\n`;
+                md += `## Statistics\n\n`;
+                md += `| Metric | Value |\n|---|---|\n`;
+                md += `| Original Event | ${originalEvent ? 1 : 0} |\n`;
+                md += `| Total Events | ${allEvents.length} |\n`;
+                md += `| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n`;
+                md += `| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n`;
+                md += `| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n`;
+                md += `| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n`;
+                md += `| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n`;
+                md += `## Event Timeline\n\n`;
+                const sorted = [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+                for (const e of sorted) {
+                    const time = new Date((e.created_at || 0) * 1000).toLocaleString();
+                    const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
+                    md += `- **${time}** [${kindName}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`;
+                }
+                downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.md`, 'text/markdown');
+                showToast('Markdown report exported!', 'success');
+            }
+
+            function exportHTML() {
+                let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title>
+        <style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}
+        h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;margin:16px 0;}th,td{border:1px solid #30363d;padding:8px;text-align:left;font-size:0.85rem;}
+        th{background:#161b22;color:#8b949e;}code{background:#1c2333;padding:2px 6px;border-radius:4px;font-size:0.8rem;word-break:break-all;}
+        .original{background:rgba(63,185,80,0.1);}</style></head><body>`;
+                html += `<h1>🔍 NostrScope Investigation Report</h1>`;
+                html +=
+                    `<p><strong>Event ID:</strong> <code>${investigationHexId || 'N/A'}</code></p><p><strong>Generated:</strong> ${new Date().toISOString()}</p><p><strong>Total Events:</strong> ${allEvents.length}</p>`;
+                html += `<h2>Events</h2><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;
+                const sorted = [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+                for (const e of sorted) {
+                    const time = new Date((e.created_at || 0) * 1000).toLocaleString();
+                    const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
+                    const isOrig = e.id === investigationHexId;
+                    html +=
+                        `<tr class="${isOrig?'original':''}"><td>${time}</td><td>${kindName}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`;
+                }
+                html += `</tbody></table></body></html>`;
+                downloadFile(html, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html');
+                showToast('HTML report exported!', 'success');
+            }
+
+            function downloadFile(content, filename, mimeType) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // ── Main Application ──────────────────
+            let relayManager = null;
+            let investigator = null;
+
+            async function runAnalysis() {
+                const input = eventInput.value.trim();
+                if (!input) {
+                    showError('Please enter an event identifier.');
+                    return;
+                }
+                hideError();
+                const parsed = parseInput(input);
+                if (parsed.error) {
+                    showError(parsed.error);
+                    showToast(parsed.error, 'error');
+                    return;
+                }
+                investigationHexId = parsed.hexId;
+                allEvents = [];
+                originalEvent = null;
+                eventMap.clear();
+                threadCollapsed.clear();
+                sortOrder = 'oldest-first';
+                relayStats.clear();
+                mainContent.classList.remove('active');
+
+                // Initialize relay manager
+                const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
+                relayManager = new RelayManager(allUrls);
+                investigator = new EventInvestigator(relayManager);
+
+                investigator.onUpdate = (inv) => {
+                    renderAll(inv);
+                };
+                investigator.onComplete = (inv) => {
+                    renderAll(inv);
+                    hideLoading();
+                    // Switch to thread tab
+                    switchTab('thread');
+                    mainContent.classList.add('active');
+                    mainContent.scrollIntoView({ behavior: 'smooth' });
+                };
+
+                await investigator.investigate(parsed.hexId, parsed.relayHints || []);
+            }
+
+            function showError(msg) {
+                errorMsg.textContent = msg;
+                errorMsg.classList.add('visible');
+            }
+
+            function hideError() {
+                errorMsg.textContent = '';
+                errorMsg.classList.remove('visible');
+            }
+
+            function switchTab(tabName) {
+                activeTab = tabName;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                const btn = document.querySelector(`[data-tab="${tabName}"]`);
+                if (btn) btn.classList.add('active');
+                const panel = document.getElementById(`panel-${tabName}`);
+                if (panel) panel.classList.add('active');
+                // Re-render if needed
+                if (investigator && tabName === 'relays') renderRelaysView();
+                if (investigator && tabName === 'export') renderExportView();
+            }
+
+            // ── Global Window Functions ──────────
+            window._expandAll = function() {
+                threadCollapsed.clear();
+                if (investigator) renderThreadView(investigator);
+            };
+            window._collapseAll = function() {
+                if (investigator && investigator.eventMap) {
+                    for (const eid of investigator.eventMap.keys()) {
+                        if (eid !== investigationHexId) threadCollapsed.add(eid);
+                    }
+                    renderThreadView(investigator);
+                }
+            };
+            window._toggleSortOrder = function() {
+                sortOrder = sortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first';
+                if (investigator) renderTimelineView(investigator);
+            };
+            window._inspectEvent = function(eid) {
+                if (eventMap.has(eid)) showEventModal(eventMap.get(eid));
+            };
+            window._copyEventJson = function(eid) {
+                const event = eventMap.get(eid);
+                if (event) {
+                    navigator.clipboard.writeText(JSON.stringify(event, null, 2)).then(() => showToast('Copied!',
+                        'success'));
+                }
+            };
+            window._downloadEventJson = function(eid) {
+                const event = eventMap.get(eid);
+                if (event) {
+                    downloadFile(JSON.stringify(event, null, 2), `nostr-event-${eid.substring(0,12)}.json`,
+                        'application/json');
+                    showToast('Downloaded!', 'success');
+                }
+            };
+            window._copyAllJson = function() {
+                if (allEvents.length > 0) {
+                    navigator.clipboard.writeText(JSON.stringify(allEvents, null, 2)).then(() => showToast(
+                        'All events copied!', 'success'));
+                }
+            };
+            window._downloadAllJson = function() {
+                exportJSON('all');
+            };
+            window._toggleJsonBlock = function(el) {
+                const block = el.nextElementSibling;
+                if (block && block.classList.contains('json-block-content')) {
+                    const isHidden = block.style.display === 'none';
+                    block.style.display = isHidden ? 'block' : 'none';
+                    el.textContent = el.textContent.replace(isHidden ? '▸' : '▾', isHidden ? '▾' : '▸');
+                }
+            };
+            window._searchJson = function(query) {
+                const container = document.getElementById('jsonAll');
+                if (!container) return;
+                const blocks = container.querySelectorAll('.json-block-content');
+                for (const block of blocks) {
+                    if (!query) {
+                        block.style.display = 'none';
+                        const prev = block.previousElementSibling;
+                        if (prev) prev.textContent = prev.textContent.replace('▾', '▸');
+                    } else {
+                        const text = block.textContent.toLowerCase();
+                        if (text.includes(query.toLowerCase())) {
+                            block.style.display = 'block';
+                            const prev = block.previousElementSibling;
+                            if (prev) prev.textContent = prev.textContent.replace('▸', '▾');
+                        }
+                    }
+                }
+            };
+            window._reconnectRelay = async function(url) {
+                showToast(`Reconnecting to ${url}...`, 'info');
+                if (relayManager) {
+                    await relayManager.reconnect(url);
+                    showToast(`Reconnected to ${url}`, 'success');
+                    renderRelaysView();
+                }
+            };
+            window._removeRelay = function(url) {
+                activeRelays = activeRelays.filter(r => r !== url);
+                if (relayManager) {
+                    relayManager.relayUrls = activeRelays;
+                }
+                showToast(`Removed relay: ${url}`, 'info');
+                renderRelaysView();
+            };
+            window._addCustomRelay = function() {
+                const url = prompt('Enter relay WebSocket URL (e.g., wss://relay.example.com):');
+                if (url && url.startsWith('ws') && !activeRelays.includes(url)) {
+                    activeRelays.push(url);
+                    if (relayManager) relayManager.relayUrls = activeRelays;
+                    showToast(`Added relay: ${url}`, 'success');
+                    renderRelaysView();
+                } else if (url && activeRelays.includes(url)) {
+                    showToast('Relay already in list.', 'info');
+                } else if (url) {
+                    showToast('Invalid URL. Must start with ws:// or wss://', 'error');
+                }
+            };
+            window._exportJSON = exportJSON;
+            window._exportCSV = exportCSV;
+            window._exportMarkdown = exportMarkdown;
+            window._exportHTML = exportHTML;
+            window.showToast = showToast;
+
+            // ── Event Listeners ──────────────────
+            analyzeBtn.addEventListener('click', runAnalysis);
+            eventInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') runAnalysis();
+            });
+            clearBtn.addEventListener('click', () => {
+                eventInput.value = '';
+                hideError();
+                mainContent.classList.remove('active');
+                allEvents = [];
+                originalEvent = null;
+                eventMap.clear();
+                investigationHexId = null;
+                if (relayManager) relayManager.closeAll();
+                relayManager = null;
+                investigator = null;
+                relayStats.clear();
+                document.getElementById('panel-thread').innerHTML = '';
+                document.getElementById('panel-timeline').innerHTML = '';
+                document.getElementById('panel-stats').innerHTML = '';
+                document.getElementById('panel-json').innerHTML = '';
+                document.getElementById('panel-relays').innerHTML = '';
+                document.getElementById('panel-export').innerHTML = '';
+                document.getElementById('panel-bch').innerHTML = '';
+                showToast('Cleared.', 'info');
+            });
+            tabsNav.addEventListener('click', (e) => {
+                const btn = e.target.closest('.tab-btn');
+                if (btn) {
+                    const tabName = btn.getAttribute('data-tab');
+                    if (tabName) switchTab(tabName);
+                }
+            });
+
+            // ── Initialize ───────────────────────
+            // Populate relay stats with defaults
+            for (const url of DEFAULT_RELAYS) {
+                relayStats.set(url, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
+            }
+            console.log('🔍 NostrScope initialized. Ready to investigate Nostr events.');
+            console.log(`   Default relays: ${DEFAULT_RELAYS.length}`);
+            console.log('   Paste any event ID, note1..., nevent1..., or URL and click Analyze.');
+        })();
+    </script>
 </body>
 </html>
