@@ -155,7 +155,7 @@
         document.body.removeChild(a);
     }
 
-    // ── Input Parser (unchanged) ──────
+    // ── Input Parser ──────────────────
     function parseInput(input) {
         const t = input.trim();
         if (!t) return { error: 'Please enter an event identifier.' };
@@ -551,89 +551,121 @@
         }
     }
 
-    // ── Rendering functions (unchanged) ──
-    function renderAll(inv) {
-        allEvents = inv.events;
-        originalEvent = inv.originalEvent;
-        eventMap = inv.eventMap;
-        investigationHexId = inv.hexId;
-        if (allEvents.length === 0 && !originalEvent) {
-            resultsScreen.classList.remove('active');
-            homeScreen.style.display = 'flex';
-            return;
+    // ── Helper: Detect and render media ──
+    function renderMediaFromContent(content) {
+        if (!content) return '';
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        let html = escapeHtml(content);
+        let mediaHtml = '';
+        let match;
+        while ((match = urlRegex.exec(content)) !== null) {
+            const url = match[0];
+            if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
+                mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:300px;border-radius:4px;" onerror="this.style.display='none'">`;
+            } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
+                mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:300px;"><source src="${url}" type="video/mp4"></video>`;
+            }
         }
-        resultsScreen.classList.add('active');
-        homeScreen.style.display = 'none';
-        renderThread(inv);
-        renderTimeline(inv);
-        renderStats(inv);
-        renderJson(inv);
-        renderRelays();
-        renderExport();
-        renderBch(inv);
+        // Make non-media URLs clickable
+        html = html.replace(urlRegex, (u) => {
+            if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u)) return ''; // already handled
+            return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`;
+        });
+        return { text: html, media: mediaHtml };
     }
 
+    // ── Build event card (used in thread) ──
+    function buildEventCard(event, isOriginal) {
+        const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
+        const time = new Date((event.created_at || 0) * 1000).toLocaleString();
+        const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
+        const { text, media } = renderMediaFromContent(event.content);
+        const contentId = 'content-' + event.id;
+        const isLongContent = (event.content || '').length > 300;
+        return `
+            <div class="event-preview">
+                <div class="event-header">
+                    <span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span>
+                    <span class="event-time">${time}</span>
+                    <span class="event-author">${authorShort}</span>
+                </div>
+                <div class="event-content" id="${contentId}" style="${isLongContent ? 'max-height:120px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
+                ${isLongContent ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}
+                ${media ? `<div class="media-preview">${media}</div>` : ''}
+                <div class="thread-actions">
+                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">JSON</button>
+                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window._boostEvent('${event.id}')">🚀 Boost</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // ── Recursive thread builder (card style) ──
+    function buildThreadCards(eventId, childrenMap, depth, visited) {
+        if (visited.has(eventId) && depth > 0) return '';
+        visited.add(eventId);
+        const event = eventMap.get(eventId);
+        if (!event && depth > 0) return '';
+        if (threadCollapsed.has(eventId) && depth > 0) {
+            return `<div class="thread-card" style="margin-left:${depth*20}px;"><div class="thread-indicator"></div><span class="show-more-btn" onclick="window._expandThread('${eventId}')">[+] Show replies</span></div>`;
+        }
+        const isOriginal = eventId === investigationHexId;
+        let html = `<div class="thread-card" style="margin-left:${depth*20}px;">`;
+        if (depth > 0) html += '<div class="thread-indicator"></div>';
+        html += buildEventCard(event, isOriginal);
+        const children = childrenMap.get(eventId) || [];
+        for (const child of children) {
+            if (!visited.has(child.id)) {
+                html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited));
+            }
+        }
+        html += '</div>';
+        return html;
+    }
+
+    // ── Thread View (new) ──────────────
     function renderThread(inv) {
         const p = document.getElementById('panel-thread');
         const tree = inv.getThreadTree();
         if (!tree || !tree.rootEvent) {
-            p.innerHTML = '<div class="card"><p style="color:var(--text2);">No thread data.</p></div>';
+            p.innerHTML = '<div class="card"><p>No thread data.</p></div>';
             return;
         }
-        let h = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span><div style="display:flex; gap:8px; align-items:center;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse</button><button class="btn btn-small btn-primary" id="boostBtn" ' + (currentUser ? '' : 'disabled') + '>🚀 Boost</button></div></div><div class="thread-tree">' + buildLines(tree.rootId, tree.childrenMap, 0, new Set()) + '</div></div>';
-        p.innerHTML = h;
-        document.getElementById('boostBtn')?.addEventListener('click', boostOriginalEvent);
+        let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span>';
+        html += '<div style="display:flex; gap:8px;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div>';
+        html += '</div><div class="thread-container">';
+        html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
+        html += '</div></div>';
+        p.innerHTML = html;
     }
 
-    function buildLines(eid, childrenMap, depth, visited) {
-        if (visited.has(eid) && depth > 0) return '';
-        visited.add(eid);
-        const ev = eventMap.get(eid);
-        if (!ev && depth > 0) return '';
-        let l = '';
-        const pre = depth === 0 ? '' : '  '.repeat(depth - 1) + (depth > 0 ? '├── ' : '');
-        const isOrig = eid === investigationHexId;
-        let cls = 'thread-node';
-        if (isOrig) cls += ' thread-original';
-        else if (ev && ev.kind === 1) cls += ' thread-reply';
-        else if (ev && ev.kind === 6) cls += ' thread-quote';
-        const short = eid.substring(0, 8) + '...';
-        const kind = ev ? (KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`) : '?';
-        const time = ev ? new Date((ev.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit',
-            minute: '2-digit' }) : '';
-        const prev = ev ? (ev.content || '').replace(/\n/g, ' ').substring(0, 60) : '';
-        if (threadCollapsed.has(eid) && depth > 0) {
-            l += `<span class="thread-collapsed" data-eid="${eid}">${pre}[+] ${short} (${kind}) - collapsed</span>\n`;
-            return l;
-        }
-        l += `<span class="${cls}" data-eid="${eid}" title="${kind} | ${time}">${pre}${isOrig ? '★ ' : ''}${short} [${kind}] ${time} ${prev.substring(0, 40)}</span>\n`;
-        const children = childrenMap.get(eid) || [];
-        for (const c of children.filter(c => !visited.has(c.id))) {
-            const cl = buildLines(c.id, childrenMap, depth + 1, new Set(visited));
-            if (cl) {
-                for (const line of cl.split('\n').filter(x => x.trim())) l += line + '\n';
-            }
-        }
-        return l;
-    }
-
+    // ── Timeline (with media) ──────────
     function renderTimeline(inv) {
         const p = document.getElementById('panel-timeline');
         const sorted = [...inv.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
         if (!sorted.length) { p.innerHTML = '<div class="card"><p>No events.</p></div>'; return; }
-        let h = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ' + (sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼') + '</button></div>';
-        for (const e of sorted) {
-            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit',
-                minute: '2-digit', second: '2-digit' });
+        let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ' + (sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼') + '</button></div>';
+        sorted.forEach(e => {
+            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const kind = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
             const isOrig = e.id === investigationHexId;
-            const prev = (e.content || '').replace(/\n/g, ' ').substring(0, 100);
-            h += `<div class="timeline-item" style="${isOrig ? 'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;' : ''}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★ Original</span>' : ''}</span><span class="timeline-preview"><code style="font-size:0.65rem;">${e.id.substring(0, 10)}...</code> ${escapeHtml(prev)}</span><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button></div>`;
-        }
-        h += '</div>';
-        p.innerHTML = h;
+            const { text, media } = renderMediaFromContent(e.content);
+            html += `<div class="timeline-item" style="${isOrig ? 'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;' : ''}">
+                <span class="timeline-time">${time}</span>
+                <span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span>
+                <span class="timeline-preview">
+                    <code style="font-size:0.65rem;">${e.id.substring(0,10)}...</code>
+                    <span style="word-break:break-word;">${text || ''}</span>
+                    ${media ? `<div class="media-preview">${media}</div>` : ''}
+                </span>
+                <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button>
+            </div>`;
+        });
+        html += '</div>';
+        p.innerHTML = html;
     }
 
+    // ── Stats / JSON / Relays / Export / BCH (unchanged from last working version) ──
     function renderStats(inv) {
         const p = document.getElementById('panel-stats');
         const tree = inv.getThreadTree();
@@ -717,10 +749,7 @@
     function renderBch(inv) {
         const p = document.getElementById('panel-bch');
         const evs = inv.getBchPaymentEvents();
-        if (!evs.length) {
-            p.innerHTML = '<div class="card"><p>💸 No BCH payment events found.</p></div>';
-            return;
-        }
+        if (!evs.length) { p.innerHTML = '<div class="card"><p>💸 No BCH payment events found.</p></div>'; return; }
         let h = '<div class="card"><div class="card-header"><span class="card-title">💸 BCH Payments</span></div>';
         evs.forEach(e => {
             const sender = e.pubkey ? e.pubkey.substring(0, 12) + '...' : '?';
@@ -754,13 +783,11 @@
         backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
         backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
             const nsec = document.getElementById('nsecInput').value.trim();
-            // Check if NostrTools loaded
             if (typeof NostrTools === 'undefined') {
                 showToast('Nostr tools not loaded. Please check your internet and refresh.', 'error');
                 return;
             }
             try {
-                // Use NostrTools.nip19.decode (v2.23.9 API)
                 const { type, data } = NostrTools.nip19.decode(nsec);
                 if (type !== 'nsec') throw new Error('Not an nsec');
                 const privateKey = data;
@@ -889,11 +916,37 @@
     }
 
     // ── Global window functions ──────────
+    window._expandThread = (eventId) => {
+        threadCollapsed.delete(eventId);
+        if (investigator) renderThread(investigator);
+    };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => {
         if (investigator) {
             investigator.eventMap.forEach((_, k) => { if (k !== investigationHexId) threadCollapsed.add(k); });
             renderThread(investigator);
+        }
+    };
+    window._boostEvent = async (eventId) => {
+        const ev = eventMap.get(eventId);
+        if (!ev) return;
+        if (!currentUser) { showToast('Please login first.', 'info');
+            showLoginModal(); return; }
+        if (!relayManager) { showToast('No relay connection.', 'error'); return; }
+        if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; }
+        const eventTemplate = {
+            kind: 6,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['e', ev.id], ['p', ev.pubkey], ['k', String(ev.kind)]],
+            content: '',
+        };
+        try {
+            const signedEvent = await NostrTools.signEvent(eventTemplate, currentUser.privateKey);
+            relayManager.publish(signedEvent);
+            showToast('🚀 Boost published!', 'success');
+            setTimeout(() => { if (investigator) runAnalysis(investigationHexId); }, 2000);
+        } catch (e) {
+            showToast('Error signing: ' + e.message, 'error');
         }
     };
     window._toggleSortOrder = () => {
@@ -991,14 +1044,34 @@
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
     }
 
+    function renderAll(inv) {
+        allEvents = inv.events;
+        originalEvent = inv.originalEvent;
+        eventMap = inv.eventMap;
+        investigationHexId = inv.hexId;
+        if (allEvents.length === 0 && !originalEvent) {
+            resultsScreen.classList.remove('active');
+            homeScreen.style.display = 'flex';
+            return;
+        }
+        resultsScreen.classList.add('active');
+        homeScreen.style.display = 'none';
+        renderThread(inv);
+        renderTimeline(inv);
+        renderStats(inv);
+        renderJson(inv);
+        renderRelays();
+        renderExport();
+        renderBch(inv);
+    }
+
     // ── Event listeners ──────────────────
     homeAnalyzeBtn.addEventListener('click', () => runAnalysis());
     homeClearBtn.addEventListener('click', () => { homeSearchInput.value = '';
         hideError(); });
     homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
     homeLuckyBtn.addEventListener('click', () => {
-        const tips = ['6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a', 'note1...',
-        'nevent1...'];
+        const tips = ['6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a', 'note1...', 'nevent1...'];
         homeSearchInput.value = tips[Math.floor(Math.random() * tips.length)];
         runAnalysis();
     });
@@ -1019,7 +1092,6 @@
     resultsLoginBtn.addEventListener('click', showLoginModal);
     resultsLogoutBtn.addEventListener('click', logout);
 
-    // Init relay stats
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-    console.log('🔍 NostrScope ready — using NostrTools v2.23.9');
+    console.log('🔍 NostrScope ready — card-based thread with media.');
 })();
