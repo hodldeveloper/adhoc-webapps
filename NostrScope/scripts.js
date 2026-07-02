@@ -304,6 +304,23 @@
         if (investigator && tabName === 'export') renderExport();
     }
 
+    // ── Helper: inject a newly boosted event into the current investigation ──
+    window.injectBoostedEvent = function(event) {
+        if (!investigator || !investigator.eventMap) return;
+        if (!eventMap.has(event.id)) {
+            eventMap.set(event.id, event);
+            allEvents.push(event);
+            investigator.eventMap.set(event.id, event);
+            investigator.events.push(event);
+        }
+        if (investigator) {
+            renderThread(investigator);
+            renderTimeline(investigator);
+            renderStats(investigator);
+            renderJson(investigator);
+        }
+    };
+
     // ── Global window functions ─────────
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
@@ -377,7 +394,7 @@
             });
         }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — split into utils.js + scripts.js.');
+        console.log('🔍 NostrScope ready — boost injection active.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
