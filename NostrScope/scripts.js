@@ -124,7 +124,7 @@
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
-    // ── Input Parser (extended) ──────
+    // ── Input Parser (unchanged) ──────
     function parseInput(input) {
         const t = input.trim();
         if (!t) return { error: 'Please enter an event or user identifier.' };
@@ -180,7 +180,7 @@
     function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); }
     function hideError() { errorMsg.textContent = ''; errorMsg.classList.remove('visible'); }
 
-    // ── Relay Manager ──────────────────
+    // ── Relay Manager (unchanged) ──────
     class RelayManager {
         constructor(urls) { this.relayUrls = urls; this.connections = new Map(); this.subscriptions = new Map(); this.subIdCounter = 0; }
         getNextSubId() { return 'sub_' + ++this.subIdCounter; }
@@ -220,7 +220,7 @@
         publish(event) { const msg = JSON.stringify(['EVENT', event]); for (const [url, conn] of this.connections) { if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg); } }
     }
 
-    // ── Event Investigator ──────────────
+    // ── Event Investigator (unchanged) ──
     class EventInvestigator {
         constructor(rm) { this.rm = rm; this.events = []; this.eventMap = new Map(); this.originalEvent = null; this.hexId = null; this.pendingSubs = new Set(); this.allDone = false; this.onUpdate = null; this.onComplete = null; this.investigationDepth = 0; this.maxDepth = 4; }
         async investigate(hexId, hints = []) {
@@ -256,7 +256,7 @@
         getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
     }
 
-    // ── User Profile Investigator ─────
+    // ── User Profile Investigator (FIXED race condition) ──
     class UserProfileInvestigator {
         constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; }
         async investigate(pubkey, hints = []) {
@@ -275,30 +275,37 @@
                 return;
             }
             showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
+
+            // Set event handlers BEFORE subscribing to avoid race conditions
+            this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
+            const pending = new Set();
             const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
             const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
             const relaySub = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
-            const pending = new Set([profileSub, followsSub, relaySub]);
-            this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
+            pending.add(profileSub);
+            pending.add(followsSub);
+            pending.add(relaySub);
+
+            this.rm.onEvent = (ev) => {
+                if (ev.pubkey === pubkey) {
+                    if (ev.kind === 0) {
+                        try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
+                        this.profileEvent = ev;
+                    }
+                    if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
+                    if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
+                }
+            };
+            this.rm.onEOSE = (subId) => {
+                pending.delete(subId);
+                if (pending.size === 0) {
+                    this.rm.onEvent = null;
+                    this.rm.onEOSE = null;
+                    resolve();
+                }
+            };
+
             return new Promise((resolve) => {
-                this.rm.onEvent = (ev) => {
-                    if (ev.pubkey === pubkey) {
-                        if (ev.kind === 0) {
-                            try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
-                            this.profileEvent = ev;
-                        }
-                        if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
-                        if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
-                    }
-                };
-                this.rm.onEOSE = (subId) => {
-                    pending.delete(subId);
-                    if (pending.size === 0) {
-                        this.rm.onEvent = null;
-                        this.rm.onEOSE = null;
-                        resolve();
-                    }
-                };
                 setTimeout(() => {
                     for (const sid of pending) this.rm.closeSubscription(sid);
                     pending.clear();
@@ -338,7 +345,7 @@
         }
     }
 
-    // ── Account Modal (enhanced with full JSON and badge extraction) ──
+    // ── Account Modal (unchanged) ──────
     function showAccountModal() {
         if (!currentUser) return;
         const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
@@ -414,7 +421,7 @@
         });
     }
 
-    // ── Login Modal ────────────────────
+    // ── Login Modal (unchanged) ────────
     function showLoginModal() {
         modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
@@ -653,8 +660,11 @@
         if (profile.name) html += `<p><strong>Name:</strong> ${escapeHtml(profile.name)}</p>`;
         if (profile.about) html += `<p><strong>About:</strong> ${escapeHtml(profile.about)}</p>`;
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:100px;border-radius:50%;"/></p>`;
-        html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
+        if (data.follows.length) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
+        if (!profile.name && !profile.about && !profile.picture && !data.follows.length && !data.relays.length) {
+            html += '<p style="color:var(--text2);">No public profile data found for this user.</p>';
+        }
         html += '</div>';
         p.innerHTML = html;
         profileTabBtn.style.display = 'inline-block';
@@ -807,5 +817,5 @@
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
     initApp();
-    console.log('🔍 NostrScope ready — user scanning fixed.');
+    console.log('🔍 NostrScope ready — race condition fixed, user scanning works.');
 })();
