@@ -258,7 +258,7 @@
 
     // ── User Profile Investigator ─────
     class UserProfileInvestigator {
-        constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; }
+        constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; }
         async investigate(pubkey, hints = []) {
             const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
             for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
@@ -270,11 +270,14 @@
             const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
             const relaySub = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
             const pending = new Set([profileSub, followsSub, relaySub]);
-            this.profile = null; this.follows = []; this.relays = [];
+            this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
             return new Promise((resolve) => {
                 this.rm.onEvent = (ev) => {
                     if (ev.pubkey === pubkey) {
-                        if (ev.kind === 0) try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) {}
+                        if (ev.kind === 0) {
+                            try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
+                            this.profileEvent = ev; // keep raw event for tags
+                        }
                         if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
                         if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
                     }
@@ -306,13 +309,20 @@
         }
     }
 
-    // ── Account Modal (enhanced with all fields) ──
+    // ── Account Modal (enhanced with full JSON and badge extraction) ──
     function showAccountModal() {
         if (!currentUser) return;
         const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
         tmpInvestigator.investigate(currentUser.publicKey).then(() => {
             const profile = tmpInvestigator.profile || {};
-            // Extract known fields
+            const profileEvent = tmpInvestigator.profileEvent;
+            // Merge badges from JSON "tags" array and from event "t" tags
+            let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
+            if (profileEvent && profileEvent.tags) {
+                const tTags = profileEvent.tags.filter(t => t[0] === 't' && t[1]).map(t => t[1]);
+                badges = [...new Set([...badges, ...tTags])];
+            }
+            const jsonStr = JSON.stringify(profile, null, 2);
             const name = profile.name || '';
             const about = profile.about || '';
             const picture = profile.picture || '';
@@ -320,9 +330,8 @@
             const nip05 = profile.nip05 || '';
             const bchAddress = profile.bch_address || '';
             const bchTipWallet = profile.bch_tip_wallet || '';
-            const tags = profile.tags || []; // array of strings like "verified", "OG", etc.
             let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
-                <div class="modal" style="max-width:550px;">
+                <div class="modal" style="max-width:600px; max-height:80vh; overflow-y:auto;">
                     <button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button>
                     <h3>👤 My Account</h3>
                     <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
@@ -337,10 +346,15 @@
                         <label>BCH Address:</label><br/><input type="text" id="editBchAddress" value="${escapeHtml(bchAddress)}" style="width:100%;"/><br/>
                         <label>BCH Tip Wallet:</label><br/><input type="text" id="editBchTipWallet" value="${escapeHtml(bchTipWallet)}" style="width:100%;"/><br/>
                         <div style="margin-top:8px;">
-                            <strong>Badges:</strong> ${tags.length > 0 ? tags.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}
+                            <strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}
                         </div>
                         <button class="btn btn-primary" id="saveProfileBtn" style="margin-top:12px;">💾 Save Profile</button>
                     </div>
+                    <hr/>
+                    <details style="margin-top:12px;">
+                        <summary style="cursor:pointer; color:var(--accent2);">📄 Full Profile JSON</summary>
+                        <div class="json-viewer" style="max-height:200px; margin-top:8px;">${syntaxHighlight(jsonStr)}</div>
+                    </details>
                 </div>
             </div>`;
             modalContainer.innerHTML = html;
@@ -360,8 +374,8 @@
                 if (newNip05) newProfile.nip05 = newNip05;
                 if (newBchAddress) newProfile.bch_address = newBchAddress;
                 if (newBchTipWallet) newProfile.bch_tip_wallet = newBchTipWallet;
-                // Preserve existing badges if they were there (not editable for now)
-                if (tags.length > 0) newProfile.tags = tags;
+                // Preserve existing badges
+                if (badges.length > 0) newProfile.tags = badges;
                 const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
                 if (typeof window._signNostrEvent !== 'function') { showToast('Signing function not available.', 'error'); return; }
                 window._signNostrEvent(event, currentUser.privateKey).then(signed => {
@@ -764,5 +778,5 @@
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
     initApp();
-    console.log('🔍 NostrScope ready — enhanced account modal with full profile fields.');
+    console.log('🔍 NostrScope ready — full profile JSON, badges from tags & events.');
 })();
