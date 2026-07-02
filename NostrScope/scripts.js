@@ -747,36 +747,24 @@
         });
     }
 
-    // ── Login / Boost (improved) ──────────
+    // ── Login / Boost (using NostrTools) ──
     function showLoginModal() {
         modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
         backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
         backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
             const nsec = document.getElementById('nsecInput').value.trim();
-            // Check if nostr-tools loaded (global nostr)
-            if (typeof nostr === 'undefined') {
+            // Check if NostrTools loaded
+            if (typeof NostrTools === 'undefined') {
                 showToast('Nostr tools not loaded. Please check your internet and refresh.', 'error');
                 return;
             }
             try {
-                let privateKey;
-                try {
-                    // Primary: nostr-tools nip19 decoder
-                    const { type, data } = nostr.nip19.decode(nsec);
-                    if (type !== 'nsec') throw new Error('Not an nsec');
-                    privateKey = data;
-                } catch (e) {
-                    console.warn('nip19 decode failed, trying custom Bech32:', e);
-                    // Fallback to our robust Bech32 decoder (works for many cases)
-                    const decoded = bech32Decode(nsec);
-                    if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) {
-                        throw new Error('Invalid nsec format');
-                    }
-                    privateKey = bytesToHex(decoded.bytes);
-                }
-                // Generate public key using nostr-tools
-                const publicKey = nostr.getPublicKey(privateKey);
+                // Use NostrTools.nip19.decode (v2.23.9 API)
+                const { type, data } = NostrTools.nip19.decode(nsec);
+                if (type !== 'nsec') throw new Error('Not an nsec');
+                const privateKey = data;
+                const publicKey = NostrTools.getPublicKey(privateKey);
                 currentUser = { privateKey, publicKey };
                 updateUserUI();
                 showToast('Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
@@ -822,7 +810,7 @@
         if (!currentUser) { showToast('Please login first.', 'info');
             showLoginModal(); return; }
         if (!relayManager) { showToast('No relay connection.', 'error'); return; }
-        if (typeof nostr === 'undefined') { showToast('Nostr tools not loaded. Cannot sign event.', 'error'); return; }
+        if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; }
         const eventTemplate = {
             kind: 6,
             created_at: Math.floor(Date.now() / 1000),
@@ -834,7 +822,7 @@
             content: '',
         };
         try {
-            const signedEvent = await nostr.signEvent(eventTemplate, currentUser.privateKey);
+            const signedEvent = await NostrTools.signEvent(eventTemplate, currentUser.privateKey);
             relayManager.publish(signedEvent);
             showToast('🚀 Boost published! Kind 6 repost sent to all connected relays.', 'success');
             setTimeout(() => { if (investigator) runAnalysis(investigationHexId); }, 2000);
@@ -843,7 +831,7 @@
         }
     }
 
-    // ── Exports (unchanged) ──────────────
+    // ── Exports ─────────────────────────
     function exportJSON(type) {
         let data, filename;
         if (type === 'original' && originalEvent) {
@@ -1033,5 +1021,5 @@
 
     // Init relay stats
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-    console.log('🔍 NostrScope ready — login reliable.');
+    console.log('🔍 NostrScope ready — using NostrTools v2.23.9');
 })();
