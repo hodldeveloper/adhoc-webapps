@@ -749,27 +749,46 @@
 
     // ── Login / Boost ────────────────────
     function showLoginModal() {
-        modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
-        const backdrop = document.getElementById('loginModalBackdrop');
-        backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
-        backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
-            const nsec = document.getElementById('nsecInput').value.trim();
+    modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
+    const backdrop = document.getElementById('loginModalBackdrop');
+    backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
+    backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
+        const nsec = document.getElementById('nsecInput').value.trim();
+        // Check if nostr-tools is loaded
+        if (typeof nostr === 'undefined') {
+            showToast('Nostr tools not loaded. Please refresh the page.', 'error');
+            return;
+        }
+        try {
+            // First try official nip19 decoder
+            let privateKey;
             try {
                 const { type, data } = nostr.nip19.decode(nsec);
                 if (type !== 'nsec') throw new Error('Not an nsec');
-                const privateKey = data;
-                const publicKey = nostr.getPublicKey(privateKey);
-                currentUser = { privateKey, publicKey };
-                updateUserUI();
-                showToast('Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
-                backdrop.remove();
-                const boostBtn = document.getElementById('boostBtn');
-                if (boostBtn) boostBtn.disabled = false;
-            } catch (e) {
-                showToast('Invalid nsec. Please try again.', 'error');
+                privateKey = data;
+            } catch (nip19Error) {
+                console.warn('nostr.nip19.decode failed, trying custom Bech32 decoder:', nip19Error);
+                // Fallback to our own Bech32 decoder (handles many edge cases)
+                const decoded = bech32Decode(nsec);
+                if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) {
+                    throw new Error('Invalid nsec format');
+                }
+                privateKey = bytesToHex(decoded.bytes);
             }
-        });
-    }
+            const publicKey = nostr.getPublicKey(privateKey);
+            currentUser = { privateKey, publicKey };
+            updateUserUI();
+            showToast('Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
+            backdrop.remove();
+            const boostBtn = document.getElementById('boostBtn');
+            if (boostBtn) boostBtn.disabled = false;
+        } catch (e) {
+            console.error('Nsec login error:', e);
+            showToast('Invalid nsec. Please check and try again.', 'error');
+        }
+    });
+}
+
 
     function logout() {
         currentUser = null;
