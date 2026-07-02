@@ -260,11 +260,20 @@
     class UserProfileInvestigator {
         constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; }
         async investigate(pubkey, hints = []) {
-            const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
+            const allRelays = [...new Set([...activeRelays, ...hints])];
+            this.rm.relayUrls = allRelays;
+            this.rm.connections.clear();
+            this.rm.subscriptions.clear();
+            relayStats.clear();
             for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-            showLoading('Connecting to relays...'); await this.rm.connectAll(10000);
+            showLoading('Connecting to relays...');
+            await this.rm.connectAll(10000);
             const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-            if (connected === 0) { hideLoading(); showToast('No relays connected.', 'error'); return; }
+            if (connected === 0) {
+                hideLoading();
+                showToast('No relays connected.', 'error');
+                return;
+            }
             showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
             const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
             const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
@@ -276,15 +285,35 @@
                     if (ev.pubkey === pubkey) {
                         if (ev.kind === 0) {
                             try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
-                            this.profileEvent = ev; // keep raw event for tags
+                            this.profileEvent = ev;
                         }
                         if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
                         if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
                     }
                 };
-                this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
-                setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000);
-            }).then(() => { hideLoading(); if (!this.profile && this.follows.length === 0) showToast('No profile found.', 'info'); else showToast('Profile loaded.', 'success'); });
+                this.rm.onEOSE = (subId) => {
+                    pending.delete(subId);
+                    if (pending.size === 0) {
+                        this.rm.onEvent = null;
+                        this.rm.onEOSE = null;
+                        resolve();
+                    }
+                };
+                setTimeout(() => {
+                    for (const sid of pending) this.rm.closeSubscription(sid);
+                    pending.clear();
+                    this.rm.onEvent = null;
+                    this.rm.onEOSE = null;
+                    resolve();
+                }, 10000);
+            }).then(() => {
+                hideLoading();
+                if (!this.profile && this.follows.length === 0 && this.relays.length === 0) {
+                    showToast('No profile found.', 'info');
+                } else {
+                    showToast('Profile loaded.', 'success');
+                }
+            });
         }
     }
 
@@ -316,7 +345,6 @@
         tmpInvestigator.investigate(currentUser.publicKey).then(() => {
             const profile = tmpInvestigator.profile || {};
             const profileEvent = tmpInvestigator.profileEvent;
-            // Merge badges from JSON "tags" array and from event "t" tags
             let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
             if (profileEvent && profileEvent.tags) {
                 const tTags = profileEvent.tags.filter(t => t[0] === 't' && t[1]).map(t => t[1]);
@@ -374,7 +402,6 @@
                 if (newNip05) newProfile.nip05 = newNip05;
                 if (newBchAddress) newProfile.bch_address = newBchAddress;
                 if (newBchTipWallet) newProfile.bch_tip_wallet = newBchTipWallet;
-                // Preserve existing badges
                 if (badges.length > 0) newProfile.tags = badges;
                 const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
                 if (typeof window._signNostrEvent !== 'function') { showToast('Signing function not available.', 'error'); return; }
@@ -637,13 +664,15 @@
     // ── Scan user (invoked from runAnalysis) ──
     async function investigateUser(pubkey, hints = []) {
         const allUrls = [...new Set([...activeRelays, ...hints])];
-        relayManager = new RelayManager(allUrls);
-        window._relayManager = relayManager;
-        const upi = new UserProfileInvestigator(relayManager);
+        const rm = new RelayManager(allUrls);
+        window._relayManager = rm;
+        const upi = new UserProfileInvestigator(rm);
         await upi.investigate(pubkey, hints);
         scannedPubkey = pubkey;
         userProfileData = { profile: upi.profile, follows: upi.follows, relays: upi.relays };
         renderProfileTab(userProfileData, pubkey);
+        resultsScreen.classList.add('active');
+        homeScreen.style.display = 'none';
     }
 
     // ── Modal for event JSON ────────────
@@ -778,5 +807,5 @@
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
     initApp();
-    console.log('🔍 NostrScope ready — full profile JSON, badges from tags & events.');
+    console.log('🔍 NostrScope ready — user scanning fixed.');
 })();
