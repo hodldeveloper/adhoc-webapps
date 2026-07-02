@@ -29,8 +29,8 @@
     let activeRelays = [...DEFAULT_RELAYS], investigationHexId = null;
     let threadCollapsed = new Set(), sortOrder = 'oldest-first';
     let relayManager = null, investigator = null, userProfileData = null;
-    let currentUser = null;   // { privateKey, publicKey }
-    let scannedPubkey = null; // for profile tab
+    let currentUser = null;
+    let scannedPubkey = null;
 
     // ── DOM Elements ──────────────────
     const homeScreen = document.getElementById('homeScreen'),
@@ -120,33 +120,19 @@
     function downloadFile(content, filename, mime) {
         const b = new Blob([content], { type: mime });
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(b);
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        a.href = URL.createObjectURL(b); a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
     // ── Input Parser (extended) ──────
     function parseInput(input) {
         const t = input.trim();
         if (!t) return { error: 'Please enter an event or user identifier.' };
-        if (isValidHex64(t)) {
-            // Could be event or pubkey – we'll treat as event, but if it's a pubkey the user can use npub
-            return { hexId: t.toLowerCase(), source: 'hex' };
-        }
+        if (isValidHex64(t)) return { hexId: t.toLowerCase(), source: 'hex' };
         if (t.startsWith('note1')) { const h = decodeNote1(t); if (h) return { hexId: h, source: 'note1' }; return { error: 'Invalid note1 identifier.' }; }
         if (t.startsWith('nevent1')) { const r = decodeNevent1(t); if (r && r.eventId) return { hexId: r.eventId, source: 'nevent1', relayHints: r.relayHints || [] }; return { error: 'Invalid nevent1 identifier.' }; }
-        if (t.startsWith('npub1')) {
-            const pubkey = decodeNpub(t);
-            if (pubkey) return { pubkey, source: 'npub' };
-            return { error: 'Invalid npub identifier.' };
-        }
-        if (t.startsWith('nprofile1')) {
-            const r = decodeNprofile(t);
-            if (r && r.pubkey) return { pubkey: r.pubkey, source: 'nprofile', relayHints: r.relayHints || [] };
-            return { error: 'Invalid nprofile identifier.' };
-        }
+        if (t.startsWith('npub1')) { const pubkey = decodeNpub(t); if (pubkey) return { pubkey, source: 'npub' }; return { error: 'Invalid npub identifier.' }; }
+        if (t.startsWith('nprofile1')) { const r = decodeNprofile(t); if (r && r.pubkey) return { pubkey: r.pubkey, source: 'nprofile', relayHints: r.relayHints || [] }; return { error: 'Invalid nprofile identifier.' }; }
         const nostrUri = t.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nprofile1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);
         if (nostrUri) return parseInput(nostrUri[1]);
         let m;
@@ -188,7 +174,7 @@
         toastContainer.appendChild(t);
         setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
     }
-    window.showToast = showToast; // expose for boost.js
+    window.showToast = showToast;
     function showLoading(text) { loadingText.textContent = text; loadingOverlay.classList.add('active'); }
     function hideLoading() { loadingOverlay.classList.remove('active'); }
     function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); }
@@ -307,7 +293,7 @@
     // ── UI Updates ─────────────────────
     function updateUserUI() {
         const npub = currentUser ? npubFromHex(currentUser.publicKey).substring(0,12)+'...' : '';
-        window._currentUser = currentUser;  // sync global for boost.js
+        window._currentUser = currentUser;
         if (currentUser) {
             homeUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
             resultsUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
@@ -320,36 +306,62 @@
         }
     }
 
-    // ── Account Modal (uses window._signNostrEvent) ──
+    // ── Account Modal (enhanced with all fields) ──
     function showAccountModal() {
         if (!currentUser) return;
         const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
         tmpInvestigator.investigate(currentUser.publicKey).then(() => {
             const profile = tmpInvestigator.profile || {};
+            // Extract known fields
+            const name = profile.name || '';
+            const about = profile.about || '';
+            const picture = profile.picture || '';
+            const banner = profile.banner || '';
+            const nip05 = profile.nip05 || '';
+            const bchAddress = profile.bch_address || '';
+            const bchTipWallet = profile.bch_tip_wallet || '';
+            const tags = profile.tags || []; // array of strings like "verified", "OG", etc.
             let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
-                <div class="modal" style="max-width:500px;">
+                <div class="modal" style="max-width:550px;">
                     <button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button>
                     <h3>👤 My Account</h3>
                     <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
                     <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p>
                     <hr/>
                     <div id="accountEditForm">
-                        <label>Name:</label><br/><input type="text" id="editName" value="${escapeHtml(profile.name||'')}" style="width:100%;"/><br/>
-                        <label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="3">${escapeHtml(profile.about||'')}</textarea><br/>
-                        <label>Picture URL:</label><br/><input type="text" id="editPicture" value="${escapeHtml(profile.picture||'')}" style="width:100%;"/><br/>
-                        <button class="btn btn-primary" id="saveProfileBtn">💾 Save Profile</button>
+                        <label>Name:</label><br/><input type="text" id="editName" value="${escapeHtml(name)}" style="width:100%;"/><br/>
+                        <label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="3">${escapeHtml(about)}</textarea><br/>
+                        <label>Picture URL:</label><br/><input type="text" id="editPicture" value="${escapeHtml(picture)}" style="width:100%;"/><br/>
+                        <label>Banner URL:</label><br/><input type="text" id="editBanner" value="${escapeHtml(banner)}" style="width:100%;"/><br/>
+                        <label>NIP-05:</label><br/><input type="text" id="editNip05" value="${escapeHtml(nip05)}" style="width:100%;"/><br/>
+                        <label>BCH Address:</label><br/><input type="text" id="editBchAddress" value="${escapeHtml(bchAddress)}" style="width:100%;"/><br/>
+                        <label>BCH Tip Wallet:</label><br/><input type="text" id="editBchTipWallet" value="${escapeHtml(bchTipWallet)}" style="width:100%;"/><br/>
+                        <div style="margin-top:8px;">
+                            <strong>Badges:</strong> ${tags.length > 0 ? tags.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}
+                        </div>
+                        <button class="btn btn-primary" id="saveProfileBtn" style="margin-top:12px;">💾 Save Profile</button>
                     </div>
                 </div>
             </div>`;
             modalContainer.innerHTML = html;
             document.getElementById('saveProfileBtn').addEventListener('click', () => {
-                const name = document.getElementById('editName').value.trim();
-                const about = document.getElementById('editAbout').value.trim();
-                const picture = document.getElementById('editPicture').value.trim();
+                const newName = document.getElementById('editName').value.trim();
+                const newAbout = document.getElementById('editAbout').value.trim();
+                const newPicture = document.getElementById('editPicture').value.trim();
+                const newBanner = document.getElementById('editBanner').value.trim();
+                const newNip05 = document.getElementById('editNip05').value.trim();
+                const newBchAddress = document.getElementById('editBchAddress').value.trim();
+                const newBchTipWallet = document.getElementById('editBchTipWallet').value.trim();
                 const newProfile = {};
-                if (name) newProfile.name = name;
-                if (about) newProfile.about = about;
-                if (picture) newProfile.picture = picture;
+                if (newName) newProfile.name = newName;
+                if (newAbout) newProfile.about = newAbout;
+                if (newPicture) newProfile.picture = newPicture;
+                if (newBanner) newProfile.banner = newBanner;
+                if (newNip05) newProfile.nip05 = newNip05;
+                if (newBchAddress) newProfile.bch_address = newBchAddress;
+                if (newBchTipWallet) newProfile.bch_tip_wallet = newBchTipWallet;
+                // Preserve existing badges if they were there (not editable for now)
+                if (tags.length > 0) newProfile.tags = tags;
                 const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
                 if (typeof window._signNostrEvent !== 'function') { showToast('Signing function not available.', 'error'); return; }
                 window._signNostrEvent(event, currentUser.privateKey).then(signed => {
@@ -669,7 +681,7 @@
         if (investigator && tabName === 'export') renderExport();
     }
 
-    // ── Global window functions (exposed) ──
+    // ── Global window functions ──────────
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !== investigationHexId) threadCollapsed.add(k); }); renderThread(investigator); } };
@@ -688,7 +700,7 @@
     window._exportCSV = exportCSV;
     window._exportMarkdown = exportMarkdown;
     window._exportHTML = exportHTML;
-    window.runAnalysis = runAnalysis;  // so boost.js can re-scan after boost
+    window.runAnalysis = runAnalysis;
 
     // ── Main analysis flow ─────────────
     async function runAnalysis(inputValue) {
@@ -752,5 +764,5 @@
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
     initApp();
-    console.log('🔍 NostrScope ready — boost via boost.js (free kind 6 repost).');
+    console.log('🔍 NostrScope ready — enhanced account modal with full profile fields.');
 })();
