@@ -1,27 +1,8 @@
-/**
- * NostrScope Boost Module
- * Provides a free boost (kind 6 repost) and a robust signing helper.
- * Works with NostrTools global (v2.23.9+).
- */
 (function() {
-    // Robust signing function that tries multiple methods available in nostr-tools
     async function signNostrEvent(event, privateKey) {
-        if (typeof NostrTools === 'undefined') {
-            throw new Error('Nostr tools not loaded');
-        }
-
-        // Method 1: signEvent (works in many recent versions)
-        if (typeof NostrTools.signEvent === 'function') {
-            return await NostrTools.signEvent(event, privateKey);
-        }
-
-        // Method 2: finalizeEvent (used in some builds)
-        if (typeof NostrTools.finalizeEvent === 'function') {
-            // finalizeEvent modifies the event and returns it
-            return NostrTools.finalizeEvent(event, privateKey);
-        }
-
-        // Method 3: manual signing using getEventHash and getSignature
+        if (typeof NostrTools === 'undefined') throw new Error('Nostr tools not loaded');
+        if (typeof NostrTools.signEvent === 'function') return await NostrTools.signEvent(event, privateKey);
+        if (typeof NostrTools.finalizeEvent === 'function') return NostrTools.finalizeEvent(event, privateKey);
         if (typeof NostrTools.getEventHash === 'function' && typeof NostrTools.getSignature === 'function') {
             const id = NostrTools.getEventHash(event);
             const sig = NostrTools.getSignature(id, privateKey);
@@ -29,20 +10,14 @@
             event.sig = sig;
             return event;
         }
-
-        throw new Error('No signing method available in this version of nostr-tools');
+        throw new Error('No signing method available');
     }
-
-    // Expose the signing function globally so scripts.js can use it
     window._signNostrEvent = signNostrEvent;
 
-    // Free boost function – publishes a kind 6 repost with no payment
     async function publishBoost(eventId, eventPubkey, eventKind) {
         if (!window._currentUser) {
             window.showToast('Please login first.', 'info');
-            if (typeof window.showLoginModal === 'function') {
-                window.showLoginModal();
-            }
+            if (typeof window.showLoginModal === 'function') window.showLoginModal();
             return;
         }
         if (!window._relayManager) {
@@ -63,9 +38,17 @@
 
         try {
             const signedEvent = await signNostrEvent(eventTemplate, window._currentUser.privateKey);
+            // Publish to all connected relays
             window._relayManager.publish(signedEvent);
-            window.showToast('🚀 Boost sent! (free kind 6 repost)', 'success');
-            // If the global investigator exists, trigger a re-scan after a short delay
+
+            // Immediately inject the new event into the UI
+            if (typeof window.injectBoostedEvent === 'function') {
+                window.injectBoostedEvent(signedEvent);
+            }
+
+            window.showToast('🚀 Boost sent!', 'success');
+
+            // Still re-fetch after a few seconds to catch any other events
             if (typeof window._investigationHexId !== 'undefined' && window._investigationHexId) {
                 setTimeout(() => {
                     if (typeof window.runAnalysis === 'function') {
@@ -78,8 +61,8 @@
         }
     }
 
-    // Expose boost functions globally
     window.boostEvent = publishBoost;
+
     window.boostOriginalEvent = async () => {
         if (!window._originalEvent) {
             window.showToast('No original event to boost.', 'error');
