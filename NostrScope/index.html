@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>NostrScope — Nostr Event Inspector</title>
     <link rel="stylesheet" href="style.css">
+    <!-- nostr-tools v2.23.9 -->
     <script src="https://unpkg.com/nostr-tools@2.23.9/lib/nostr.bundle.js"></script>
 </head>
 <body>
@@ -48,25 +49,28 @@
                 <button id="resultsAccountBtn" class="btn btn-small btn-secondary" style="display:none;">👤 My Account</button>
             </div>
         </div>
-        <div class="results-tabs" id="tabsNav">
-            <button class="tab-btn active" data-tab="thread">🌳 Thread View</button>
-            <button class="tab-btn" data-tab="timeline">⏱ Timeline</button>
-            <button class="tab-btn" data-tab="stats">📊 Statistics</button>
-            <button class="tab-btn" data-tab="json">{ } Raw JSON</button>
-            <button class="tab-btn" data-tab="relays">🔗 Relays</button>
-            <button class="tab-btn" data-tab="export">💾 Export</button>
-            <button class="tab-btn" data-tab="bch">💸 BCH Payments</button>
-            <button class="tab-btn" data-tab="profile" style="display:none;" id="profileTabBtn">👤 Profile</button>
-        </div>
-        <div class="main-content">
-            <div class="tab-panel active" id="panel-thread"></div>
-            <div class="tab-panel" id="panel-timeline"></div>
-            <div class="tab-panel" id="panel-stats"></div>
-            <div class="tab-panel" id="panel-json"></div>
-            <div class="tab-panel" id="panel-relays"></div>
-            <div class="tab-panel" id="panel-export"></div>
-            <div class="tab-panel" id="panel-bch"></div>
-            <div class="tab-panel" id="panel-profile"></div>
+        <!-- New vertical tabs layout -->
+        <div class="results-body">
+            <nav class="results-tabs" id="tabsNav">
+                <button class="tab-btn active" data-tab="thread">🌳 Thread</button>
+                <button class="tab-btn" data-tab="timeline">⏱ Timeline</button>
+                <button class="tab-btn" data-tab="stats">📊 Statistics</button>
+                <button class="tab-btn" data-tab="json">{ } JSON</button>
+                <button class="tab-btn" data-tab="relays">🔗 Relays</button>
+                <button class="tab-btn" data-tab="export">💾 Export</button>
+                <button class="tab-btn" data-tab="bch">💸 BCH</button>
+                <button class="tab-btn" data-tab="profile" style="display:none;" id="profileTabBtn">👤 Profile</button>
+            </nav>
+            <div class="main-content">
+                <div class="tab-panel active" id="panel-thread"></div>
+                <div class="tab-panel" id="panel-timeline"></div>
+                <div class="tab-panel" id="panel-stats"></div>
+                <div class="tab-panel" id="panel-json"></div>
+                <div class="tab-panel" id="panel-relays"></div>
+                <div class="tab-panel" id="panel-export"></div>
+                <div class="tab-panel" id="panel-bch"></div>
+                <div class="tab-panel" id="panel-profile"></div>
+            </div>
         </div>
     </div>
 
@@ -77,5 +81,6 @@
     <div id="modalContainer"></div>
 
     <script src="scripts.js"></script>
+    <script src="boost.js"></script>
 </body>
 </html>
