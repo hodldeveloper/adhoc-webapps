@@ -124,17 +124,116 @@ body {
 .badge-orange { background: rgba(240, 136, 62, 0.2); color: var(--orange); }
 .badge-red { background: rgba(248, 81, 73, 0.2); color: var(--red); }
 .badge-yellow { background: rgba(210, 153, 29, 0.2); color: var(--yellow); }
-.thread-tree { font-family: var(--mono); font-size: 0.8rem; line-height: 1.8; padding: 16px; background: var(--surface2); border-radius: var(--radius-sm); overflow-x: auto; white-space: pre; max-height: 60vh; overflow-y: auto; }
-.thread-node { cursor: pointer; color: var(--accent2); }
-.thread-node:hover { color: #c4b5fd; text-decoration: underline; }
-.thread-original { color: var(--green); font-weight: 700; }
-.thread-reply { color: var(--blue); }
-.thread-quote { color: var(--orange); }
-.thread-collapsed { opacity: 0.5; cursor: pointer; }
-.timeline-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; flex-wrap: wrap; }
-.timeline-time { font-family: var(--mono); font-size: 0.75rem; color: var(--text2); min-width: 55px; flex-shrink: 0; }
-.timeline-kind { font-size: 0.7rem; font-weight: 600; min-width: 70px; flex-shrink: 0; }
-.timeline-preview { flex: 1; min-width: 120px; word-break: break-word; font-size: 0.85rem; }
+
+/* New thread card styles */
+.thread-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+}
+.thread-card {
+    margin-left: 0;
+    border-left: 2px solid var(--border);
+    padding: 12px 0 12px 20px;
+    position: relative;
+    transition: border-color 0.2s;
+}
+.thread-card:last-child {
+    border-left: 2px solid transparent;
+}
+.thread-card .thread-indicator {
+    position: absolute;
+    left: -6px;
+    top: 20px;
+    width: 10px;
+    height: 10px;
+    background: var(--accent2);
+    border-radius: 50%;
+}
+.thread-card .event-preview {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    border: 1px solid var(--border);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.event-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.event-kind-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(124,58,237,0.2);
+    color: var(--accent2);
+}
+.event-time {
+    font-size: 0.7rem;
+    color: var(--text2);
+}
+.event-author {
+    font-size: 0.7rem;
+    color: var(--blue);
+    font-family: var(--mono);
+}
+.event-content {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.event-content.expanded {
+    max-height: none;
+}
+.show-more-btn {
+    font-size: 0.7rem;
+    color: var(--accent2);
+    cursor: pointer;
+    margin-top: 4px;
+    display: inline-block;
+}
+.media-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+.media-preview img, .media-preview video {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+.thread-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.timeline-item .media-preview img, .timeline-item .media-preview video {
+    max-width: 80px;
+    max-height: 80px;
+}
+
+/* Other existing styles unchanged */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
 .stat-value { font-size: 1.6rem; font-weight: 400; color: var(--accent2); }
