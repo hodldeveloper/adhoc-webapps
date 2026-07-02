@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>NostrScope — Nostr Event Inspector</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Use stable jsDelivr CDN for nostr-tools -->
+    <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.3.3/lib/nostr.bundle.js"></script>
 </head>
 <body>
     <div class="home-container" id="homeScreen">
-        <!-- New user area at top right of home screen -->
         <div class="home-user-area">
             <span id="homeUserStatus" class="user-info">Not logged in</span>
             <button id="homeLoginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
@@ -72,7 +73,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <div id="modalContainer"></div>
 
-    <script src="https://unpkg.com/nostr-tools@2.3.3/lib/nostr.bundle.js"></script>
     <script src="scripts.js"></script>
 </body>
 </html>
