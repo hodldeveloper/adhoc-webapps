@@ -45,9 +45,12 @@
         toastContainer = document.getElementById('toastContainer');
     const modalContainer = document.getElementById('modalContainer');
     const resultsSearchBtn = document.getElementById('resultsSearchBtn');
-    const loginBtn = document.getElementById('loginBtn'),
-        logoutBtn = document.getElementById('logoutBtn');
-    const userStatus = document.getElementById('userStatus');
+    const resultsLoginBtn = document.getElementById('resultsLoginBtn'),
+        resultsLogoutBtn = document.getElementById('resultsLogoutBtn');
+    const resultsUserStatus = document.getElementById('resultsUserStatus');
+    const homeLoginBtn = document.getElementById('homeLoginBtn'),
+        homeLogoutBtn = document.getElementById('homeLogoutBtn');
+    const homeUserStatus = document.getElementById('homeUserStatus');
 
     // ── Bech32 & Utilities ────────────
     function bech32Polymod(values) {
@@ -777,15 +780,21 @@
     }
 
     function updateUserUI() {
+        const npub = currentUser ? npubFromHex(currentUser.publicKey).substring(0, 12) + '...' : '';
         if (currentUser) {
-            const npub = npubFromHex(currentUser.publicKey);
-            userStatus.innerHTML = `<span class="user-npub">${npub.substring(0, 12)}...</span>`;
-            loginBtn.style.display = 'none';
-            logoutBtn.style.display = 'inline-block';
+            homeUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
+            resultsUserStatus.innerHTML = `<span class="user-npub">${npub}</span>`;
+            homeLoginBtn.style.display = 'none';
+            homeLogoutBtn.style.display = 'inline-block';
+            resultsLoginBtn.style.display = 'none';
+            resultsLogoutBtn.style.display = 'inline-block';
         } else {
-            userStatus.textContent = 'Not logged in';
-            loginBtn.style.display = 'inline-block';
-            logoutBtn.style.display = 'none';
+            homeUserStatus.textContent = 'Not logged in';
+            resultsUserStatus.textContent = 'Not logged in';
+            homeLoginBtn.style.display = 'inline-block';
+            homeLogoutBtn.style.display = 'none';
+            resultsLoginBtn.style.display = 'inline-block';
+            resultsLogoutBtn.style.display = 'none';
         }
     }
 
@@ -997,10 +1006,13 @@
         const btn = e.target.closest('.tab-btn');
         if (btn) switchTab(btn.dataset.tab);
     });
-    loginBtn.addEventListener('click', showLoginModal);
-    logoutBtn.addEventListener('click', logout);
+    // Login/logout listeners for both home and results
+    homeLoginBtn.addEventListener('click', showLoginModal);
+    homeLogoutBtn.addEventListener('click', logout);
+    resultsLoginBtn.addEventListener('click', showLoginModal);
+    resultsLogoutBtn.addEventListener('click', logout);
 
     // Init relay stats
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-    console.log('🔍 NostrScope ready — nsec login via nostr-tools, boost enabled.');
+    console.log('🔍 NostrScope ready — login available on home screen.');
 })();
