@@ -26,16 +26,8 @@
             --transition: 0.15s ease;
             --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
-        html {
-            scroll-behavior: smooth;
-            font-size: 16px;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; font-size: 16px; }
         body {
             font-family: var(--font);
             background: var(--bg);
@@ -50,559 +42,166 @@
             padding: 0;
         }
 
-        /* ── Home Screen (Google-like centered) ── */
+        /* Home Screen (Google-like) */
         .home-container {
-            width: 100%;
-            max-width: 700px;
-            margin-top: 15vh;
-            padding: 0 20px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            width: 100%; max-width: 700px; margin-top: 15vh; padding: 0 20px;
+            text-align: center; display: flex; flex-direction: column; align-items: center;
         }
-        .home-logo {
-            font-size: 3.5rem;
-            font-weight: 400;
-            letter-spacing: -0.05em;
-            color: #fff;
-            margin-bottom: 24px;
-            cursor: default;
-            user-select: none;
-        }
-        .home-logo span {
-            color: var(--accent2);
-            font-weight: 300;
-        }
-        .home-subtitle {
-            font-size: 0.95rem;
-            color: var(--text2);
-            margin-top: -16px;
-            margin-bottom: 32px;
-            font-weight: 300;
-        }
+        .home-logo { font-size: 3.5rem; font-weight: 400; letter-spacing: -0.05em; color: #fff; margin-bottom: 24px; cursor: default; user-select: none; }
+        .home-logo span { color: var(--accent2); font-weight: 300; }
+        .home-subtitle { font-size: 0.95rem; color: var(--text2); margin-top: -16px; margin-bottom: 32px; font-weight: 300; }
         .search-box {
-            width: 100%;
-            max-width: 584px;
-            background: var(--surface);
-            border: 2px solid var(--border);
-            border-radius: var(--radius);
-            display: flex;
-            align-items: center;
-            padding: 8px 16px;
-            transition: border-color var(--transition), box-shadow var(--transition);
-            margin: 0 auto;
+            width: 100%; max-width: 584px; background: var(--surface); border: 2px solid var(--border);
+            border-radius: var(--radius); display: flex; align-items: center; padding: 8px 16px;
+            transition: border-color var(--transition), box-shadow var(--transition); margin: 0 auto;
         }
-        .search-box:focus-within {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
-        }
-        .search-icon {
-            font-size: 1.2rem;
-            color: var(--text2);
-            margin-right: 12px;
-            flex-shrink: 0;
-        }
-        .search-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-family: var(--font);
-            font-size: 1rem;
-            padding: 12px 0;
-            outline: none;
-        }
-        .search-input::placeholder {
-            color: var(--text2);
-            font-size: 0.95rem;
-        }
-        .search-actions {
-            display: flex;
-            gap: 8px;
-            margin-left: 8px;
-        }
+        .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2); }
+        .search-icon { font-size: 1.2rem; color: var(--text2); margin-right: 12px; flex-shrink: 0; }
+        .search-input { flex: 1; background: transparent; border: none; color: var(--text); font-family: var(--font); font-size: 1rem; padding: 12px 0; outline: none; }
+        .search-input::placeholder { color: var(--text2); font-size: 0.95rem; }
+        .search-actions { display: flex; gap: 8px; margin-left: 8px; }
         .btn {
-            padding: 8px 18px;
-            border-radius: 4px;
-            font-weight: 500;
-            font-size: 0.875rem;
-            cursor: pointer;
-            border: none;
-            transition: all var(--transition);
-            white-space: nowrap;
-            font-family: var(--font);
-            letter-spacing: 0.01em;
-            touch-action: manipulation;
-            background: var(--surface2);
-            color: var(--text);
+            padding: 8px 18px; border-radius: 4px; font-weight: 500; font-size: 0.875rem; cursor: pointer;
+            border: none; transition: all var(--transition); white-space: nowrap; font-family: var(--font);
+            letter-spacing: 0.01em; touch-action: manipulation; background: var(--surface2); color: var(--text);
             border: 1px solid var(--border);
         }
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-        }
-        .btn-primary:hover {
-            background: #6d28d9;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
-        }
-        .btn-secondary:hover {
-            background: #252d3a;
-            border-color: #4a5568;
-        }
-        .home-buttons {
-            margin-top: 24px;
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .home-buttons .btn {
-            padding: 10px 24px;
-            font-size: 0.9rem;
-            border-radius: 4px;
-        }
-        .error-msg {
-            color: var(--red);
-            font-size: 0.85rem;
-            margin-top: 12px;
-            display: none;
-        }
-        .error-msg.visible {
-            display: block;
-        }
-        .hint-text {
-            color: var(--text2);
-            font-size: 0.75rem;
-            margin-top: 12px;
-            word-break: break-word;
-        }
+        .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-primary:hover { background: #6d28d9; box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35); }
+        .btn-secondary:hover { background: #252d3a; border-color: #4a5568; }
+        .btn-small { padding: 6px 14px; font-size: 0.75rem; }
+        .btn-danger { background: var(--red); color: #fff; border: none; }
+        .btn-green { background: var(--green); color: #000; border: none; }
+        .home-buttons { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .home-buttons .btn { padding: 10px 24px; font-size: 0.9rem; border-radius: 4px; }
+        .error-msg { color: var(--red); font-size: 0.85rem; margin-top: 12px; display: none; }
+        .error-msg.visible { display: block; }
+        .hint-text { color: var(--text2); font-size: 0.75rem; margin-top: 12px; word-break: break-word; }
 
-        /* ── Results Screen (Google-like top bar) ── */
-        .results-container {
-            width: 100%;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-        }
-        .results-container.active {
-            display: flex;
-        }
+        /* Results Screen */
+        .results-container { width: 100%; display: none; flex-direction: column; align-items: center; }
+        .results-container.active { display: flex; }
         .results-header {
-            width: 100%;
-            border-bottom: 1px solid var(--border);
-            padding: 12px 20px;
-            background: var(--surface);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 16px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            width: 100%; border-bottom: 1px solid var(--border); padding: 12px 20px;
+            background: var(--surface); display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px; position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         }
-        .results-logo {
-            font-size: 1.5rem;
-            font-weight: 400;
-            color: #fff;
-            letter-spacing: -0.02em;
-            white-space: nowrap;
-            cursor: pointer;
-        }
-        .results-logo span {
-            color: var(--accent2);
-            font-weight: 300;
-        }
-        .results-search {
-            flex: 1;
-            max-width: 600px;
-            min-width: 200px;
-            display: flex;
-            align-items: center;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 6px 14px;
-            transition: border-color var(--transition);
-        }
-        .results-search:focus-within {
-            border-color: var(--accent);
-        }
-        .results-search input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-family: var(--font);
-            font-size: 0.9rem;
-            padding: 8px 0;
-            outline: none;
-        }
-        .results-search input::placeholder {
-            color: var(--text2);
-        }
+        .results-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .results-logo { font-size: 1.5rem; font-weight: 400; color: #fff; letter-spacing: -0.02em; cursor: pointer; }
+        .results-logo span { color: var(--accent2); font-weight: 300; }
+        .results-search { flex: 1; max-width: 500px; min-width: 200px; display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 14px; }
+        .results-search input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 0.9rem; padding: 8px 0; outline: none; }
+        .results-search input::placeholder { color: var(--text2); }
+        .user-area { display: flex; align-items: center; gap: 8px; }
+        .user-info { font-size: 0.8rem; color: var(--text2); }
+        .user-npub { font-family: var(--mono); font-size: 0.7rem; color: var(--accent2); }
         .results-tabs {
-            width: 100%;
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 0 20px;
-            border-bottom: 1px solid var(--border);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            display: flex;
-            gap: 2px;
+            width: 100%; max-width: 1300px; margin: 0 auto; padding: 0 20px;
+            border-bottom: 1px solid var(--border); overflow-x: auto;
+            -webkit-overflow-scrolling: touch; display: flex; gap: 2px;
         }
         .tab-btn {
-            padding: 12px 20px;
-            background: transparent;
-            border: none;
-            color: var(--text2);
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 0.85rem;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
-            transition: all var(--transition);
-            white-space: nowrap;
-            font-family: var(--font);
-            flex-shrink: 0;
+            padding: 12px 20px; background: transparent; border: none; color: var(--text2);
+            cursor: pointer; font-weight: 500; font-size: 0.85rem; border-bottom: 2px solid transparent;
+            margin-bottom: -1px; transition: all var(--transition); white-space: nowrap;
+            font-family: var(--font); flex-shrink: 0;
         }
-        .tab-btn:hover {
-            color: var(--text);
-        }
-        .tab-btn.active {
-            color: var(--accent2);
-            border-bottom-color: var(--accent2);
-        }
-        .tab-panel {
-            display: none;
-            animation: fadeIn 0.25s ease;
-            width: 100%;
-            max-width: 1300px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
-        .tab-panel.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .main-content {
-            width: 100%;
-        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+        .tab-panel { display: none; animation: fadeIn 0.25s ease; width: 100%; max-width: 1300px; margin: 20px auto; padding: 0 20px; }
+        .tab-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ── Cards (Google result style) ── */
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: var(--shadow);
-            width: 100%;
-        }
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .card-title {
-            font-weight: 400;
-            font-size: 1.1rem;
-            color: var(--accent2);
-        }
-        .badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
+        /* Cards */
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); width: 100%; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .card-title { font-weight: 400; font-size: 1.1rem; color: var(--accent2); }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; }
         .badge-purple { background: rgba(124, 58, 237, 0.2); color: var(--accent2); }
         .badge-green { background: rgba(63, 185, 80, 0.2); color: var(--green); }
         .badge-blue { background: rgba(88, 166, 255, 0.2); color: var(--blue); }
         .badge-orange { background: rgba(240, 136, 62, 0.2); color: var(--orange); }
         .badge-red { background: rgba(248, 81, 73, 0.2); color: var(--red); }
         .badge-yellow { background: rgba(210, 153, 29, 0.2); color: var(--yellow); }
-
-        .thread-tree {
-            font-family: var(--mono);
-            font-size: 0.8rem;
-            line-height: 1.8;
-            padding: 16px;
-            background: var(--surface2);
-            border-radius: var(--radius-sm);
-            overflow-x: auto;
-            white-space: pre;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        .thread-node {
-            cursor: pointer;
-            color: var(--accent2);
-            transition: color var(--transition);
-        }
-        .thread-node:hover {
-            color: #c4b5fd;
-            text-decoration: underline;
-        }
+        .thread-tree { font-family: var(--mono); font-size: 0.8rem; line-height: 1.8; padding: 16px; background: var(--surface2); border-radius: var(--radius-sm); overflow-x: auto; white-space: pre; max-height: 60vh; overflow-y: auto; }
+        .thread-node { cursor: pointer; color: var(--accent2); }
+        .thread-node:hover { color: #c4b5fd; text-decoration: underline; }
         .thread-original { color: var(--green); font-weight: 700; }
         .thread-reply { color: var(--blue); }
         .thread-quote { color: var(--orange); }
         .thread-collapsed { opacity: 0.5; cursor: pointer; }
-
-        .timeline-item {
-            display: flex;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-            align-items: flex-start;
-            flex-wrap: wrap;
-        }
-        .timeline-time {
-            font-family: var(--mono);
-            font-size: 0.75rem;
-            color: var(--text2);
-            min-width: 55px;
-            flex-shrink: 0;
-        }
-        .timeline-kind {
-            font-size: 0.7rem;
-            font-weight: 600;
-            min-width: 70px;
-            flex-shrink: 0;
-        }
-        .timeline-preview {
-            flex: 1;
-            min-width: 120px;
-            word-break: break-word;
-            font-size: 0.85rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 12px;
-        }
-        .stat-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 16px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 1.6rem;
-            font-weight: 400;
-            color: var(--accent2);
-        }
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--text2);
-            margin-top: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .json-viewer {
-            background: #0a0e14;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 16px;
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            max-height: 55vh;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .json-key { color: #79c0ff; }
-        .json-string { color: #a5d6ff; }
-        .json-number { color: #f2a65a; }
-        .json-boolean { color: #ff7b72; }
-        .json-null { color: #8b949e; }
-
-        .relay-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.82rem;
-        }
-        .relay-table th,
-        .relay-table td {
-            padding: 10px 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        .relay-table th {
-            color: var(--text2);
-            font-weight: 600;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
+        .timeline-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; flex-wrap: wrap; }
+        .timeline-time { font-family: var(--mono); font-size: 0.75rem; color: var(--text2); min-width: 55px; flex-shrink: 0; }
+        .timeline-kind { font-size: 0.7rem; font-weight: 600; min-width: 70px; flex-shrink: 0; }
+        .timeline-preview { flex: 1; min-width: 120px; word-break: break-word; font-size: 0.85rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
+        .stat-value { font-size: 1.6rem; font-weight: 400; color: var(--accent2); }
+        .stat-label { font-size: 0.7rem; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .json-viewer { background: #0a0e14; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; font-family: var(--mono); font-size: 0.78rem; max-height: 55vh; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+        .json-key { color: #79c0ff; } .json-string { color: #a5d6ff; } .json-number { color: #f2a65a; } .json-boolean { color: #ff7b72; } .json-null { color: #8b949e; }
+        .relay-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .relay-table th, .relay-table td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+        .relay-table th { color: var(--text2); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
         .status-connected { background: var(--green); }
         .status-connecting { background: var(--yellow); animation: pulse 1s infinite; }
         .status-failed { background: var(--red); }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(13, 17, 23, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(13, 17, 23, 0.8); display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
         .loading-overlay.active { opacity: 1; pointer-events: all; }
-        .spinner {
-            width: 44px; height: 44px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text {
-            color: var(--text2);
-            margin-top: 16px;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        .toast-container {
-            position: fixed;
-            bottom: 20px; right: 12px;
-            z-index: 300;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-width: 90vw;
-        }
-        .toast {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px 16px;
-            font-size: 0.85rem;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-            animation: slideIn 0.3s ease;
-            word-break: break-word;
-            max-width: 380px;
-        }
-        @keyframes slideIn {
-            from { transform: translateX(120%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .toast-success { border-left: 3px solid var(--green); }
-        .toast-error { border-left: 3px solid var(--red); }
-        .toast-info { border-left: 3px solid var(--blue); }
-
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 250;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 20px;
-            max-width: 700px;
-            width: 100%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        }
-        .modal-close {
-            float: right;
-            background: none;
-            border: none;
-            color: var(--text2);
-            font-size: 1.5rem;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .modal-close:hover { color: #fff; }
-
-        .export-btns {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
+        .loading-text { color: var(--text2); margin-top: 16px; font-size: 0.9rem; text-align: center; }
+        .toast-container { position: fixed; bottom: 20px; right: 12px; z-index: 300; display: flex; flex-direction: column; gap: 8px; max-width: 90vw; }
+        .toast { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.5); animation: slideIn 0.3s ease; word-break: break-word; max-width: 380px; }
+        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-success { border-left: 3px solid var(--green); } .toast-error { border-left: 3px solid var(--red); } .toast-info { border-left: 3px solid var(--blue); }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 250; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; max-width: 400px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .modal input { width: 100%; padding: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-family: var(--mono); font-size: 0.9rem; margin: 10px 0; }
+        .modal .warning { font-size: 0.75rem; color: var(--red); margin-bottom: 8px; }
+        .export-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 
         @media (max-width: 768px) {
-            .home-logo { font-size: 2.5rem; }
-            .home-container { margin-top: 10vh; }
+            .home-logo { font-size: 2.5rem; } .home-container { margin-top: 10vh; }
             .results-header { flex-direction: column; align-items: stretch; }
-            .results-search { max-width: 100%; }
-            .tab-btn { padding: 8px 12px; font-size: 0.75rem; }
-            .stats-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-        }
-        @media (max-width: 400px) {
-            .home-logo { font-size: 2rem; }
-            .search-box { padding: 6px 12px; }
-            .search-input { font-size: 0.9rem; }
+            .results-left, .results-search { max-width: 100%; }
         }
     </style>
 </head>
 <body>
-
-    <!-- Home Screen -->
     <div class="home-container" id="homeScreen">
         <div class="home-logo">Nostr<span>Scope</span></div>
         <div class="home-subtitle">Explore every piece of information connected to any Nostr event.</div>
         <div class="search-box">
             <span class="search-icon">🔎</span>
-            <input type="text" class="search-input" id="homeSearchInput" 
-                   placeholder="Paste event ID, note1..., nevent1..., or URL" autocomplete="off" spellcheck="false">
-            <div class="search-actions">
-                <button class="btn btn-secondary" id="homeClearBtn" title="Clear">✕</button>
-            </div>
+            <input type="text" class="search-input" id="homeSearchInput" placeholder="Paste event ID, note1..., nevent1..., or URL">
+            <div class="search-actions"><button class="btn btn-secondary" id="homeClearBtn">✕</button></div>
         </div>
         <div class="home-buttons">
             <button class="btn btn-primary" id="homeAnalyzeBtn">NostrScope Analyze</button>
             <button class="btn btn-secondary" id="homeLuckyBtn">I'm Feeling Lucky</button>
         </div>
         <div class="error-msg" id="errorMsg"></div>
-        <div class="hint-text">
-            Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>https://njump.me/note1...</code>
-        </div>
+        <div class="hint-text">Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>https://njump.me/note1...</code></div>
     </div>
 
-    <!-- Results Screen -->
     <div class="results-container" id="resultsScreen">
         <div class="results-header">
-            <div class="results-logo" id="resultsLogo">Nostr<span>Scope</span></div>
-            <div class="results-search">
-                <span style="color:var(--text2);margin-right:8px;">🔎</span>
-                <input type="text" id="resultsSearchInput" placeholder="Paste another event..." autocomplete="off" spellcheck="false">
-                <button class="btn btn-secondary btn-small" id="resultsSearchBtn">Search</button>
+            <div class="results-left">
+                <div class="results-logo" id="resultsLogo">Nostr<span>Scope</span></div>
+                <div class="results-search">
+                    <span style="color:var(--text2);margin-right:8px;">🔎</span>
+                    <input type="text" id="resultsSearchInput" placeholder="Paste another event...">
+                    <button class="btn btn-secondary btn-small" id="resultsSearchBtn">Search</button>
+                </div>
+            </div>
+            <div class="user-area">
+                <div id="userStatus" class="user-info">Not logged in</div>
+                <button id="loginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
+                <button id="logoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
             </div>
         </div>
         <div class="results-tabs" id="tabsNav">
@@ -625,100 +224,80 @@
         </div>
     </div>
 
-    <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-        <div style="text-align:center;">
-            <div class="spinner"></div>
-            <div class="loading-text" id="loadingText">Searching the Nostr universe...</div>
-        </div>
+        <div style="text-align:center;"><div class="spinner"></div><div class="loading-text" id="loadingText">Searching the Nostr universe...</div></div>
     </div>
-    <!-- Toast & Modal containers -->
     <div class="toast-container" id="toastContainer"></div>
     <div id="modalContainer"></div>
 
+    <script src="https://unpkg.com/nostr-tools@2.3.3/lib/nostr.bundle.js"></script>
     <script>
         (function() {
+            // ── Constants ────────────────────
             const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
-            const BECH32_ALPHABET_MAP = {};
-            for (let i = 0; i < BECH32_ALPHABET.length; i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
-            const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+            const BECH32_ALPHABET_MAP = {}; for(let i=0;i<BECH32_ALPHABET.length;i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]]=i;
+            const BECH32_GENERATOR = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
             const HEX_CHARS = '0123456789abcdef';
             const DEFAULT_RELAYS = ['wss://relay.damus.io','wss://relay.nostr.band','wss://nos.lol','wss://relay.primal.net','wss://purplepag.es','wss://relay.nostr.net','wss://bostr.fount.org','wss://relay.plebstr.com','wss://offchain.pub','wss://relay.snort.social'];
             const KNOWN_KINDS = {0:'Profile Metadata',1:'Text Note',2:'Recommend Relay',3:'Follow List',4:'Encrypted DM',5:'Deletion Request',6:'Repost',7:'Reaction',8:'Badge Award',16:'Generic Repost',40:'Channel Creation',41:'Channel Metadata',42:'Channel Message',43:'Channel Hide Message',44:'Channel Mute User',1984:'Report',3000:'Follow Sets',3001:'Bookmark Sets',3002:'Relay Sets',3003:'Bookmark Sets v2',9734:'Zap Receipt',9735:'Zap Event',10000:'Mute List',10001:'Pin List',10002:'Relay List Metadata',13194:'Wallet Info',22242:'Auth Request',23194:'Wallet Request',23195:'Wallet Response',27235:'BCH Tip'};
 
-            // State
-            let allEvents = [], originalEvent = null, eventMap = new Map(), relayStats = new Map();
-            let activeRelays = [...DEFAULT_RELAYS], investigationHexId = null;
-            let threadCollapsed = new Set(), sortOrder = 'oldest-first', relayManager = null, investigator = null;
+            // ── State ─────────────────────────
+            let allEvents=[], originalEvent=null, eventMap=new Map(), relayStats=new Map();
+            let activeRelays=[...DEFAULT_RELAYS], investigationHexId=null;
+            let threadCollapsed=new Set(), sortOrder='oldest-first';
+            let relayManager=null, investigator=null, currentUser=null;
 
-            // DOM elements
-            const homeScreen = document.getElementById('homeScreen');
-            const resultsScreen = document.getElementById('resultsScreen');
-            const homeSearchInput = document.getElementById('homeSearchInput');
-            const resultsSearchInput = document.getElementById('resultsSearchInput');
-            const homeAnalyzeBtn = document.getElementById('homeAnalyzeBtn');
-            const homeClearBtn = document.getElementById('homeClearBtn');
-            const homeLuckyBtn = document.getElementById('homeLuckyBtn');
-            const errorMsg = document.getElementById('errorMsg');
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            const loadingText = document.getElementById('loadingText');
-            const tabsNav = document.getElementById('tabsNav');
-            const toastContainer = document.getElementById('toastContainer');
-            const modalContainer = document.getElementById('modalContainer');
-            const resultsSearchBtn = document.getElementById('resultsSearchBtn');
+            // ── DOM Elements ──────────────────
+            const homeScreen=document.getElementById('homeScreen'), resultsScreen=document.getElementById('resultsScreen');
+            const homeSearchInput=document.getElementById('homeSearchInput'), resultsSearchInput=document.getElementById('resultsSearchInput');
+            const homeAnalyzeBtn=document.getElementById('homeAnalyzeBtn'), homeClearBtn=document.getElementById('homeClearBtn');
+            const homeLuckyBtn=document.getElementById('homeLuckyBtn'), errorMsg=document.getElementById('errorMsg');
+            const loadingOverlay=document.getElementById('loadingOverlay'), loadingText=document.getElementById('loadingText');
+            const tabsNav=document.getElementById('tabsNav'), toastContainer=document.getElementById('toastContainer');
+            const modalContainer=document.getElementById('modalContainer');
+            const resultsSearchBtn=document.getElementById('resultsSearchBtn');
+            const loginBtn=document.getElementById('loginBtn'), logoutBtn=document.getElementById('logoutBtn');
+            const userStatus=document.getElementById('userStatus');
 
-            // Bech32
-            function bech32Polymod(values) { let chk=1; for(let i=0;i<values.length;i++){const top=chk>>25;chk=((chk&0x1ffffff)<<5)^values[i];for(let j=0;j<5;j++)if((top>>j)&1)chk^=BECH32_GENERATOR[j];}return chk; }
+            // ── Bech32 & Utilities ────────────
+            function bech32Polymod(values){let chk=1;for(let i=0;i<values.length;i++){const top=chk>>25;chk=((chk&0x1ffffff)<<5)^values[i];for(let j=0;j<5;j++)if((top>>j)&1)chk^=BECH32_GENERATOR[j];}return chk;}
             function bech32HRPExpand(hrp){const r=[];for(let i=0;i<hrp.length;i++)r.push(hrp.charCodeAt(i)>>5);r.push(0);for(let i=0;i<hrp.length;i++)r.push(hrp.charCodeAt(i)&31);return r;}
             function bech32Decode(str){const sep=str.lastIndexOf('1');if(sep<1||sep+7>str.length)return null;const hrp=str.substring(0,sep),data=str.substring(sep+1),vals=[];for(let i=0;i<data.length;i++){if(!(data[i] in BECH32_ALPHABET_MAP))return null;vals.push(BECH32_ALPHABET_MAP[data[i]]);}const comb=bech32HRPExpand(hrp).concat(vals);if(bech32Polymod(comb)!==1)return null;const payload=vals.slice(0,-6),bytes=[];let bits=0,accum=0;for(let i=0;i<payload.length;i++){accum=(accum<<5)|payload[i];bits+=5;while(bits>=8){bits-=8;bytes.push((accum>>bits)&0xff);}}if(bits>=5||accum&((1<<bits)-1))return null;return{hrp,bytes};}
+            function bech32Encode(hrp, data){const combined=bech32HRPExpand(hrp).concat(data);const polymod=bech32Polymod(combined)^1;const checksum=[];for(let i=0;i<6;i++)checksum.push((polymod>>(5*(5-i)))&31);return hrp+'1'+data.map(v=>BECH32_ALPHABET[v]).join('')+checksum.map(v=>BECH32_ALPHABET[v]).join('');}
+            function hexToBytes(hex){const bytes=[];for(let i=0;i<hex.length;i+=2)bytes.push(parseInt(hex.substring(i,i+2),16));return bytes;}
+            function bytesToHex(bytes){let h='';for(let i=0;i<bytes.length;i++){h+=HEX_CHARS[(bytes[i]>>4)&0xf];h+=HEX_CHARS[bytes[i]&0xf];}return h;}
+            function isValidHex64(s){return /^[0-9a-fA-F]{64}$/.test(s);}
+            function npubFromHex(pubkeyHex){const data=[0];for(const b of hexToBytes(pubkeyHex))data.push(b);return bech32Encode('npub',data);}
+            function escapeHtml(str){const d=document.createElement('div');d.textContent=str;return d.innerHTML;}
+            function syntaxHighlight(json){return json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,m=>{let c='json-number';if(/^"/.test(m))c=/:$/.test(m)?'json-key':'json-string';else if(/true|false/.test(m))c='json-boolean';else if(/null/.test(m))c='json-null';return`<span class="${c}">${m}</span>`;});}
+            function downloadFile(content,filename,mime){const b=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+
+            // ── Input Parser ──────────────────
+            function parseInput(input){const t=input.trim();if(!t)return{error:'Please enter an event identifier.'};if(isValidHex64(t))return{hexId:t.toLowerCase(),source:'hex'};if(t.startsWith('note1')){const h=decodeNote1(t);if(h)return{hexId:h,source:'note1'};return{error:'Invalid note1 identifier.'};}if(t.startsWith('nevent1')){const r=decodeNevent1(t);if(r&&r.eventId)return{hexId:r.eventId,source:'nevent1',relayHints:r.relayHints||[]};return{error:'Invalid nevent1 identifier.'};}if(t.startsWith('npub1')||t.startsWith('nprofile1'))return{error:'Profile identifier. Use event ID (note/nevent/hex).'};const nostrUri=t.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);if(nostrUri)return parseInput(nostrUri[1]);let m;m=t.match(/https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i);if(m)return parseInput(m[1]);m=t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i);if(m)return parseInput(m[1]);return{error:'Unable to parse input.'};}
             function decodeNote1(s){const d=bech32Decode(s);if(!d||d.hrp!=='note'||d.bytes.length!==32)return null;return bytesToHex(d.bytes);}
             function decodeNevent1(s){const d=bech32Decode(s);if(!d||d.hrp!=='nevent'||d.bytes.length<32)return null;const eid=bytesToHex(d.bytes.slice(0,32));const tlvs=[];let idx=32;while(idx<d.bytes.length){if(idx+2>d.bytes.length)break;const t=d.bytes[idx],l=d.bytes[idx+1];idx+=2;if(idx+l>d.bytes.length)break;tlvs.push({type:t,value:d.bytes.slice(idx,idx+l)});idx+=l;}const hints=tlvs.filter(t=>t.type===1||t.type===2).map(t=>new TextDecoder().decode(new Uint8Array(t.value)));return{eventId:eid,relayHints:hints};}
-            function bytesToHex(b){let h='';for(let i=0;i<b.length;i++){h+=HEX_CHARS[(b[i]>>4)&0xf];h+=HEX_CHARS[b[i]&0xf];}return h;}
-            function isValidHex64(s){return /^[0-9a-fA-F]{64}$/.test(s);}
 
-            function parseInput(input){
-                const t=input.trim();
-                if(!t) return {error:'Please enter an event identifier.'};
-                if(isValidHex64(t)) return {hexId:t.toLowerCase(),source:'hex'};
-                if(t.startsWith('note1')){const h=decodeNote1(t);if(h)return{hexId:h,source:'note1'};return{error:'Invalid note1 identifier.'};}
-                if(t.startsWith('nevent1')){const r=decodeNevent1(t);if(r&&r.eventId)return{hexId:r.eventId,source:'nevent1',relayHints:r.relayHints||[]};return{error:'Invalid nevent1 identifier.'};}
-                if(t.startsWith('npub1')||t.startsWith('nprofile1')) return {error:'Profile identifier. Use an event ID (note/nevent/hex).'};
-                const nostrUri=t.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);
-                if(nostrUri) return parseInput(nostrUri[1]);
-                let m; m=t.match(/https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i); if(m) return parseInput(m[1]);
-                m=t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i); if(m) return parseInput(m[1]);
-                return {error:'Unable to parse input. Use event ID, note1..., nevent1..., or supported URL.'};
-            }
-
-            function showToast(msg,type='info'){
-                const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;
-                toastContainer.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3500);
-            }
+            // ── Toast / Loading ────────────────
+            function showToast(msg,type='info'){const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;toastContainer.appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},3500);}
             function showLoading(text){loadingText.textContent=text;loadingOverlay.classList.add('active');}
             function hideLoading(){loadingOverlay.classList.remove('active');}
             function showError(msg){errorMsg.textContent=msg;errorMsg.classList.add('visible');}
             function hideError(){errorMsg.textContent='';errorMsg.classList.remove('visible');}
 
+            // ── Relay Manager (with publish) ────
             class RelayManager {
                 constructor(urls){this.relayUrls=urls;this.connections=new Map();this.subscriptions=new Map();this.subIdCounter=0;}
                 getNextSubId(){return'sub_'+ ++this.subIdCounter;}
                 async connectAll(ms=8000){await Promise.allSettled(this.relayUrls.map(u=>this.connect(u,ms)));}
                 async connect(url,ms=8000){
-                    if(this.connections.has(url)){const ex=this.connections.get(url);if(ex.ws&&ex.ws.readyState===WebSocket.OPEN){relayStats.set(url,{...relayStats.get(url),status:'connected'});return ex.ws;}}
+                    if(this.connections.has(url)){const ex=this.connections.get(url);if(ex.ws&&ex.ws.readyState===WebSocket.OPEN)return ex.ws;}
                     relayStats.set(url,{status:'connecting',events:0,errors:0,responseTime:null,startTime:Date.now()});
                     return new Promise((res,rej)=>{
-                        try{const ws=new WebSocket(url);const to=setTimeout(()=>{ws.close();relayStats.set(url,{...relayStats.get(url),status:'failed',errors:1});rej(new Error('timeout'));},ms);
-                        ws.onopen=()=>{clearTimeout(to);const rt=Date.now()-(relayStats.get(url)?.startTime||Date.now());relayStats.set(url,{status:'connected',events:0,errors:0,responseTime:rt});this.connections.set(url,{ws,pendingSubs:new Set()});res(ws);};
-                        ws.onerror=()=>{clearTimeout(to);relayStats.set(url,{...relayStats.get(url),status:'failed',errors:1});rej(new Error('error'));};
-                        ws.onclose=()=>{const cur=relayStats.get(url)||{};if(cur.status==='connecting')relayStats.set(url,{...cur,status:'failed',errors:1});else if(cur.status==='connected')relayStats.set(url,{...cur,status:'disconnected'});this.connections.delete(url);};
-                        ws.onmessage=m=>this.handleMessage(url,m);}catch(e){relayStats.set(url,{status:'failed',events:0,errors:1});rej(e);}
+                        try{const ws=new WebSocket(url);const to=setTimeout(()=>{ws.close();relayStats.set(url,{status:'failed',errors:1});rej(new Error('timeout'));},ms);
+                        ws.onopen=()=>{clearTimeout(to);relayStats.set(url,{status:'connected',events:0,errors:0,responseTime:Date.now()- (relayStats.get(url)?.startTime||Date.now())});this.connections.set(url,{ws,pendingSubs:new Set()});res(ws);};
+                        ws.onerror=()=>{clearTimeout(to);relayStats.set(url,{status:'failed',errors:1});rej(new Error('error'));};
+                        ws.onclose=()=>{const cur=relayStats.get(url)||{};if(cur.status==='connecting')relayStats.set(url,{status:'failed',errors:1});else if(cur.status==='connected')relayStats.set(url,{status:'disconnected'});this.connections.delete(url);};
+                        ws.onmessage=m=>this.handleMessage(url,m);}catch(e){relayStats.set(url,{status:'failed',errors:1});rej(e);}
                     });
                 }
                 handleMessage(url,msg){
@@ -735,8 +314,10 @@
                 closeSubscription(subId){for(const[u,c]of this.connections){if(c.ws&&c.ws.readyState===WebSocket.OPEN){c.ws.send(JSON.stringify(['CLOSE',subId]));c.pendingSubs.delete(subId);}}this.subscriptions.delete(subId);}
                 closeAll(){for(const s of this.subscriptions.keys())this.closeSubscription(s);for(const[u,c]of this.connections)if(c.ws)c.ws.close();this.connections.clear();this.subscriptions.clear();}
                 reconnect(url){const c=this.connections.get(url);if(c&&c.ws)try{c.ws.close()}catch(e){}this.connections.delete(url);return this.connect(url);}
+                publish(event){const msg=JSON.stringify(['EVENT',event]);for(const[url,conn]of this.connections){if(conn.ws&&conn.ws.readyState===WebSocket.OPEN)conn.ws.send(msg);}}
             }
 
+            // ── Event Investigator ──────────────
             class EventInvestigator {
                 constructor(rm){this.rm=rm;this.events=[];this.eventMap=new Map();this.originalEvent=null;this.hexId=null;this.pendingSubs=new Set();this.allDone=false;this.onUpdate=null;this.onComplete=null;this.investigationDepth=0;this.maxDepth=4;}
                 async investigate(hexId,hints=[]){
@@ -772,9 +353,9 @@
                 getBchPaymentEvents(){const res=[];for(const e of this.events){if(e.kind===9735)res.push({...e,paymentType:'zap'});else if(e.kind===9734)res.push({...e,paymentType:'zap_receipt'});else if(e.kind===27235)res.push({...e,paymentType:'bch_tip'});else if(e.tags&&e.tags.some(t=>t[0]==='cashtoken'||t[0]==='bch'||t[0]==='txid'))res.push({...e,paymentType:'bch_payment'});else if(e.content&&/\b(bch|bitcoincash|cashtoken)\b/i.test(e.content)&&/[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content))res.push({...e,paymentType:'possible_bch'});}return res;}
             }
 
-            // Rendering functions (unchanged logic)
+            // ── Rendering functions ─────────────
             function renderAll(inv){allEvents=inv.events;originalEvent=inv.originalEvent;eventMap=inv.eventMap;investigationHexId=inv.hexId;if(allEvents.length===0&&!originalEvent){resultsScreen.classList.remove('active');homeScreen.style.display='flex';return;}resultsScreen.classList.add('active');homeScreen.style.display='none';renderThread(inv);renderTimeline(inv);renderStats(inv);renderJson(inv);renderRelays();renderExport();renderBch(inv);}
-            function renderThread(inv){const p=document.getElementById('panel-thread');const tree=inv.getThreadTree();if(!tree||!tree.rootEvent){p.innerHTML='<div class="card"><p style="color:var(--text2);">No thread data.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span><div><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button> <button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div></div><div class="thread-tree">'+buildLines(tree.rootId,tree.childrenMap,0,new Set())+'</div></div>';p.innerHTML=h;p.querySelectorAll('.thread-node').forEach(el=>el.addEventListener('click',function(){const eid=this.dataset.eid;if(eid&&eventMap.has(eid))showEventModal(eventMap.get(eid));}));p.querySelectorAll('.thread-collapsed').forEach(el=>el.addEventListener('click',function(){threadCollapsed.delete(this.dataset.eid);renderThread(inv);}));}
+            function renderThread(inv){const p=document.getElementById('panel-thread');const tree=inv.getThreadTree();if(!tree||!tree.rootEvent){p.innerHTML='<div class="card"><p style="color:var(--text2);">No thread data.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span><div style="display:flex; gap:8px; align-items:center;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse</button><button class="btn btn-small btn-primary" id="boostBtn" '+(currentUser?'':'disabled')+'>🚀 Boost</button></div></div><div class="thread-tree">'+buildLines(tree.rootId,tree.childrenMap,0,new Set())+'</div></div>';p.innerHTML=h;document.getElementById('boostBtn')?.addEventListener('click', boostOriginalEvent);}
             function buildLines(eid,childrenMap,depth,visited){if(visited.has(eid)&&depth>0)return'';visited.add(eid);const ev=eventMap.get(eid);if(!ev&&depth>0)return'';let l='';const pre=depth===0?'':'  '.repeat(depth-1)+(depth>0?'├── ':'');const isOrig=eid===investigationHexId;let cls='thread-node';if(isOrig)cls+=' thread-original';else if(ev&&ev.kind===1)cls+=' thread-reply';else if(ev&&ev.kind===6)cls+=' thread-quote';const short=eid.substring(0,8)+'...';const kind=ev?(KNOWN_KINDS[ev.kind]||`Kind ${ev.kind}`):'?';const time=ev?new Date((ev.created_at||0)*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';const prev=ev?(ev.content||'').replace(/\n/g,' ').substring(0,60):'';if(threadCollapsed.has(eid)&&depth>0){l+=`<span class="thread-collapsed" data-eid="${eid}">${pre}[+] ${short} (${kind}) - collapsed</span>\n`;return l;}l+=`<span class="${cls}" data-eid="${eid}" title="${kind} | ${time}">${pre}${isOrig?'★ ':''}${short} [${kind}] ${time} ${prev.substring(0,40)}</span>\n`;const children=childrenMap.get(eid)||[];for(const c of children.filter(c=>!visited.has(c.id))){const cl=buildLines(c.id,childrenMap,depth+1,new Set(visited));if(cl){for(const line of cl.split('\n').filter(x=>x.trim()))l+=line+'\n';}}return l;}
             function renderTimeline(inv){const p=document.getElementById('panel-timeline');const sorted=[...inv.events].sort((a,b)=>sortOrder==='newest-first'?(b.created_at||0)-(a.created_at||0):(a.created_at||0)-(b.created_at||0));if(!sorted.length){p.innerHTML='<div class="card"><p>No events.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: '+(sortOrder==='oldest-first'?'Oldest First ▲':'Newest First ▼')+'</button></div>';for(const e of sorted){const time=new Date((e.created_at||0)*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});const kind=KNOWN_KINDS[e.kind]||`Kind ${e.kind}`;const isOrig=e.id===investigationHexId;const prev=(e.content||'').replace(/\n/g,' ').substring(0,100);h+=`<div class="timeline-item" style="${isOrig?'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;':''}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig?'badge-green':'badge-purple'}">${kind}</span>${isOrig?' <span class="badge badge-green">★ Original</span>':''}</span><span class="timeline-preview"><code style="font-size:0.65rem;">${e.id.substring(0,10)}...</code> ${escapeHtml(prev)}</span><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button></div>`;}h+='</div>';p.innerHTML=h;}
             function renderStats(inv){const p=document.getElementById('panel-stats');const tree=inv.getThreadTree();let nested=0;if(tree&&tree.childrenMap){const count=(eid,d)=>{let c=0;for(const child of (tree.childrenMap.get(eid)||[])){if(d>=1)c++;c+=count(child.id,d+1);}return c;};nested=count(tree.rootId,0);}const stats=[{l:'Original Event',v:originalEvent?1:0},{l:'Replies',v:inv.getEventsByKind(1).filter(e=>e.id!==investigationHexId&&inv.getParentIds(e).includes(investigationHexId)).length},{l:'Nested Replies',v:nested},{l:'Quotes',v:inv.events.filter(e=>e.kind===1&&e.content&&e.content.includes(investigationHexId||'')&&!inv.getParentIds(e).includes(investigationHexId||'')).length},{l:'Mentions',v:inv.events.filter(e=>e.tags&&e.tags.some(t=>t[0]==='e'&&t[1]===investigationHexId)).length},{l:'Reposts',v:inv.getEventsByKind(6).length},{l:'Reactions',v:inv.getEventsByKind(7).length},{l:'Zap Events',v:inv.getEventsByKind(9735).length+inv.getEventsByKind(9734).length},{l:'BCH Tips',v:inv.getBchPaymentEvents().length},{l:'Unknown Events',v:inv.getUnknownEvents().length},{l:'Unique Authors',v:inv.getUniqueAuthors()},{l:'Connected Relays',v:[...relayStats.values()].filter(s=>s.status==='connected').length},{l:'Successful Relays',v:[...relayStats.values()].filter(s=>s.events>0).length},{l:'Failed Relays',v:[...relayStats.values()].filter(s=>s.status==='failed'||s.status==='disconnected').length},{l:'Images',v:inv.getMediaCounts().images},{l:'Videos',v:inv.getMediaCounts().videos},{l:'Attachments',v:inv.getMediaCounts().attachments},{l:'Hashtags',v:inv.getHashtags()},{l:'Links',v:inv.getLinks()},{l:'Total Events',v:inv.events.length}];let h='<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';stats.forEach(s=>h+=`<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);h+='</div></div>';p.innerHTML=h;}
@@ -782,45 +363,87 @@
             function renderRelays(){const p=document.getElementById('panel-relays');let h='<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span><button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';[...new Set([...activeRelays,...relayStats.keys()])].forEach(url=>{const s=relayStats.get(url)||{status:'unknown',events:0,errors:0,responseTime:null};let cls='status-connecting',txt=s.status||'unknown';if(s.status==='connected'){cls='status-connected';txt='Connected';}else if(s.status==='failed'){cls='status-failed';txt='Failed';}else if(s.status==='disconnected'){cls='status-failed';txt='Disconnected';}const rt=s.responseTime?`${s.responseTime}ms`:'—';h+=`<tr><td style="max-width:200px;word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events||0}</td><td>${s.errors||0}</td><td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td></tr>`;});h+='</tbody></table></div></div>';p.innerHTML=h;}
             function renderExport(){document.getElementById('panel-export').innerHTML='<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML</button></div></div>';}
             function renderBch(inv){const p=document.getElementById('panel-bch');const evs=inv.getBchPaymentEvents();if(!evs.length){p.innerHTML='<div class="card"><p>💸 No BCH payment events found.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">💸 BCH Payments</span></div>';evs.forEach(e=>{const sender=e.pubkey?e.pubkey.substring(0,12)+'...':'?';const recipient=e.tags?(e.tags.find(t=>t[0]==='p')?.[1]?.substring(0,12)+'...'||'?'):'?';const amount=e.tags?(e.tags.find(t=>t[0]==='amount')?.[1]||'N/A'):'N/A';const curr=e.paymentType==='zap'?'BTC (Zap)':e.paymentType==='bch_tip'?'BCH':'?';const txid=e.tags?(e.tags.find(t=>t[0]==='txid'||t[0]==='cashtoken')?.[1]||'N/A'):'N/A';h+=`<div class="card" style="margin-bottom:8px;"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code>${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;});h+='</div>';p.innerHTML=h;}
-            function showEventModal(ev){const json=JSON.stringify(ev,null,2);modalContainer.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;const b=modalContainer.querySelector('.modal-backdrop');b.querySelector('.copy-json-btn')?.addEventListener('click',()=>{navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId),null,2)).then(()=>showToast('Copied!'));});b.querySelector('.download-json-btn')?.addEventListener('click',()=>{const eid=b.querySelector('.download-json-btn').dataset.eventId;downloadFile(JSON.stringify(eventMap.get(eid),null,2),`nostr-event-${eid.substring(0,12)}.json`);});}
-            function syntaxHighlight(j){return j.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,m=>{let c='json-number';if(/^"/.test(m))c=/:$/.test(m)?'json-key':'json-string';else if(/true|false/.test(m))c='json-boolean';else if(/null/.test(m))c='json-null';return`<span class="${c}">${m}</span>`;});}
-            function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-            function downloadFile(c,f,m){const b=new Blob([c],{type:m});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;document.body.appendChild(a);a.click();document.body.removeChild(a);}
-            function exportJSON(t){let d,n;if(t==='original'&&originalEvent){d=JSON.stringify(originalEvent,null,2);n=`nostrscope-original-${investigationHexId?.substring(0,12)||'event'}.json`;}else{d=JSON.stringify({investigationHexId,originalEvent,allEvents,relayStats:[...relayStats.entries()].map(([u,s])=>({url:u,...s})),exportedAt:new Date().toISOString(),totalEvents:allEvents.length},null,2);n=`nostrscope-investigation-${investigationHexId?.substring(0,12)||'all'}.json`;}downloadFile(d,n,'application/json');showToast('Exported!');}
+
+            function showEventModal(ev){const json=JSON.stringify(ev,null,2);modalContainer.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;const b=modalContainer.querySelector('.modal-backdrop');b.querySelector('.copy-json-btn').addEventListener('click',()=>{navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId),null,2)).then(()=>showToast('Copied!'));});b.querySelector('.download-json-btn').addEventListener('click',()=>{const eid=b.querySelector('.download-json-btn').dataset.eventId;downloadFile(JSON.stringify(eventMap.get(eid),null,2),`nostr-event-${eid.substring(0,12)}.json`);});}
+
+            // ── Login / Boost ────────────────────
+            function showLoginModal(){
+                modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
+                const backdrop = document.getElementById('loginModalBackdrop');
+                backdrop.querySelector('#loginCancelBtn').addEventListener('click', ()=> backdrop.remove());
+                backdrop.querySelector('#loginConfirmBtn').addEventListener('click', ()=>{
+                    const nsec = document.getElementById('nsecInput').value.trim();
+                    try {
+                        const decoded = bech32Decode(nsec);
+                        if(!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) throw new Error('Invalid nsec');
+                        const privateKey = bytesToHex(decoded.bytes);
+                        const publicKey = nostr.getPublicKey(privateKey);
+                        currentUser = { privateKey, publicKey };
+                        updateUserUI();
+                        showToast('Logged in as ' + npubFromHex(publicKey).substring(0,12)+'...', 'success');
+                        backdrop.remove();
+                        // Enable boost button if visible
+                        const boostBtn = document.getElementById('boostBtn');
+                        if(boostBtn) boostBtn.disabled = false;
+                    } catch(e) {
+                        showToast('Invalid nsec. Please try again.', 'error');
+                    }
+                });
+            }
+
+            function logout(){
+                currentUser = null;
+                updateUserUI();
+                const boostBtn = document.getElementById('boostBtn');
+                if(boostBtn) boostBtn.disabled = true;
+                showToast('Logged out.', 'info');
+            }
+
+            function updateUserUI(){
+                if(currentUser){
+                    const npub = npubFromHex(currentUser.publicKey);
+                    userStatus.innerHTML = `<span class="user-npub">${npub.substring(0,12)}...</span>`;
+                    loginBtn.style.display='none';
+                    logoutBtn.style.display='inline-block';
+                } else {
+                    userStatus.textContent = 'Not logged in';
+                    loginBtn.style.display='inline-block';
+                    logoutBtn.style.display='none';
+                }
+            }
+
+            async function boostOriginalEvent(){
+                if(!originalEvent) { showToast('No original event to boost.','error'); return; }
+                if(!currentUser) { showToast('Please login first.','info'); showLoginModal(); return; }
+                if(!relayManager) { showToast('No relay connection.','error'); return; }
+                const eventTemplate = {
+                    kind: 6,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['e', originalEvent.id], ['p', originalEvent.pubkey], ['k', String(originalEvent.kind)]],
+                    content: '',
+                };
+                try {
+                    const signedEvent = await nostr.signEvent(eventTemplate, currentUser.privateKey);
+                    relayManager.publish(signedEvent);
+                    showToast('🚀 Boost published! Kind 6 repost sent to all connected relays.', 'success');
+                    setTimeout(()=> { if(investigator) runAnalysis(investigationHexId); }, 2000);
+                } catch(e) {
+                    showToast('Error signing event: ' + e.message, 'error');
+                }
+            }
+
+            // ── Exports ─────────────────────────
+            function exportJSON(type){
+                let data,filename;
+                if(type==='original'&&originalEvent){data=JSON.stringify(originalEvent,null,2);filename=`nostrscope-original-${investigationHexId?.substring(0,12)||'event'}.json`;}
+                else{data=JSON.stringify({investigationHexId,originalEvent,allEvents,relayStats:[...relayStats.entries()].map(([u,s])=>({url:u,...s})),exportedAt:new Date().toISOString(),totalEvents:allEvents.length},null,2);filename=`nostrscope-investigation-${investigationHexId?.substring(0,12)||'all'}.json`;}
+                downloadFile(data,filename,'application/json');showToast('Exported!');
+            }
             function exportCSV(){let csv='Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n';allEvents.forEach(e=>{csv+=`"${e.id}",${e.kind},"${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}","${e.pubkey||''}","${new Date((e.created_at||0)*1000).toISOString()}","${(e.content||'').replace(/"/g,'""').substring(0,200)}","${e.id===investigationHexId?'Yes':'No'}"\n`;});downloadFile(csv,`nostrscope-summary-${investigationHexId?.substring(0,12)||'events'}.csv`,'text/csv');}
             function exportMarkdown(){let md=`# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`;[...allEvents].sort((a,b)=>(a.created_at||0)-(b.created_at||0)).forEach(e=>{md+=`- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`;});downloadFile(md,`nostrscope-report-${investigationHexId?.substring(0,12)||'events'}.md`,'text/markdown');}
             function exportHTML(){let h=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;[...allEvents].sort((a,b)=>(a.created_at||0)-(b.created_at||0)).forEach(e=>{h+=`<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`;});h+='</tbody></table></body></html>';downloadFile(h,`nostrscope-report-${investigationHexId?.substring(0,12)||'events'}.html`,'text/html');}
 
-            // Switch to results view
-            function switchToResults(){
-                homeScreen.style.display='none';
-                resultsScreen.classList.add('active');
-                resultsSearchInput.value = homeSearchInput.value;
-            }
-
-            async function runAnalysis(inputValue){
-                const input = inputValue || homeSearchInput.value.trim();
-                if(!input){showError('Please enter an event identifier.');return;}
-                hideError();
-                const parsed = parseInput(input);
-                if(parsed.error){showError(parsed.error);showToast(parsed.error,'error');return;}
-                investigationHexId = parsed.hexId;
-                allEvents=[];originalEvent=null;eventMap.clear();threadCollapsed.clear();sortOrder='oldest-first';relayStats.clear();
-                const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints||[])])];
-                relayManager = new RelayManager(allUrls);
-                investigator = new EventInvestigator(relayManager);
-                investigator.onUpdate = inv => renderAll(inv);
-                investigator.onComplete = inv => {
-                    renderAll(inv);
-                    hideLoading();
-                    switchToResults();
-                    document.querySelector('.tab-btn.active')?.click();
-                    window.scrollTo({top:0,behavior:'smooth'});
-                };
-                await investigator.investigate(parsed.hexId, parsed.relayHints||[]);
-            }
-
-            // Tab switching
+            // ── Tab switching ────────────────────
             function switchTab(tabName){
                 document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
                 document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
@@ -830,7 +453,7 @@
                 if(investigator&&tabName==='export')renderExport();
             }
 
-            // Global functions
+            // ── Global window functions ──────────
             window._expandAll=()=>{threadCollapsed.clear();if(investigator)renderThread(investigator);};
             window._collapseAll=()=>{if(investigator){investigator.eventMap.forEach((_,k)=>{if(k!==investigationHexId)threadCollapsed.add(k);});renderThread(investigator);}};
             window._toggleSortOrder=()=>{sortOrder=sortOrder==='oldest-first'?'newest-first':'oldest-first';if(investigator)renderTimeline(investigator);};
@@ -847,26 +470,46 @@
             window._exportJSON=exportJSON; window._exportCSV=exportCSV; window._exportMarkdown=exportMarkdown; window._exportHTML=exportHTML;
             window.showToast=showToast;
 
-            // Event listeners
+            // ── Main analysis flow ───────────────
+            async function runAnalysis(inputValue){
+                const input = inputValue || homeSearchInput.value.trim();
+                if(!input){showError('Please enter an event identifier.');return;}
+                hideError();
+                const parsed = parseInput(input);
+                if(parsed.error){showError(parsed.error);showToast(parsed.error,'error');return;}
+                investigationHexId = parsed.hexId;
+                allEvents=[];originalEvent=null;eventMap.clear();threadCollapsed.clear();sortOrder='oldest-first';relayStats.clear();
+                const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints||[])])];
+                relayManager = new RelayManager(allUrls);
+                investigator = new EventInvestigator(relayManager);
+                investigator.onUpdate = inv => renderAll(inv);
+                investigator.onComplete = inv => {
+                    renderAll(inv);
+                    hideLoading();
+                    resultsScreen.classList.add('active');
+                    homeScreen.style.display='none';
+                    resultsSearchInput.value = homeSearchInput.value;
+                    document.querySelector('.tab-btn.active')?.click();
+                    window.scrollTo({top:0,behavior:'smooth'});
+                };
+                await investigator.investigate(parsed.hexId, parsed.relayHints||[]);
+            }
+
+            // ── Event listeners ──────────────────
             homeAnalyzeBtn.addEventListener('click', ()=> runAnalysis());
             homeClearBtn.addEventListener('click', ()=>{ homeSearchInput.value=''; hideError(); });
             homeSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
-            homeLuckyBtn.addEventListener('click', ()=>{
-                const tips = ['note1...','nevent1...','6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a','https://njump.me/note1...'];
-                homeSearchInput.value = tips[Math.floor(Math.random()*tips.length)];
-                runAnalysis();
-            });
+            homeLuckyBtn.addEventListener('click', ()=>{ const tips=['note1...','nevent1...','6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a']; homeSearchInput.value=tips[Math.floor(Math.random()*tips.length)]; runAnalysis(); });
             resultsSearchBtn.addEventListener('click', ()=> runAnalysis(resultsSearchInput.value));
             resultsSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(resultsSearchInput.value); });
             document.getElementById('resultsLogo').addEventListener('click', ()=>{ resultsScreen.classList.remove('active'); homeScreen.style.display='flex'; homeSearchInput.value=''; hideError(); });
-            tabsNav.addEventListener('click', e=>{
-                const btn = e.target.closest('.tab-btn');
-                if(btn){ switchTab(btn.dataset.tab); }
-            });
+            tabsNav.addEventListener('click', e=>{ const btn=e.target.closest('.tab-btn'); if(btn) switchTab(btn.dataset.tab); });
+            loginBtn.addEventListener('click', showLoginModal);
+            logoutBtn.addEventListener('click', logout);
 
             // Init relay stats
             DEFAULT_RELAYS.forEach(u=>relayStats.set(u,{status:'pending',events:0,errors:0,responseTime:null}));
-            console.log('🔍 NostrScope — Google-style dark theme ready.');
+            console.log('🔍 NostrScope ready — Google dark theme, login & boost enabled.');
         })();
     </script>
 </body>
