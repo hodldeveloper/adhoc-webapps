@@ -33,12 +33,11 @@ body {
     flex-direction: column;
     align-items: center;
     padding: 0;
-    /* Prevent horizontal overflow */
     max-width: 100vw;
     overflow-x: hidden;
 }
 
-/* ---------- Home screen ---------- */
+/* ---------- Home screen (unchanged) ---------- */
 .home-container {
     width: 100%; max-width: 700px; margin-top: 15vh; padding: 0 20px;
     text-align: center; display: flex; flex-direction: column; align-items: center;
@@ -98,21 +97,64 @@ body {
 .user-info { font-size: 0.8rem; color: var(--text2); }
 .user-npub { font-family: var(--mono); font-size: 0.7rem; color: var(--accent2); }
 
-/* Tabs */
+/* New vertical tabs layout */
+.results-body {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    max-width: 1300px;
+    margin: 0 auto;
+    flex: 1;
+    min-height: 0; /* important for scrolling */
+}
 .results-tabs {
-    width: 100%; max-width: 1300px; margin: 0 auto; padding: 0 20px;
-    border-bottom: 1px solid var(--border); overflow-x: auto;
-    -webkit-overflow-scrolling: touch; display: flex; gap: 2px;
+    display: flex;
+    flex-direction: column;
+    width: 160px;
+    min-width: 160px;
+    background: var(--surface2);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0;
+    margin: 0;
+    gap: 0;
+    flex-shrink: 0;
 }
 .tab-btn {
-    padding: 12px 20px; background: transparent; border: none; color: var(--text2);
-    cursor: pointer; font-weight: 500; font-size: 0.85rem; border-bottom: 2px solid transparent;
-    margin-bottom: -1px; transition: all var(--transition); white-space: nowrap;
-    font-family: var(--font); flex-shrink: 0;
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    color: var(--text2);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.85rem;
+    transition: all var(--transition);
+    white-space: nowrap;
+    font-family: var(--font);
+    border-bottom: 1px solid var(--border);
 }
-.tab-btn:hover { color: var(--text); }
-.tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
-.tab-panel { display: none; animation: fadeIn 0.25s ease; width: 100%; max-width: 1300px; margin: 20px auto; padding: 0 20px; }
+.tab-btn:hover { background: #252d3a; color: var(--text); }
+.tab-btn.active {
+    color: var(--accent2);
+    background: rgba(124,58,237,0.1);
+    border-left-color: var(--accent2);
+}
+.main-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    min-width: 0;
+}
+.tab-panel {
+    display: none;
+    animation: fadeIn 0.25s ease;
+    width: 100%;
+}
 .tab-panel.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -362,6 +404,29 @@ body {
     .home-user-area { top: 8px; right: 12px; }
     .results-header { flex-direction: column; align-items: stretch; }
     .results-left, .results-search { max-width: 100%; }
+    .results-body { flex-direction: column; }
+    .results-tabs {
+        flex-direction: row;
+        width: 100%;
+        min-width: unset;
+        max-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 0;
+    }
+    .tab-btn {
+        display: inline-block;
+        width: auto;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 12px;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+    .tab-btn.active { border-left: none; border-bottom-color: var(--accent2); }
+    .main-content { padding: 12px; }
     .tree-branch { margin-left: 10px; padding-left: 8px; }
     .timeline-card { flex-direction: column; }
     .tree-card .event-content { max-height: 100px; }
