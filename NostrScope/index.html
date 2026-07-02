@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>NostrScope — Nostr Event Inspector</title>
     <link rel="stylesheet" href="style.css">
-    <!-- nostr-tools v2.23.9 – exposes global NostrTools -->
     <script src="https://unpkg.com/nostr-tools@2.23.9/lib/nostr.bundle.js"></script>
 </head>
 <body>
@@ -14,13 +13,14 @@
             <span id="homeUserStatus" class="user-info">Not logged in</span>
             <button id="homeLoginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
             <button id="homeLogoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
+            <button id="homeAccountBtn" class="btn btn-small btn-secondary" style="display:none;">👤 My Account</button>
         </div>
 
         <div class="home-logo">Nostr<span>Scope</span></div>
-        <div class="home-subtitle">Explore every piece of information connected to any Nostr event.</div>
+        <div class="home-subtitle">Explore every piece of information connected to any Nostr event or user.</div>
         <div class="search-box">
             <span class="search-icon">🔎</span>
-            <input type="text" class="search-input" id="homeSearchInput" placeholder="Paste event ID, note1..., nevent1..., or URL">
+            <input type="text" class="search-input" id="homeSearchInput" placeholder="Paste event ID, note1..., nevent1..., npub..., or URL">
             <div class="search-actions"><button class="btn btn-secondary" id="homeClearBtn">✕</button></div>
         </div>
         <div class="home-buttons">
@@ -28,7 +28,7 @@
             <button class="btn btn-secondary" id="homeLuckyBtn">I'm Feeling Lucky</button>
         </div>
         <div class="error-msg" id="errorMsg"></div>
-        <div class="hint-text">Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>https://njump.me/note1...</code></div>
+        <div class="hint-text">Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>npub1...</code> · <code>nprofile1...</code> · <code>https://njump.me/note1...</code></div>
     </div>
 
     <div class="results-container" id="resultsScreen">
@@ -37,7 +37,7 @@
                 <div class="results-logo" id="resultsLogo">Nostr<span>Scope</span></div>
                 <div class="results-search">
                     <span style="color:var(--text2);margin-right:8px;">🔎</span>
-                    <input type="text" id="resultsSearchInput" placeholder="Paste another event...">
+                    <input type="text" id="resultsSearchInput" placeholder="Paste another event or user...">
                     <button class="btn btn-secondary btn-small" id="resultsSearchBtn">Search</button>
                 </div>
             </div>
@@ -45,6 +45,7 @@
                 <span id="resultsUserStatus" class="user-info">Not logged in</span>
                 <button id="resultsLoginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
                 <button id="resultsLogoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
+                <button id="resultsAccountBtn" class="btn btn-small btn-secondary" style="display:none;">👤 My Account</button>
             </div>
         </div>
         <div class="results-tabs" id="tabsNav">
@@ -55,6 +56,7 @@
             <button class="tab-btn" data-tab="relays">🔗 Relays</button>
             <button class="tab-btn" data-tab="export">💾 Export</button>
             <button class="tab-btn" data-tab="bch">💸 BCH Payments</button>
+            <button class="tab-btn" data-tab="profile" style="display:none;" id="profileTabBtn">👤 Profile</button>
         </div>
         <div class="main-content">
             <div class="tab-panel active" id="panel-thread"></div>
@@ -64,6 +66,7 @@
             <div class="tab-panel" id="panel-relays"></div>
             <div class="tab-panel" id="panel-export"></div>
             <div class="tab-panel" id="panel-bch"></div>
+            <div class="tab-panel" id="panel-profile"></div>
         </div>
     </div>
 
