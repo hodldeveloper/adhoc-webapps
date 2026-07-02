@@ -38,6 +38,16 @@ body {
 .home-container {
     width: 100%; max-width: 700px; margin-top: 15vh; padding: 0 20px;
     text-align: center; display: flex; flex-direction: column; align-items: center;
+    position: relative;
+}
+.home-user-area {
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
 }
 .home-logo { font-size: 3.5rem; font-weight: 400; letter-spacing: -0.05em; color: #fff; margin-bottom: 24px; cursor: default; user-select: none; }
 .home-logo span { color: var(--accent2); font-weight: 300; }
@@ -156,6 +166,7 @@ body {
 
 @media (max-width: 768px) {
     .home-logo { font-size: 2.5rem; } .home-container { margin-top: 10vh; }
+    .home-user-area { top: 8px; right: 12px; }
     .results-header { flex-direction: column; align-items: stretch; }
     .results-left, .results-search { max-width: 100%; }
 }
