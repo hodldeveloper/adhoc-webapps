@@ -32,14 +32,14 @@
     let currentUser = null;
     let scannedPubkey = null;
 
-    // ── DOM Elements (will be populated after DOMContentLoaded) ──
+    // ── DOM Elements (cached after DOM ready) ──
     let homeScreen, resultsScreen, homeSearchInput, homeAnalyzeBtn, homeClearBtn;
     let errorMsg, loadingOverlay, loadingText, toastContainer, modalContainer;
     let resultsBackBtn, resultsLoginBtn, resultsAccountBtn;
     let homeLoginBtn, homeLogoutBtn, homeUserStatus, homeAccountBtn;
     let bottomNav;
 
-    // ── Bech32 & Utilities (unchanged) ──
+    // ── Bech32 & Utilities ────────────
     function bech32Polymod(values) {
         let chk = 1;
         for (let i = 0; i < values.length; i++) {
@@ -93,7 +93,7 @@
         a.click();
         document.body.removeChild(a); }
 
-    // ── Input Parser (unchanged) ──────
+    // ── Input Parser ──────────────────
     function parseInput(input) { const t = input.trim(); if (!t) return { error: 'Please enter an event or user identifier.' }; if (
             isValidHex64(t)) return { hexId: t.toLowerCase(), source: 'hex' }; if (t.startsWith('note1')) { const h =
                 decodeNote1(t); if (h) return { hexId: h, source: 'note1' }; return { error: 'Invalid note1 identifier.' }; }
@@ -157,7 +157,7 @@
     function hideError() { errorMsg.textContent = '';
         errorMsg.classList.remove('visible'); }
 
-    // ── Relay Manager (unchanged) ──────
+    // ── Relay Manager ──────────────────
     class RelayManager { constructor(urls) { this.relayUrls = urls;
             this.connections = new Map();
             this.subscriptions = new Map();
@@ -213,7 +213,7 @@
         publish(event) { const msg = JSON.stringify(['EVENT', event]); for (const [url, conn] of this.connections) { if (
                     conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg); } } }
 
-    // ── Event Investigator (unchanged) ──
+    // ── Event Investigator ──────────────
     class EventInvestigator { constructor(rm) { this.rm = rm;
             this.events = [];
             this.eventMap = new Map();
@@ -307,7 +307,7 @@
                 /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e
                 .content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; } }
 
-    // ── User Profile Investigator (unchanged) ──
+    // ── User Profile Investigator ─────
     class UserProfileInvestigator { constructor(relayManager) { this.rm = relayManager;
             this.profile = null;
             this.follows = [];
@@ -381,7 +381,7 @@
         }
     }
 
-    // ── Account Modal (unchanged) ──────
+    // ── Account Modal ──────────────────
     function showAccountModal() { if (!currentUser) return; const tmpInvestigator = new UserProfileInvestigator(
         new RelayManager(activeRelays));
         tmpInvestigator.investigate(currentUser.publicKey).then(() => { const profile = tmpInvestigator.profile || {}; const
@@ -416,25 +416,33 @@
                     document.getElementById('accountModalBackdrop').remove(); }).catch(e => showToast(
                     'Error: ' + e.message, 'error')); }); }); }
 
-    // ── Login Modal (FIXED) ────────
-    function showLoginModal() { modalContainer.innerHTML =
-            `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-outline" id="loginCancelBtn">Cancel</button></div></div></div>`;
+    // ── Login Modal (FIXED) ────────────
+    function showLoginModal() {
+        modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-outline" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
         backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
-        backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => { const nsec = document.getElementById(
-                'nsecInput').value.trim(); if (typeof NostrTools === 'undefined') { showToast(
-                'Nostr tools not loaded. Please refresh.', 'error'); return; } let privateKey; let publicKey; try { const {
-                    type, data } = NostrTools.nip19.decode(nsec); if (type !== 'nsec') throw new Error('Not an nsec');
-                privateKey = data; } catch (nip19Error) { console.warn('nip19 decode failed, falling back to custom Bech32:',
-                    nip19Error); const decoded = bech32Decode(nsec); if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes
-                    .length !== 32) { showToast('Invalid nsec format.', 'error'); return; }
-                privateKey = bytesToHex(decoded.bytes); } try { publicKey = NostrTools.getPublicKey(privateKey); } catch (
-                e) { showToast('Invalid private key.', 'error'); return; }
+        backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
+            const nsec = document.getElementById('nsecInput').value.trim();
+            if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded. Please refresh.', 'error'); return; }
+            let privateKey;
+            try {
+                const { type, data } = NostrTools.nip19.decode(nsec);
+                if (type !== 'nsec') throw new Error('Not an nsec');
+                privateKey = data;
+            } catch (nip19Error) {
+                const decoded = bech32Decode(nsec);
+                if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) { showToast('Invalid nsec format.', 'error'); return; }
+                privateKey = bytesToHex(decoded.bytes);
+            }
+            let publicKey;
+            try { publicKey = NostrTools.getPublicKey(privateKey); } catch (e) { showToast('Invalid private key.', 'error'); return; }
             currentUser = { privateKey, publicKey };
             saveLogin(privateKey);
             updateUserUI();
-            showToast('Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
-            backdrop.remove(); }); }
+            showToast('Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
+            backdrop.remove();
+        });
+    }
 
     function logout() { currentUser = null;
         clearLogin();
@@ -455,7 +463,7 @@
             return ''; return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`; });
         return { text: html, media: mediaHtml }; }
 
-    // ── Thread View (unchanged) ─────────
+    // ── Thread View (tree with cards) ────
     function buildThreadCards(eventId, childrenMap, depth, visited) { if (visited.has(eventId) && depth > 0)
         return ''; visited.add(eventId); const event = eventMap.get(eventId); if (!event && depth > 0) return ''; if (
             threadCollapsed.has(eventId) && depth > 0) { return `<div class="tree-collapsed" onclick="window._expandThread('${eventId}')" style="margin-left:${depth*20}px;">[+] Show replies</div>`; } const isOriginal =
@@ -490,7 +498,7 @@
         html += '</div></div>';
         p.innerHTML = html; }
 
-    // ── Timeline (unchanged) ────────────
+    // ── Timeline (cards with left border) ──
     function renderTimeline(inv) { const p = document.getElementById('panel-timeline'); const sorted = [...inv.events].sort((
             a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b
             .created_at || 0)); if (!sorted.length) { p.innerHTML = '<div class="card"><p>No events.</p></div>'; return; }
@@ -519,7 +527,7 @@
         html += '</div></div>';
         p.innerHTML = html; }
 
-    // ── Statistics (unchanged) ──────────
+    // ── Statistics ───────────────────────
     function renderStats(inv) { const p = document.getElementById('panel-stats'); const tree = inv.getThreadTree();
         let nested = 0; if (tree && tree.childrenMap) { const count = (eid, d) => { let c = 0; for (const child of (tree
                     .childrenMap.get(eid) || [])) { if (d >= 1) c++;
@@ -546,7 +554,7 @@
         h += '</div></div>';
         p.innerHTML = h; }
 
-    // ── JSON Viewer (unchanged) ─────────
+    // ── JSON Viewer ─────────────────────
     function renderJson(inv) { const p = document.getElementById('panel-json'); let h =
             '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>'; if (
             originalEvent) { h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' +
@@ -562,7 +570,7 @@
         h += '</div></div>';
         p.innerHTML = h; }
 
-    // ── Relays (unchanged) ──────────────
+    // ── Relays ──────────────────────────
     function renderRelays() { const p = document.getElementById('panel-relays'); let h =
             '<div class="card"><div class="card-header"><span class="card-title">🔗 Relays</span><button class="btn btn-sm btn-outline" onclick="window._addCustomRelay()">+ Add</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>URL</th><th>Status</th><th>RT</th><th>Events</th><th>Errors</th><th></th></tr></thead><tbody>'; [...new Set([...activeRelays, ...relayStats
                 .keys()])].forEach(url => { const s = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0,
@@ -576,11 +584,11 @@
         h += '</tbody></table></div></div>';
         p.innerHTML = h; }
 
-    // ── Export (unchanged) ──────────────
+    // ── Export ──────────────────────────
     function renderExport() { document.getElementById('panel-export').innerHTML =
             '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-sm btn-outline" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-sm btn-outline" onclick="window._exportHTML()">🌐 HTML</button></div></div>'; }
 
-    // ── BCH Payments (unchanged) ────────
+    // ── BCH Payments ────────────────────
     function renderBch(inv) { const p = document.getElementById('panel-bch'); const evs = inv.getBchPaymentEvents(); if (!evs
             .length) { p.innerHTML = '<div class="card"><p>💸 No BCH payment events found.</p></div>'; return; }
         let h = '<div class="card"><div class="card-header"><span class="card-title">💸 BCH Payments</span></div>';
@@ -635,7 +643,7 @@
                 '.download-json-btn').dataset.eventId;
             downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0,12)}.json`); }); }
 
-    // ── Exports (unchanged) ─────────────
+    // ── Exports ─────────────────────────
     function exportJSON(type) { let data, filename; if (type === 'original' && originalEvent) { data = JSON.stringify(
                 originalEvent, null, 2);
             filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`; } else { data = JSON
@@ -664,13 +672,13 @@
         h += '</tbody></table></body></html>';
         downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); }
 
-    // ── Tab switching (unchanged) ───────
+    // ── Tab switching (updated for bottom nav) ──
     function switchTab(tabName) { document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.getElementById(`panel-${tabName}`)?.classList.add('active');
         document.querySelectorAll('.nav-btn').forEach(b => { b.classList.toggle('active', b.dataset.tab === tabName); }); if (
             investigator && tabName === 'relays') renderRelays(); if (investigator && tabName === 'export') renderExport(); }
 
-    // ── Global window functions (unchanged) ──
+    // ── Global window functions ──────────
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !==
@@ -761,9 +769,8 @@
         renderExport();
         renderBch(inv); }
 
-    // ── Initialize after DOM ready ────────
+    // ── Init after DOM ready ─────────────
     function initApp() {
-        // Cache DOM elements
         homeScreen = document.getElementById('homeScreen');
         resultsScreen = document.getElementById('resultsScreen');
         homeSearchInput = document.getElementById('homeSearchInput');
@@ -783,42 +790,34 @@
         homeAccountBtn = document.getElementById('homeAccountBtn');
         bottomNav = document.querySelector('.bottom-nav');
 
-        // Login persistence
         if (typeof NostrTools !== 'undefined') {
-            if (loadLogin()) { updateUserUI(); }
+            if (loadLogin()) updateUserUI();
         } else {
             setTimeout(initApp, 200);
             return;
         }
 
-        // Home screen listeners
-        if (homeAnalyzeBtn) homeAnalyzeBtn.addEventListener('click', () => runAnalysis());
-        if (homeClearBtn) homeClearBtn.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = '');
+        homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
+        homeClearBtn?.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = ''); hideError(); });
+        homeSearchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+        homeLoginBtn?.addEventListener('click', showLoginModal);
+        homeLogoutBtn?.addEventListener('click', logout);
+        homeAccountBtn?.addEventListener('click', showAccountModal);
+        resultsBackBtn?.addEventListener('click', () => { resultsScreen.classList.remove('active');
+            homeScreen.classList.add('active'); homeSearchInput.value = '';
             hideError(); });
-        if (homeSearchInput) homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
-        if (homeLoginBtn) homeLoginBtn.addEventListener('click', showLoginModal);
-        if (homeLogoutBtn) homeLogoutBtn.addEventListener('click', logout);
-        if (homeAccountBtn) homeAccountBtn.addEventListener('click', showAccountModal);
-
-        // Results screen listeners
-        if (resultsBackBtn) resultsBackBtn.addEventListener('click', () => { resultsScreen.classList.remove('active');
-            homeScreen.classList.add('active'); if (homeSearchInput) homeSearchInput.value = '';
-            hideError(); });
-        if (resultsLoginBtn) resultsLoginBtn.addEventListener('click', showLoginModal);
-        if (resultsAccountBtn) resultsAccountBtn.addEventListener('click', showAccountModal);
-
-        // Bottom navigation
-        if (bottomNav) { bottomNav.addEventListener('click', (e) => { const btn = e.target.closest('.nav-btn'); if (btn) {
-                    switchTab(btn.dataset.tab); } }); }
-
+        resultsLoginBtn?.addEventListener('click', showLoginModal);
+        resultsAccountBtn?.addEventListener('click', showAccountModal);
+        if (bottomNav) {
+            bottomNav.addEventListener('click', e => {
+                const btn = e.target.closest('.nav-btn');
+                if (btn) switchTab(btn.dataset.tab);
+            });
+        }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — DOM ready, login works.');
+        console.log('🔍 NostrScope ready — login works.');
     }
 
-    // Wait for DOMContentLoaded then init
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initApp);
-    } else {
-        initApp();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
+    else initApp();
 })();
