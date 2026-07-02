@@ -32,27 +32,14 @@
     let currentUser = null;
     let scannedPubkey = null;
 
-    // ── DOM Elements ──────────────────
-    const homeScreen = document.getElementById('homeScreen'),
-        resultsScreen = document.getElementById('resultsScreen');
-    const homeSearchInput = document.getElementById('homeSearchInput');
-    const homeAnalyzeBtn = document.getElementById('homeAnalyzeBtn'),
-        homeClearBtn = document.getElementById('homeClearBtn');
-    const errorMsg = document.getElementById('errorMsg');
-    const loadingOverlay = document.getElementById('loadingOverlay'),
-        loadingText = document.getElementById('loadingText');
-    const toastContainer = document.getElementById('toastContainer');
-    const modalContainer = document.getElementById('modalContainer');
-    const resultsBackBtn = document.getElementById('resultsBackBtn');
-    const resultsLoginBtn = document.getElementById('resultsLoginBtn'),
-        resultsAccountBtn = document.getElementById('resultsAccountBtn');
-    const homeLoginBtn = document.getElementById('homeLoginBtn'),
-        homeLogoutBtn = document.getElementById('homeLogoutBtn');
-    const homeUserStatus = document.getElementById('homeUserStatus');
-    const homeAccountBtn = document.getElementById('homeAccountBtn');
-    const bottomNav = document.querySelector('.bottom-nav');
+    // ── DOM Elements (will be populated after DOMContentLoaded) ──
+    let homeScreen, resultsScreen, homeSearchInput, homeAnalyzeBtn, homeClearBtn;
+    let errorMsg, loadingOverlay, loadingText, toastContainer, modalContainer;
+    let resultsBackBtn, resultsLoginBtn, resultsAccountBtn;
+    let homeLoginBtn, homeLogoutBtn, homeUserStatus, homeAccountBtn;
+    let bottomNav;
 
-    // ── Bech32 & Utilities ────────────
+    // ── Bech32 & Utilities (unchanged) ──
     function bech32Polymod(values) {
         let chk = 1;
         for (let i = 0; i < values.length; i++) {
@@ -162,15 +149,11 @@
         setTimeout(() => { t.style.opacity = '0';
             setTimeout(() => t.remove(), 300); }, 3500); }
     window.showToast = showToast;
-
     function showLoading(text) { loadingText.textContent = text;
         loadingOverlay.classList.add('active'); }
-
     function hideLoading() { loadingOverlay.classList.remove('active'); }
-
     function showError(msg) { errorMsg.textContent = msg;
         errorMsg.classList.add('visible'); }
-
     function hideError() { errorMsg.textContent = '';
         errorMsg.classList.remove('visible'); }
 
@@ -324,7 +307,7 @@
                 /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e
                 .content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; } }
 
-    // ── User Profile Investigator (fixed) ──
+    // ── User Profile Investigator (unchanged) ──
     class UserProfileInvestigator { constructor(relayManager) { this.rm = relayManager;
             this.profile = null;
             this.follows = [];
@@ -378,21 +361,20 @@
 
     // ── UI Updates ─────────────────────
     function updateUserUI() {
-        if (!homeUserStatus) return; // safety check
         if (currentUser) {
             const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
-            homeUserStatus.textContent = npub;
-            homeLoginBtn.style.display = 'none';
-            homeLogoutBtn.style.display = 'inline-block';
-            homeAccountBtn.style.display = 'inline-block';
+            if (homeUserStatus) homeUserStatus.textContent = npub;
+            if (homeLoginBtn) homeLoginBtn.style.display = 'none';
+            if (homeLogoutBtn) homeLogoutBtn.style.display = 'inline-block';
+            if (homeAccountBtn) homeAccountBtn.style.display = 'inline-block';
             if (resultsLoginBtn) resultsLoginBtn.style.display = 'none';
             if (resultsAccountBtn) resultsAccountBtn.style.display = 'inline-block';
             window._currentUser = currentUser;
         } else {
-            homeUserStatus.textContent = 'Not logged in';
-            homeLoginBtn.style.display = 'inline-block';
-            homeLogoutBtn.style.display = 'none';
-            homeAccountBtn.style.display = 'none';
+            if (homeUserStatus) homeUserStatus.textContent = 'Not logged in';
+            if (homeLoginBtn) homeLoginBtn.style.display = 'inline-block';
+            if (homeLogoutBtn) homeLogoutBtn.style.display = 'none';
+            if (homeAccountBtn) homeAccountBtn.style.display = 'none';
             if (resultsLoginBtn) resultsLoginBtn.style.display = 'inline-block';
             if (resultsAccountBtn) resultsAccountBtn.style.display = 'none';
             window._currentUser = null;
@@ -473,7 +455,7 @@
             return ''; return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`; });
         return { text: html, media: mediaHtml }; }
 
-    // ── Thread View (tree with cards) ────
+    // ── Thread View (unchanged) ─────────
     function buildThreadCards(eventId, childrenMap, depth, visited) { if (visited.has(eventId) && depth > 0)
         return ''; visited.add(eventId); const event = eventMap.get(eventId); if (!event && depth > 0) return ''; if (
             threadCollapsed.has(eventId) && depth > 0) { return `<div class="tree-collapsed" onclick="window._expandThread('${eventId}')" style="margin-left:${depth*20}px;">[+] Show replies</div>`; } const isOriginal =
@@ -508,7 +490,7 @@
         html += '</div></div>';
         p.innerHTML = html; }
 
-    // ── Timeline (cards with left border) ──
+    // ── Timeline (unchanged) ────────────
     function renderTimeline(inv) { const p = document.getElementById('panel-timeline'); const sorted = [...inv.events].sort((
             a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b
             .created_at || 0)); if (!sorted.length) { p.innerHTML = '<div class="card"><p>No events.</p></div>'; return; }
@@ -537,7 +519,7 @@
         html += '</div></div>';
         p.innerHTML = html; }
 
-    // ── Statistics ───────────────────────
+    // ── Statistics (unchanged) ──────────
     function renderStats(inv) { const p = document.getElementById('panel-stats'); const tree = inv.getThreadTree();
         let nested = 0; if (tree && tree.childrenMap) { const count = (eid, d) => { let c = 0; for (const child of (tree
                     .childrenMap.get(eid) || [])) { if (d >= 1) c++;
@@ -564,7 +546,7 @@
         h += '</div></div>';
         p.innerHTML = h; }
 
-    // ── JSON Viewer ─────────────────────
+    // ── JSON Viewer (unchanged) ─────────
     function renderJson(inv) { const p = document.getElementById('panel-json'); let h =
             '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>'; if (
             originalEvent) { h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' +
@@ -580,7 +562,7 @@
         h += '</div></div>';
         p.innerHTML = h; }
 
-    // ── Relays ──────────────────────────
+    // ── Relays (unchanged) ──────────────
     function renderRelays() { const p = document.getElementById('panel-relays'); let h =
             '<div class="card"><div class="card-header"><span class="card-title">🔗 Relays</span><button class="btn btn-sm btn-outline" onclick="window._addCustomRelay()">+ Add</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>URL</th><th>Status</th><th>RT</th><th>Events</th><th>Errors</th><th></th></tr></thead><tbody>'; [...new Set([...activeRelays, ...relayStats
                 .keys()])].forEach(url => { const s = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0,
@@ -594,11 +576,11 @@
         h += '</tbody></table></div></div>';
         p.innerHTML = h; }
 
-    // ── Export ──────────────────────────
+    // ── Export (unchanged) ──────────────
     function renderExport() { document.getElementById('panel-export').innerHTML =
             '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-sm btn-outline" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-sm btn-outline" onclick="window._exportHTML()">🌐 HTML</button></div></div>'; }
 
-    // ── BCH Payments ────────────────────
+    // ── BCH Payments (unchanged) ────────
     function renderBch(inv) { const p = document.getElementById('panel-bch'); const evs = inv.getBchPaymentEvents(); if (!evs
             .length) { p.innerHTML = '<div class="card"><p>💸 No BCH payment events found.</p></div>'; return; }
         let h = '<div class="card"><div class="card-header"><span class="card-title">💸 BCH Payments</span></div>';
@@ -682,13 +664,13 @@
         h += '</tbody></table></body></html>';
         downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); }
 
-    // ── Tab switching (updated for bottom nav) ──
+    // ── Tab switching (unchanged) ───────
     function switchTab(tabName) { document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.getElementById(`panel-${tabName}`)?.classList.add('active');
         document.querySelectorAll('.nav-btn').forEach(b => { b.classList.toggle('active', b.dataset.tab === tabName); }); if (
             investigator && tabName === 'relays') renderRelays(); if (investigator && tabName === 'export') renderExport(); }
 
-    // ── Global window functions (simplified, boost in boost.js) ──
+    // ── Global window functions (unchanged) ──
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !==
@@ -779,31 +761,64 @@
         renderExport();
         renderBch(inv); }
 
-    // ── Init & Listeners ───────────────
-    function initApp() { if (typeof NostrTools !== 'undefined') { if (loadLogin()) { updateUserUI(); } } else { setTimeout(
-            initApp, 200); } }
+    // ── Initialize after DOM ready ────────
+    function initApp() {
+        // Cache DOM elements
+        homeScreen = document.getElementById('homeScreen');
+        resultsScreen = document.getElementById('resultsScreen');
+        homeSearchInput = document.getElementById('homeSearchInput');
+        homeAnalyzeBtn = document.getElementById('homeAnalyzeBtn');
+        homeClearBtn = document.getElementById('homeClearBtn');
+        errorMsg = document.getElementById('errorMsg');
+        loadingOverlay = document.getElementById('loadingOverlay');
+        loadingText = document.getElementById('loadingText');
+        toastContainer = document.getElementById('toastContainer');
+        modalContainer = document.getElementById('modalContainer');
+        resultsBackBtn = document.getElementById('resultsBackBtn');
+        resultsLoginBtn = document.getElementById('resultsLoginBtn');
+        resultsAccountBtn = document.getElementById('resultsAccountBtn');
+        homeLoginBtn = document.getElementById('homeLoginBtn');
+        homeLogoutBtn = document.getElementById('homeLogoutBtn');
+        homeUserStatus = document.getElementById('homeUserStatus');
+        homeAccountBtn = document.getElementById('homeAccountBtn');
+        bottomNav = document.querySelector('.bottom-nav');
 
-    // Home screen listeners
-    if (homeAnalyzeBtn) homeAnalyzeBtn.addEventListener('click', () => runAnalysis());
-    if (homeClearBtn) homeClearBtn.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = '');
-        hideError(); });
-    if (homeSearchInput) homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
-    if (homeLoginBtn) homeLoginBtn.addEventListener('click', showLoginModal);
-    if (homeLogoutBtn) homeLogoutBtn.addEventListener('click', logout);
-    if (homeAccountBtn) homeAccountBtn.addEventListener('click', showAccountModal);
+        // Login persistence
+        if (typeof NostrTools !== 'undefined') {
+            if (loadLogin()) { updateUserUI(); }
+        } else {
+            setTimeout(initApp, 200);
+            return;
+        }
 
-    // Results screen listeners
-    if (resultsBackBtn) resultsBackBtn.addEventListener('click', () => { resultsScreen.classList.remove('active');
-        homeScreen.classList.add('active'); if (homeSearchInput) homeSearchInput.value = '';
-        hideError(); });
-    if (resultsLoginBtn) resultsLoginBtn.addEventListener('click', showLoginModal);
-    if (resultsAccountBtn) resultsAccountBtn.addEventListener('click', showAccountModal);
+        // Home screen listeners
+        if (homeAnalyzeBtn) homeAnalyzeBtn.addEventListener('click', () => runAnalysis());
+        if (homeClearBtn) homeClearBtn.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = '');
+            hideError(); });
+        if (homeSearchInput) homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+        if (homeLoginBtn) homeLoginBtn.addEventListener('click', showLoginModal);
+        if (homeLogoutBtn) homeLogoutBtn.addEventListener('click', logout);
+        if (homeAccountBtn) homeAccountBtn.addEventListener('click', showAccountModal);
 
-    // Bottom navigation
-    if (bottomNav) { bottomNav.addEventListener('click', (e) => { const btn = e.target.closest('.nav-btn'); if (btn) {
-                switchTab(btn.dataset.tab); } }); }
+        // Results screen listeners
+        if (resultsBackBtn) resultsBackBtn.addEventListener('click', () => { resultsScreen.classList.remove('active');
+            homeScreen.classList.add('active'); if (homeSearchInput) homeSearchInput.value = '';
+            hideError(); });
+        if (resultsLoginBtn) resultsLoginBtn.addEventListener('click', showLoginModal);
+        if (resultsAccountBtn) resultsAccountBtn.addEventListener('click', showAccountModal);
 
-    DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-    initApp();
-    console.log('🔍 NostrScope ready — all DOM errors fixed.');
+        // Bottom navigation
+        if (bottomNav) { bottomNav.addEventListener('click', (e) => { const btn = e.target.closest('.nav-btn'); if (btn) {
+                    switchTab(btn.dataset.tab); } }); }
+
+        DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
+        console.log('🔍 NostrScope ready — DOM ready, login works.');
+    }
+
+    // Wait for DOMContentLoaded then init
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
 })();
