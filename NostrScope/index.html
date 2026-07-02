@@ -19,23 +19,22 @@
             --yellow: #d2991d;
             --blue: #58a6ff;
             --orange: #f0883e;
-            --radius: 8px;
-            --radius-sm: 4px;
-            --font: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --radius: 24px;
+            --radius-sm: 8px;
+            --font: 'Roboto', 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
             --transition: 0.15s ease;
-            --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-            --tap-highlight: transparent;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         }
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            -webkit-tap-highlight-color: var(--tap-highlight);
+            -webkit-tap-highlight-color: transparent;
         }
         html {
             scroll-behavior: smooth;
-            font-size: 16px; /* base for rem */
+            font-size: 16px;
         }
         body {
             font-family: var(--font);
@@ -45,156 +44,129 @@
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            padding: 0 8px;
-        }
-        .header {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 12px 16px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: var(--shadow);
-            margin: 0 -8px;
-        }
-        .header-inner {
-            max-width: 1300px;
-            margin: 0 auto;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: space-between;
+            padding: 0;
         }
-        .logo-area {
+
+        /* ── Home Screen (Google-like centered) ── */
+        .home-container {
+            width: 100%;
+            max-width: 700px;
+            margin-top: 15vh;
+            padding: 0 20px;
+            text-align: center;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
         }
-        .logo-icon {
-            width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, var(--accent), #9333ea);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: 700;
-            color: #fff;
-            flex-shrink: 0;
-        }
-        .logo-text {
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            color: var(--text);
-            white-space: nowrap;
-        }
-        .logo-subtitle {
-            font-size: 0.7rem;
-            color: var(--text2);
+        .home-logo {
+            font-size: 3.5rem;
             font-weight: 400;
-            white-space: nowrap;
+            letter-spacing: -0.05em;
+            color: #fff;
+            margin-bottom: 24px;
+            cursor: default;
+            user-select: none;
         }
-        .input-section {
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 16px 0 10px;
+        .home-logo span {
+            color: var(--accent2);
+            font-weight: 300;
         }
-        .input-wrapper {
-            display: flex;
-            gap: 8px;
+        .home-subtitle {
+            font-size: 0.95rem;
+            color: var(--text2);
+            margin-top: -16px;
+            margin-bottom: 32px;
+            font-weight: 300;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 584px;
             background: var(--surface);
             border: 2px solid var(--border);
             border-radius: var(--radius);
-            padding: 6px;
-            transition: border-color var(--transition);
-            flex-wrap: wrap;
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            transition: border-color var(--transition), box-shadow var(--transition);
+            margin: 0 auto;
         }
-        .input-wrapper:focus-within {
+        .search-box:focus-within {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
         }
-        .input-field {
+        .search-icon {
+            font-size: 1.2rem;
+            color: var(--text2);
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .search-input {
             flex: 1;
-            min-width: 180px;
             background: transparent;
             border: none;
             color: var(--text);
-            font-family: var(--mono);
-            font-size: 0.9rem;
-            padding: 12px 14px;
+            font-family: var(--font);
+            font-size: 1rem;
+            padding: 12px 0;
             outline: none;
         }
-        .input-field::placeholder {
+        .search-input::placeholder {
             color: var(--text2);
-            font-family: var(--font);
-            font-size: 0.85rem;
+            font-size: 0.95rem;
+        }
+        .search-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 8px;
         }
         .btn {
-            padding: 10px 20px;
-            border-radius: var(--radius-sm);
-            font-weight: 600;
+            padding: 8px 18px;
+            border-radius: 4px;
+            font-weight: 500;
             font-size: 0.875rem;
             cursor: pointer;
             border: none;
             transition: all var(--transition);
             white-space: nowrap;
             font-family: var(--font);
-            letter-spacing: -0.01em;
+            letter-spacing: 0.01em;
             touch-action: manipulation;
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
         .btn-primary {
             background: var(--accent);
             color: #fff;
+            border: none;
         }
         .btn-primary:hover {
             background: #6d28d9;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
-        }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        .btn-secondary {
-            background: var(--surface2);
-            color: var(--text);
-            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
         }
         .btn-secondary:hover {
             background: #252d3a;
             border-color: #4a5568;
         }
-        .btn-small {
-            padding: 6px 14px;
-            font-size: 0.75rem;
+        .home-buttons {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
-        .btn-danger {
-            background: var(--red);
-            color: #fff;
-        }
-        .btn-danger:hover {
-            background: #d63d33;
-        }
-        .btn-green {
-            background: var(--green);
-            color: #000;
-        }
-        .btn-green:hover {
-            background: #2ea043;
+        .home-buttons .btn {
+            padding: 10px 24px;
+            font-size: 0.9rem;
+            border-radius: 4px;
         }
         .error-msg {
             color: var(--red);
-            font-size: 0.8rem;
-            margin-top: 6px;
-            padding: 0 4px;
+            font-size: 0.85rem;
+            margin-top: 12px;
             display: none;
         }
         .error-msg.visible {
@@ -202,36 +174,90 @@
         }
         .hint-text {
             color: var(--text2);
-            font-size: 0.7rem;
-            margin-top: 6px;
-            padding: 0 4px;
+            font-size: 0.75rem;
+            margin-top: 12px;
             word-break: break-word;
         }
-        .main-content {
+
+        /* ── Results Screen (Google-like top bar) ── */
+        .results-container {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        .results-container.active {
+            display: flex;
+        }
+        .results-header {
+            width: 100%;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .results-logo {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #fff;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .results-logo span {
+            color: var(--accent2);
+            font-weight: 300;
+        }
+        .results-search {
+            flex: 1;
+            max-width: 600px;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 14px;
+            transition: border-color var(--transition);
+        }
+        .results-search:focus-within {
+            border-color: var(--accent);
+        }
+        .results-search input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.9rem;
+            padding: 8px 0;
+            outline: none;
+        }
+        .results-search input::placeholder {
+            color: var(--text2);
+        }
+        .results-tabs {
+            width: 100%;
             max-width: 1300px;
             margin: 0 auto;
-            padding: 0 0 40px;
-            display: none;
-        }
-        .main-content.active {
-            display: block;
-        }
-        .tabs-nav {
-            display: flex;
-            gap: 2px;
-            flex-wrap: nowrap;
-            border-bottom: 2px solid var(--border);
-            margin-bottom: 20px;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border);
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            padding: 0 2px;
-        }
-        .tabs-nav::-webkit-scrollbar {
-            display: none;
+            display: flex;
+            gap: 2px;
         }
         .tab-btn {
-            padding: 10px 16px;
+            padding: 12px 20px;
             background: transparent;
             border: none;
             color: var(--text2);
@@ -239,7 +265,7 @@
             font-weight: 500;
             font-size: 0.85rem;
             border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
+            margin-bottom: -1px;
             transition: all var(--transition);
             white-space: nowrap;
             font-family: var(--font);
@@ -255,6 +281,10 @@
         .tab-panel {
             display: none;
             animation: fadeIn 0.25s ease;
+            width: 100%;
+            max-width: 1300px;
+            margin: 20px auto;
+            padding: 0 20px;
         }
         .tab-panel.active {
             display: block;
@@ -263,13 +293,19 @@
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .main-content {
+            width: 100%;
+        }
+
+        /* ── Cards (Google result style) ── */
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            margin-bottom: 16px;
             box-shadow: var(--shadow);
+            width: 100%;
         }
         .card-header {
             display: flex;
@@ -277,16 +313,16 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
         .card-title {
-            font-weight: 700;
-            font-size: 1rem;
-            color: var(--text);
+            font-weight: 400;
+            font-size: 1.1rem;
+            color: var(--accent2);
         }
         .badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 3px 10px;
             border-radius: 12px;
             font-size: 0.7rem;
             font-weight: 600;
@@ -298,18 +334,18 @@
         .badge-orange { background: rgba(240, 136, 62, 0.2); color: var(--orange); }
         .badge-red { background: rgba(248, 81, 73, 0.2); color: var(--red); }
         .badge-yellow { background: rgba(210, 153, 29, 0.2); color: var(--yellow); }
+
         .thread-tree {
             font-family: var(--mono);
             font-size: 0.8rem;
             line-height: 1.8;
-            padding: 12px;
+            padding: 16px;
             background: var(--surface2);
-            border-radius: var(--radius);
+            border-radius: var(--radius-sm);
             overflow-x: auto;
             white-space: pre;
             max-height: 60vh;
             overflow-y: auto;
-            word-break: normal;
         }
         .thread-node {
             cursor: pointer;
@@ -324,10 +360,11 @@
         .thread-reply { color: var(--blue); }
         .thread-quote { color: var(--orange); }
         .thread-collapsed { opacity: 0.5; cursor: pointer; }
+
         .timeline-item {
             display: flex;
             gap: 12px;
-            padding: 10px 0;
+            padding: 12px 0;
             border-bottom: 1px solid var(--border);
             align-items: flex-start;
             flex-wrap: wrap;
@@ -349,56 +386,56 @@
             flex: 1;
             min-width: 120px;
             word-break: break-word;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
         }
+
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
         }
         .stat-card {
             background: var(--surface2);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 14px 10px;
+            border-radius: var(--radius-sm);
+            padding: 16px;
             text-align: center;
         }
         .stat-value {
-            font-size: 1.4rem;
-            font-weight: 700;
+            font-size: 1.6rem;
+            font-weight: 400;
             color: var(--accent2);
         }
         .stat-label {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--text2);
             margin-top: 4px;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+
         .json-viewer {
             background: #0a0e14;
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 14px;
+            border-radius: var(--radius-sm);
+            padding: 16px;
             font-family: var(--mono);
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             max-height: 55vh;
             overflow: auto;
             white-space: pre-wrap;
             word-break: break-all;
-            position: relative;
         }
         .json-key { color: #79c0ff; }
         .json-string { color: #a5d6ff; }
         .json-number { color: #f2a65a; }
         .json-boolean { color: #ff7b72; }
         .json-null { color: #8b949e; }
-        .json-toggle { cursor: pointer; color: var(--text2); margin-right: 4px; user-select: none; }
-        .json-toggle:hover { color: #fff; }
+
         .relay-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
         }
         .relay-table th,
         .relay-table td {
@@ -423,10 +460,8 @@
         .status-connected { background: var(--green); }
         .status-connecting { background: var(--yellow); animation: pulse 1s infinite; }
         .status-failed { background: var(--red); }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
         .loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -454,6 +489,7 @@
             font-size: 0.9rem;
             text-align: center;
         }
+
         .toast-container {
             position: fixed;
             bottom: 20px; right: 12px;
@@ -466,7 +502,7 @@
         .toast {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: var(--radius-sm);
             padding: 12px 16px;
             font-size: 0.85rem;
             box-shadow: 0 4px 16px rgba(0,0,0,0.5);
@@ -481,6 +517,7 @@
         .toast-success { border-left: 3px solid var(--green); }
         .toast-error { border-left: 3px solid var(--red); }
         .toast-info { border-left: 3px solid var(--blue); }
+
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -494,7 +531,7 @@
         .modal {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: var(--radius-sm);
             padding: 20px;
             max-width: 700px;
             width: 100%;
@@ -512,79 +549,63 @@
             line-height: 1;
         }
         .modal-close:hover { color: #fff; }
+
         .export-btns {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
         }
-        /* Mobile refinements */
+
         @media (max-width: 768px) {
-            body { padding: 0 4px; }
-            .header { margin: 0 -4px; padding: 12px; }
-            .header-inner { flex-direction: column; align-items: flex-start; gap: 8px; }
-            .input-wrapper { flex-direction: column; }
-            .btn { width: 100%; text-align: center; }
-            .stats-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; }
-            .stat-card { padding: 10px 6px; }
-            .stat-value { font-size: 1.2rem; }
-            .tabs-nav { gap: 0; }
+            .home-logo { font-size: 2.5rem; }
+            .home-container { margin-top: 10vh; }
+            .results-header { flex-direction: column; align-items: stretch; }
+            .results-search { max-width: 100%; }
             .tab-btn { padding: 8px 12px; font-size: 0.75rem; }
-            .timeline-item { flex-direction: column; gap: 2px; }
-            .relay-table { font-size: 0.7rem; }
-            .relay-table th, .relay-table td { padding: 6px 4px; }
-            .thread-tree { font-size: 0.7rem; padding: 8px; }
-            .json-viewer { font-size: 0.7rem; padding: 8px; }
+            .stats-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
         }
         @media (max-width: 400px) {
-            .logo-text { font-size: 1rem; }
-            .logo-subtitle { font-size: 0.6rem; }
-            .card { padding: 10px; }
-            .json-viewer { font-size: 0.65rem; padding: 6px; }
-            .stats-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+            .home-logo { font-size: 2rem; }
+            .search-box { padding: 6px 12px; }
+            .search-input { font-size: 0.9rem; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
-    <header class="header">
-        <div class="header-inner">
-            <div class="logo-area">
-                <div class="logo-icon">🔍</div>
-                <div>
-                    <div class="logo-text">NostrScope</div>
-                    <div class="logo-subtitle">Explore every piece of information connected to any Nostr event.</div>
-                </div>
+    <!-- Home Screen -->
+    <div class="home-container" id="homeScreen">
+        <div class="home-logo">Nostr<span>Scope</span></div>
+        <div class="home-subtitle">Explore every piece of information connected to any Nostr event.</div>
+        <div class="search-box">
+            <span class="search-icon">🔎</span>
+            <input type="text" class="search-input" id="homeSearchInput" 
+                   placeholder="Paste event ID, note1..., nevent1..., or URL" autocomplete="off" spellcheck="false">
+            <div class="search-actions">
+                <button class="btn btn-secondary" id="homeClearBtn" title="Clear">✕</button>
             </div>
         </div>
-    </header>
-
-    <!-- Input Section -->
-    <section class="input-section">
-        <div class="input-wrapper" id="inputWrapper">
-            <input type="text" class="input-field" id="eventInput" 
-                   placeholder="Paste event ID, note1..., nevent1..., nostr:..., or URL (njump, primal, snort, etc.)"
-                   autocomplete="off" spellcheck="false">
-            <button class="btn btn-primary" id="analyzeBtn" title="Analyze Event">🔎 Analyze</button>
-            <button class="btn btn-secondary" id="clearBtn" title="Clear">✕</button>
+        <div class="home-buttons">
+            <button class="btn btn-primary" id="homeAnalyzeBtn">NostrScope Analyze</button>
+            <button class="btn btn-secondary" id="homeLuckyBtn">I'm Feeling Lucky</button>
         </div>
         <div class="error-msg" id="errorMsg"></div>
         <div class="hint-text">
-            Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>nostr:note1...</code> · <code>https://njump.me/note1...</code> · <code>https://primal.net/e/note1...</code>
-        </div>
-    </section>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div style="text-align:center;">
-            <div class="spinner"></div>
-            <div class="loading-text" id="loadingText">Connecting to relays...</div>
+            Examples: <code>6b89af99...</code> · <code>note1...</code> · <code>nevent1...</code> · <code>https://njump.me/note1...</code>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content" id="mainContent">
-        <nav class="tabs-nav" id="tabsNav">
+    <!-- Results Screen -->
+    <div class="results-container" id="resultsScreen">
+        <div class="results-header">
+            <div class="results-logo" id="resultsLogo">Nostr<span>Scope</span></div>
+            <div class="results-search">
+                <span style="color:var(--text2);margin-right:8px;">🔎</span>
+                <input type="text" id="resultsSearchInput" placeholder="Paste another event..." autocomplete="off" spellcheck="false">
+                <button class="btn btn-secondary btn-small" id="resultsSearchBtn">Search</button>
+            </div>
+        </div>
+        <div class="results-tabs" id="tabsNav">
             <button class="tab-btn active" data-tab="thread">🌳 Thread View</button>
             <button class="tab-btn" data-tab="timeline">⏱ Timeline</button>
             <button class="tab-btn" data-tab="stats">📊 Statistics</button>
@@ -592,1159 +613,260 @@
             <button class="tab-btn" data-tab="relays">🔗 Relays</button>
             <button class="tab-btn" data-tab="export">💾 Export</button>
             <button class="tab-btn" data-tab="bch">💸 BCH Payments</button>
-        </nav>
-        <div class="tab-panel active" id="panel-thread"></div>
-        <div class="tab-panel" id="panel-timeline"></div>
-        <div class="tab-panel" id="panel-stats"></div>
-        <div class="tab-panel" id="panel-json"></div>
-        <div class="tab-panel" id="panel-relays"></div>
-        <div class="tab-panel" id="panel-export"></div>
-        <div class="tab-panel" id="panel-bch"></div>
+        </div>
+        <div class="main-content">
+            <div class="tab-panel active" id="panel-thread"></div>
+            <div class="tab-panel" id="panel-timeline"></div>
+            <div class="tab-panel" id="panel-stats"></div>
+            <div class="tab-panel" id="panel-json"></div>
+            <div class="tab-panel" id="panel-relays"></div>
+            <div class="tab-panel" id="panel-export"></div>
+            <div class="tab-panel" id="panel-bch"></div>
+        </div>
     </div>
 
-    <!-- Toast Container -->
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align:center;">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">Searching the Nostr universe...</div>
+        </div>
+    </div>
+    <!-- Toast & Modal containers -->
     <div class="toast-container" id="toastContainer"></div>
-    <!-- Modal Container -->
     <div id="modalContainer"></div>
 
     <script>
         (function() {
-            // ─────────────────────────────────────
-            // NostrScope — Complete Application
-            // ─────────────────────────────────────
-
-            // ── Constants ────────────────────────
             const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
             const BECH32_ALPHABET_MAP = {};
-            for (let i = 0; i < BECH32_ALPHABET.length; i++) {
-                BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
-            }
+            for (let i = 0; i < BECH32_ALPHABET.length; i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
             const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
             const HEX_CHARS = '0123456789abcdef';
+            const DEFAULT_RELAYS = ['wss://relay.damus.io','wss://relay.nostr.band','wss://nos.lol','wss://relay.primal.net','wss://purplepag.es','wss://relay.nostr.net','wss://bostr.fount.org','wss://relay.plebstr.com','wss://offchain.pub','wss://relay.snort.social'];
+            const KNOWN_KINDS = {0:'Profile Metadata',1:'Text Note',2:'Recommend Relay',3:'Follow List',4:'Encrypted DM',5:'Deletion Request',6:'Repost',7:'Reaction',8:'Badge Award',16:'Generic Repost',40:'Channel Creation',41:'Channel Metadata',42:'Channel Message',43:'Channel Hide Message',44:'Channel Mute User',1984:'Report',3000:'Follow Sets',3001:'Bookmark Sets',3002:'Relay Sets',3003:'Bookmark Sets v2',9734:'Zap Receipt',9735:'Zap Event',10000:'Mute List',10001:'Pin List',10002:'Relay List Metadata',13194:'Wallet Info',22242:'Auth Request',23194:'Wallet Request',23195:'Wallet Response',27235:'BCH Tip'};
 
-            const DEFAULT_RELAYS = [
-                'wss://relay.damus.io',
-                'wss://relay.nostr.band',
-                'wss://nos.lol',
-                'wss://relay.primal.net',
-                'wss://purplepag.es',
-                'wss://relay.nostr.net',
-                'wss://bostr.fount.org',
-                'wss://relay.plebstr.com',
-                'wss://offchain.pub',
-                'wss://relay.snort.social',
-            ];
+            // State
+            let allEvents = [], originalEvent = null, eventMap = new Map(), relayStats = new Map();
+            let activeRelays = [...DEFAULT_RELAYS], investigationHexId = null;
+            let threadCollapsed = new Set(), sortOrder = 'oldest-first', relayManager = null, investigator = null;
 
-            const KNOWN_KINDS = {
-                0: 'Profile Metadata',
-                1: 'Text Note',
-                2: 'Recommend Relay',
-                3: 'Follow List',
-                4: 'Encrypted DM',
-                5: 'Deletion Request',
-                6: 'Repost',
-                7: 'Reaction',
-                8: 'Badge Award',
-                16: 'Generic Repost',
-                40: 'Channel Creation',
-                41: 'Channel Metadata',
-                42: 'Channel Message',
-                43: 'Channel Hide Message',
-                44: 'Channel Mute User',
-                1984: 'Report',
-                3000: 'Follow Sets',
-                3001: 'Bookmark Sets',
-                3002: 'Relay Sets',
-                3003: 'Bookmark Sets v2',
-                9734: 'Zap Receipt',
-                9735: 'Zap Event',
-                10000: 'Mute List',
-                10001: 'Pin List',
-                10002: 'Relay List Metadata',
-                13194: 'Wallet Info',
-                22242: 'Auth Request',
-                23194: 'Wallet Request',
-                23195: 'Wallet Response',
-                27235: 'BCH Tip',
-            };
-
-            // ── State ────────────────────────────
-            let allEvents = [];
-            let originalEvent = null;
-            let eventMap = new Map();
-            let relayStats = new Map();
-            let activeRelays = [...DEFAULT_RELAYS];
-            let investigationHexId = null;
-            let activeTab = 'thread';
-            let threadCollapsed = new Set();
-            let sortOrder = 'oldest-first';
-
-            const eventInput = document.getElementById('eventInput');
-            const analyzeBtn = document.getElementById('analyzeBtn');
-            const clearBtn = document.getElementById('clearBtn');
+            // DOM elements
+            const homeScreen = document.getElementById('homeScreen');
+            const resultsScreen = document.getElementById('resultsScreen');
+            const homeSearchInput = document.getElementById('homeSearchInput');
+            const resultsSearchInput = document.getElementById('resultsSearchInput');
+            const homeAnalyzeBtn = document.getElementById('homeAnalyzeBtn');
+            const homeClearBtn = document.getElementById('homeClearBtn');
+            const homeLuckyBtn = document.getElementById('homeLuckyBtn');
             const errorMsg = document.getElementById('errorMsg');
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingText = document.getElementById('loadingText');
-            const mainContent = document.getElementById('mainContent');
             const tabsNav = document.getElementById('tabsNav');
             const toastContainer = document.getElementById('toastContainer');
             const modalContainer = document.getElementById('modalContainer');
+            const resultsSearchBtn = document.getElementById('resultsSearchBtn');
 
-            // ── Bech32 Implementation ────────────
-            function bech32Polymod(values) {
-                let chk = 1;
-                for (let i = 0; i < values.length; i++) {
-                    const top = chk >> 25;
-                    chk = ((chk & 0x1ffffff) << 5) ^ values[i];
-                    for (let j = 0; j < 5; j++) {
-                        if ((top >> j) & 1) chk ^= BECH32_GENERATOR[j];
-                    }
-                }
-                return chk;
+            // Bech32
+            function bech32Polymod(values) { let chk=1; for(let i=0;i<values.length;i++){const top=chk>>25;chk=((chk&0x1ffffff)<<5)^values[i];for(let j=0;j<5;j++)if((top>>j)&1)chk^=BECH32_GENERATOR[j];}return chk; }
+            function bech32HRPExpand(hrp){const r=[];for(let i=0;i<hrp.length;i++)r.push(hrp.charCodeAt(i)>>5);r.push(0);for(let i=0;i<hrp.length;i++)r.push(hrp.charCodeAt(i)&31);return r;}
+            function bech32Decode(str){const sep=str.lastIndexOf('1');if(sep<1||sep+7>str.length)return null;const hrp=str.substring(0,sep),data=str.substring(sep+1),vals=[];for(let i=0;i<data.length;i++){if(!(data[i] in BECH32_ALPHABET_MAP))return null;vals.push(BECH32_ALPHABET_MAP[data[i]]);}const comb=bech32HRPExpand(hrp).concat(vals);if(bech32Polymod(comb)!==1)return null;const payload=vals.slice(0,-6),bytes=[];let bits=0,accum=0;for(let i=0;i<payload.length;i++){accum=(accum<<5)|payload[i];bits+=5;while(bits>=8){bits-=8;bytes.push((accum>>bits)&0xff);}}if(bits>=5||accum&((1<<bits)-1))return null;return{hrp,bytes};}
+            function decodeNote1(s){const d=bech32Decode(s);if(!d||d.hrp!=='note'||d.bytes.length!==32)return null;return bytesToHex(d.bytes);}
+            function decodeNevent1(s){const d=bech32Decode(s);if(!d||d.hrp!=='nevent'||d.bytes.length<32)return null;const eid=bytesToHex(d.bytes.slice(0,32));const tlvs=[];let idx=32;while(idx<d.bytes.length){if(idx+2>d.bytes.length)break;const t=d.bytes[idx],l=d.bytes[idx+1];idx+=2;if(idx+l>d.bytes.length)break;tlvs.push({type:t,value:d.bytes.slice(idx,idx+l)});idx+=l;}const hints=tlvs.filter(t=>t.type===1||t.type===2).map(t=>new TextDecoder().decode(new Uint8Array(t.value)));return{eventId:eid,relayHints:hints};}
+            function bytesToHex(b){let h='';for(let i=0;i<b.length;i++){h+=HEX_CHARS[(b[i]>>4)&0xf];h+=HEX_CHARS[b[i]&0xf];}return h;}
+            function isValidHex64(s){return /^[0-9a-fA-F]{64}$/.test(s);}
+
+            function parseInput(input){
+                const t=input.trim();
+                if(!t) return {error:'Please enter an event identifier.'};
+                if(isValidHex64(t)) return {hexId:t.toLowerCase(),source:'hex'};
+                if(t.startsWith('note1')){const h=decodeNote1(t);if(h)return{hexId:h,source:'note1'};return{error:'Invalid note1 identifier.'};}
+                if(t.startsWith('nevent1')){const r=decodeNevent1(t);if(r&&r.eventId)return{hexId:r.eventId,source:'nevent1',relayHints:r.relayHints||[]};return{error:'Invalid nevent1 identifier.'};}
+                if(t.startsWith('npub1')||t.startsWith('nprofile1')) return {error:'Profile identifier. Use an event ID (note/nevent/hex).'};
+                const nostrUri=t.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);
+                if(nostrUri) return parseInput(nostrUri[1]);
+                let m; m=t.match(/https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i); if(m) return parseInput(m[1]);
+                m=t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i); if(m) return parseInput(m[1]);
+                return {error:'Unable to parse input. Use event ID, note1..., nevent1..., or supported URL.'};
             }
 
-            function bech32HRPExpand(hrp) {
-                const ret = [];
-                for (let i = 0; i < hrp.length; i++) ret.push(hrp.charCodeAt(i) >> 5);
-                ret.push(0);
-                for (let i = 0; i < hrp.length; i++) ret.push(hrp.charCodeAt(i) & 31);
-                return ret;
+            function showToast(msg,type='info'){
+                const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;
+                toastContainer.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3500);
             }
+            function showLoading(text){loadingText.textContent=text;loadingOverlay.classList.add('active');}
+            function hideLoading(){loadingOverlay.classList.remove('active');}
+            function showError(msg){errorMsg.textContent=msg;errorMsg.classList.add('visible');}
+            function hideError(){errorMsg.textContent='';errorMsg.classList.remove('visible');}
 
-            function bech32Decode(str) {
-                let sep = str.lastIndexOf('1');
-                if (sep < 1 || sep + 7 > str.length) return null;
-                const hrp = str.substring(0, sep);
-                const data = str.substring(sep + 1);
-                const dataValues = [];
-                for (let i = 0; i < data.length; i++) {
-                    const ch = data[i];
-                    if (!(ch in BECH32_ALPHABET_MAP)) return null;
-                    dataValues.push(BECH32_ALPHABET_MAP[ch]);
-                }
-                const combined = bech32HRPExpand(hrp).concat(dataValues);
-                if (bech32Polymod(combined) !== 1) return null;
-                const payload = dataValues.slice(0, -6);
-                const bytes = [];
-                let bits = 0;
-                let accum = 0;
-                for (let i = 0; i < payload.length; i++) {
-                    accum = (accum << 5) | payload[i];
-                    bits += 5;
-                    while (bits >= 8) {
-                        bits -= 8;
-                        bytes.push((accum >> bits) & 0xff);
-                    }
-                }
-                if (bits >= 5 || accum & ((1 << bits) - 1)) return null;
-                return { hrp, bytes };
-            }
-
-            function decodeNote1(bech32Str) {
-                const decoded = bech32Decode(bech32Str);
-                if (!decoded) return null;
-                if (decoded.hrp !== 'note') return null;
-                if (decoded.bytes.length !== 32) return null;
-                return bytesToHex(decoded.bytes);
-            }
-
-            function decodeNevent1(bech32Str) {
-                const decoded = bech32Decode(bech32Str);
-                if (!decoded) return null;
-                if (decoded.hrp !== 'nevent') return null;
-                if (decoded.bytes.length < 32) return null;
-                const eventId = bytesToHex(decoded.bytes.slice(0, 32));
-                const tlvs = [];
-                let idx = 32;
-                while (idx < decoded.bytes.length) {
-                    if (idx + 2 > decoded.bytes.length) break;
-                    const tlvType = decoded.bytes[idx];
-                    const tlvLen = decoded.bytes[idx + 1];
-                    idx += 2;
-                    if (idx + tlvLen > decoded.bytes.length) break;
-                    const tlvValue = decoded.bytes.slice(idx, idx + tlvLen);
-                    tlvs.push({ type: tlvType, value: tlvValue });
-                    idx += tlvLen;
-                }
-                const relayHints = tlvs.filter(t => t.type === 1 || t.type === 2).map(t =>
-                    new TextDecoder().decode(new Uint8Array(t.value))
-                );
-                return { eventId, relayHints };
-            }
-
-            function bytesToHex(bytes) {
-                let hex = '';
-                for (let i = 0; i < bytes.length; i++) {
-                    hex += HEX_CHARS[(bytes[i] >> 4) & 0xf];
-                    hex += HEX_CHARS[bytes[i] & 0xf];
-                }
-                return hex;
-            }
-
-            function isValidHex64(str) {
-                return /^[0-9a-fA-F]{64}$/.test(str);
-            }
-
-            // ── Input Parser ─────────────────────
-            function parseInput(input) {
-                const trimmed = input.trim();
-                if (!trimmed) return { error: 'Please enter an event identifier.' };
-                if (isValidHex64(trimmed)) {
-                    return { hexId: trimmed.toLowerCase(), source: 'hex' };
-                }
-                if (trimmed.startsWith('note1')) {
-                    const hexId = decodeNote1(trimmed);
-                    if (hexId) return { hexId, source: 'note1' };
-                    return { error: 'Invalid note1 identifier.' };
-                }
-                if (trimmed.startsWith('nevent1')) {
-                    const result = decodeNevent1(trimmed);
-                    if (result && result.eventId) {
-                        return { hexId: result.eventId, source: 'nevent1', relayHints: result.relayHints || [] };
-                    }
-                    return { error: 'Invalid nevent1 identifier.' };
-                }
-                if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) {
-                    return { error: 'This appears to be a profile identifier. Please enter an event identifier (note/nevent/hex).' };
-                }
-                const nostrUriMatch = trimmed.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i);
-                if (nostrUriMatch) return parseInput(nostrUriMatch[1]);
-                let urlMatch;
-                urlMatch = trimmed.match(/https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                urlMatch = trimmed.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i);
-                if (urlMatch) return parseInput(urlMatch[1]);
-                return { error: 'Unable to parse input. Please provide a valid event ID, note1..., nevent1..., nostr: URI, or supported URL.' };
-            }
-
-            // ── Toast ────────────────────────────
-            function showToast(message, type = 'info') {
-                const toast = document.createElement('div');
-                toast.className = `toast toast-${type}`;
-                toast.textContent = message;
-                toastContainer.appendChild(toast);
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.style.transition = 'opacity 0.3s';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3500);
-            }
-
-            // ── Loading ──────────────────────────
-            function showLoading(text = 'Connecting to relays...') {
-                loadingText.textContent = text;
-                loadingOverlay.classList.add('active');
-            }
-            function hideLoading() {
-                loadingOverlay.classList.remove('active');
-            }
-
-            // ── Relay Manager ────────────────────
             class RelayManager {
-                constructor(relayUrls) {
-                    this.relayUrls = relayUrls;
-                    this.connections = new Map();
-                    this.subscriptions = new Map();
-                    this.subIdCounter = 0;
-                }
-                getNextSubId() { return 'sub_' + (++this.subIdCounter); }
-                async connectAll(timeoutMs = 8000) {
-                    const promises = this.relayUrls.map(url => this.connect(url, timeoutMs));
-                    await Promise.allSettled(promises);
-                }
-                async connect(url, timeoutMs = 8000) {
-                    if (this.connections.has(url)) {
-                        const existing = this.connections.get(url);
-                        if (existing.ws && existing.ws.readyState === WebSocket.OPEN) {
-                            relayStats.set(url, { ...relayStats.get(url), status: 'connected' });
-                            return existing.ws;
-                        }
-                    }
-                    relayStats.set(url, { status: 'connecting', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-                    return new Promise((resolve, reject) => {
-                        try {
-                            const ws = new WebSocket(url);
-                            const timeout = setTimeout(() => {
-                                ws.close();
-                                relayStats.set(url, { ...relayStats.get(url), status: 'failed', errors: 1 });
-                                reject(new Error(`Timeout connecting to ${url}`));
-                            }, timeoutMs);
-                            ws.onopen = () => {
-                                clearTimeout(timeout);
-                                const rt = Date.now() - (relayStats.get(url)?.startTime || Date.now());
-                                relayStats.set(url, { status: 'connected', events: 0, errors: 0, responseTime: rt, startTime: Date.now() });
-                                this.connections.set(url, { ws, pendingSubs: new Set() });
-                                resolve(ws);
-                            };
-                            ws.onerror = () => {
-                                clearTimeout(timeout);
-                                relayStats.set(url, { ...relayStats.get(url), status: 'failed', errors: 1 });
-                                reject(new Error(`WebSocket error for ${url}`));
-                            };
-                            ws.onclose = () => {
-                                const current = relayStats.get(url) || {};
-                                if (current.status === 'connecting') {
-                                    relayStats.set(url, { ...current, status: 'failed', errors: 1 });
-                                } else if (current.status === 'connected') {
-                                    relayStats.set(url, { ...current, status: 'disconnected' });
-                                }
-                                this.connections.delete(url);
-                            };
-                            ws.onmessage = (msg) => this.handleMessage(url, msg);
-                        } catch (e) {
-                            relayStats.set(url, { status: 'failed', events: 0, errors: 1, responseTime: null, startTime: Date.now() });
-                            reject(e);
-                        }
+                constructor(urls){this.relayUrls=urls;this.connections=new Map();this.subscriptions=new Map();this.subIdCounter=0;}
+                getNextSubId(){return'sub_'+ ++this.subIdCounter;}
+                async connectAll(ms=8000){await Promise.allSettled(this.relayUrls.map(u=>this.connect(u,ms)));}
+                async connect(url,ms=8000){
+                    if(this.connections.has(url)){const ex=this.connections.get(url);if(ex.ws&&ex.ws.readyState===WebSocket.OPEN){relayStats.set(url,{...relayStats.get(url),status:'connected'});return ex.ws;}}
+                    relayStats.set(url,{status:'connecting',events:0,errors:0,responseTime:null,startTime:Date.now()});
+                    return new Promise((res,rej)=>{
+                        try{const ws=new WebSocket(url);const to=setTimeout(()=>{ws.close();relayStats.set(url,{...relayStats.get(url),status:'failed',errors:1});rej(new Error('timeout'));},ms);
+                        ws.onopen=()=>{clearTimeout(to);const rt=Date.now()-(relayStats.get(url)?.startTime||Date.now());relayStats.set(url,{status:'connected',events:0,errors:0,responseTime:rt});this.connections.set(url,{ws,pendingSubs:new Set()});res(ws);};
+                        ws.onerror=()=>{clearTimeout(to);relayStats.set(url,{...relayStats.get(url),status:'failed',errors:1});rej(new Error('error'));};
+                        ws.onclose=()=>{const cur=relayStats.get(url)||{};if(cur.status==='connecting')relayStats.set(url,{...cur,status:'failed',errors:1});else if(cur.status==='connected')relayStats.set(url,{...cur,status:'disconnected'});this.connections.delete(url);};
+                        ws.onmessage=m=>this.handleMessage(url,m);}catch(e){relayStats.set(url,{status:'failed',events:0,errors:1});rej(e);}
                     });
                 }
-                handleMessage(relayUrl, msg) {
-                    try {
-                        const data = JSON.parse(msg.data);
-                        if (data[0] === 'EVENT' && data[1] && data[2]) {
-                            const subId = data[1];
-                            const event = data[2];
-                            const stats = relayStats.get(relayUrl) || { events: 0 };
-                            stats.events = (stats.events || 0) + 1;
-                            relayStats.set(relayUrl, stats);
-                            if (this.onEvent) this.onEvent(event, relayUrl, subId);
-                        }
-                        if (data[0] === 'EOSE' && data[1]) {
-                            if (this.onEOSE) this.onEOSE(data[1], relayUrl);
-                        }
-                        if (data[0] === 'NOTICE') {
-                            const stats = relayStats.get(relayUrl) || { errors: 0 };
-                            stats.errors = (stats.errors || 0) + 1;
-                            relayStats.set(relayUrl, stats);
-                        }
-                    } catch (e) {
-                        console.warn('Error handling message from', relayUrl, e);
-                    }
+                handleMessage(url,msg){
+                    try{const d=JSON.parse(msg.data);
+                    if(d[0]==='EVENT'&&d[1]&&d[2]){const s=relayStats.get(url)||{events:0};s.events++;relayStats.set(url,s);if(this.onEvent)this.onEvent(d[2],url,d[1]);}
+                    if(d[0]==='EOSE'&&d[1]&&this.onEOSE)this.onEOSE(d[1],url);
+                    if(d[0]==='NOTICE'){const s=relayStats.get(url)||{errors:0};s.errors++;relayStats.set(url,s);}}catch(e){}
                 }
-                subscribe(filters, relayUrl = null) {
-                    const subId = this.getNextSubId();
-                    const reqMsg = JSON.stringify(['REQ', subId, ...filters]);
-                    const targets = relayUrl ? [relayUrl] : this.relayUrls;
-                    const pendingSubs = new Set();
-                    for (const url of targets) {
-                        const conn = this.connections.get(url);
-                        if (conn && conn.ws && conn.ws.readyState === WebSocket.OPEN) {
-                            conn.ws.send(reqMsg);
-                            conn.pendingSubs.add(subId);
-                            pendingSubs.add(url);
-                        }
-                    }
-                    this.subscriptions.set(subId, { filters, pendingSubs, createdAt: Date.now() });
-                    return subId;
+                subscribe(filters,url=null){
+                    const subId=this.getNextSubId(),msg=JSON.stringify(['REQ',subId,...filters]),targets=url?[url]:this.relayUrls,pending=new Set();
+                    for(const u of targets){const c=this.connections.get(u);if(c&&c.ws&&c.ws.readyState===WebSocket.OPEN){c.ws.send(msg);c.pendingSubs.add(subId);pending.add(u);}}
+                    this.subscriptions.set(subId,{filters,pendingSubs:pending,createdAt:Date.now()});return subId;
                 }
-                closeSubscription(subId) {
-                    for (const [url, conn] of this.connections) {
-                        if (conn.ws && conn.ws.readyState === WebSocket.OPEN) {
-                            conn.ws.send(JSON.stringify(['CLOSE', subId]));
-                            conn.pendingSubs.delete(subId);
-                        }
-                    }
-                    this.subscriptions.delete(subId);
-                }
-                closeAll() {
-                    for (const subId of this.subscriptions.keys()) this.closeSubscription(subId);
-                    for (const [url, conn] of this.connections) {
-                        if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.close();
-                    }
-                    this.connections.clear();
-                    this.subscriptions.clear();
-                }
-                reconnect(url) {
-                    const conn = this.connections.get(url);
-                    if (conn && conn.ws) try { conn.ws.close(); } catch (e) {}
-                    this.connections.delete(url);
-                    return this.connect(url);
-                }
+                closeSubscription(subId){for(const[u,c]of this.connections){if(c.ws&&c.ws.readyState===WebSocket.OPEN){c.ws.send(JSON.stringify(['CLOSE',subId]));c.pendingSubs.delete(subId);}}this.subscriptions.delete(subId);}
+                closeAll(){for(const s of this.subscriptions.keys())this.closeSubscription(s);for(const[u,c]of this.connections)if(c.ws)c.ws.close();this.connections.clear();this.subscriptions.clear();}
+                reconnect(url){const c=this.connections.get(url);if(c&&c.ws)try{c.ws.close()}catch(e){}this.connections.delete(url);return this.connect(url);}
             }
 
-            // ── Event Investigator ───────────────
             class EventInvestigator {
-                constructor(relayManager) {
-                    this.rm = relayManager;
-                    this.events = [];
-                    this.eventMap = new Map();
-                    this.originalEvent = null;
-                    this.hexId = null;
-                    this.pendingSubs = new Set();
-                    this.allDone = false;
-                    this.onUpdate = null;
-                    this.onComplete = null;
-                    this.investigationDepth = 0;
-                    this.maxDepth = 4;
+                constructor(rm){this.rm=rm;this.events=[];this.eventMap=new Map();this.originalEvent=null;this.hexId=null;this.pendingSubs=new Set();this.allDone=false;this.onUpdate=null;this.onComplete=null;this.investigationDepth=0;this.maxDepth=4;}
+                async investigate(hexId,hints=[]){
+                    this.hexId=hexId;this.events=[];this.eventMap.clear();this.originalEvent=null;this.pendingSubs.clear();this.allDone=false;this.investigationDepth=0;
+                    const allRelays=[...new Set([...activeRelays,...hints])];this.rm.relayUrls=allRelays;this.rm.connections.clear();this.rm.subscriptions.clear();relayStats.clear();
+                    for(const u of allRelays) relayStats.set(u,{status:'pending',events:0,errors:0,responseTime:null,startTime:Date.now()});
+                    this.rm.onEvent=(ev,url,sub)=>{this.addEvent(ev);if(this.onUpdate)this.onUpdate(this);};
+                    this.rm.onEOSE=(subId,url)=>{const sub=this.rm.subscriptions.get(subId);if(sub){sub.pendingSubs.delete(url);if(sub.pendingSubs.size===0){this.pendingSubs.delete(subId);this.rm.closeSubscription(subId);if(this.pendingSubs.size===0)this.onAllEOSE();}}};
+                    showLoading('Connecting to relays...');await this.rm.connectAll(10000);
+                    const connected=[...relayStats.values()].filter(s=>s.status==='connected').length;
+                    if(connected===0){hideLoading();showToast('No relays connected.','error');if(this.onComplete)this.onComplete(this);return;}
+                    showLoading(`Fetching event from ${connected} relays...`);
+                    this.pendingSubs.add(this.rm.subscribe([{ids:[hexId]}]));
+                    this.pendingSubs.add(this.rm.subscribe([{'#e':[hexId],limit:200}]));
+                    this.pendingSubs.add(this.rm.subscribe([{kinds:[6],'#e':[hexId],limit:100}]));
+                    this.pendingSubs.add(this.rm.subscribe([{kinds:[7],'#e':[hexId],limit:200}]));
+                    this.pendingSubs.add(this.rm.subscribe([{kinds:[9735],'#e':[hexId],limit:100}]));
+                    this.pendingSubs.add(this.rm.subscribe([{kinds:[9734],'#e':[hexId],limit:100}]));
+                    this.pendingSubs.add(this.rm.subscribe([{kinds:[5],'#e':[hexId],limit:50}]));
+                    setTimeout(()=>{if(this.pendingSubs.size>0){for(const s of this.pendingSubs)this.rm.closeSubscription(s);this.pendingSubs.clear();this.onAllEOSE();}},15000);
                 }
-                async investigate(hexId, relayHints = []) {
-                    this.hexId = hexId;
-                    this.events = [];
-                    this.eventMap = new Map();
-                    this.originalEvent = null;
-                    this.pendingSubs = new Set();
-                    this.allDone = false;
-                    this.investigationDepth = 0;
-                    const allRelays = [...new Set([...activeRelays, ...relayHints])];
-                    this.rm.relayUrls = allRelays;
-                    this.rm.connections.clear();
-                    this.rm.subscriptions.clear();
-                    relayStats.clear();
-                    for (const url of allRelays) {
-                        relayStats.set(url, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-                    }
-                    this.rm.onEvent = (event, relayUrl, subId) => {
-                        this.addEvent(event);
-                        if (this.onUpdate) this.onUpdate(this);
-                    };
-                    this.rm.onEOSE = (subId, relayUrl) => {
-                        const sub = this.rm.subscriptions.get(subId);
-                        if (sub) {
-                            sub.pendingSubs.delete(relayUrl);
-                            if (sub.pendingSubs.size === 0) {
-                                this.pendingSubs.delete(subId);
-                                this.rm.closeSubscription(subId);
-                                if (this.pendingSubs.size === 0) this.onAllEOSE();
-                            }
-                        }
-                    };
-                    showLoading('Connecting to relays...');
-                    await this.rm.connectAll(10000);
-                    const connectedCount = [...relayStats.values()].filter(s => s.status === 'connected').length;
-                    if (connectedCount === 0) {
-                        hideLoading();
-                        showToast('No relays connected. Please check relay availability.', 'error');
-                        if (this.onComplete) this.onComplete(this);
-                        return;
-                    }
-                    showLoading(`Connected to ${connectedCount} relays. Fetching event...`);
-                    const sub1 = this.rm.subscribe([{ ids: [hexId] }]);
-                    this.pendingSubs.add(sub1);
-                    const sub2 = this.rm.subscribe([{ '#e': [hexId], limit: 200 }]);
-                    this.pendingSubs.add(sub2);
-                    const sub3 = this.rm.subscribe([{ kinds: [6], '#e': [hexId], limit: 100 }]);
-                    this.pendingSubs.add(sub3);
-                    const sub4 = this.rm.subscribe([{ kinds: [7], '#e': [hexId], limit: 200 }]);
-                    this.pendingSubs.add(sub4);
-                    const sub5 = this.rm.subscribe([{ kinds: [9735], '#e': [hexId], limit: 100 }]);
-                    this.pendingSubs.add(sub5);
-                    const sub6 = this.rm.subscribe([{ kinds: [9734], '#e': [hexId], limit: 100 }]);
-                    this.pendingSubs.add(sub6);
-                    const sub7 = this.rm.subscribe([{ kinds: [5], '#e': [hexId], limit: 50 }]);
-                    this.pendingSubs.add(sub7);
-                    setTimeout(() => {
-                        if (this.pendingSubs.size > 0) {
-                            for (const sid of this.pendingSubs) this.rm.closeSubscription(sid);
-                            this.pendingSubs.clear();
-                            this.onAllEOSE();
-                        }
-                    }, 15000);
-                }
-                addEvent(event) {
-                    if (this.eventMap.has(event.id)) return;
-                    this.eventMap.set(event.id, event);
-                    this.events.push(event);
-                    if (event.id === this.hexId && !this.originalEvent) this.originalEvent = event;
-                    if (this.investigationDepth < this.maxDepth && event.kind === 1) {
-                        const replyToIds = this.extractReplyTargets(event);
-                        for (const rid of replyToIds) {
-                            if (!this.eventMap.has(rid) && rid !== this.hexId) {
-                                const subNested = this.rm.subscribe([{ ids: [rid] }]);
-                                this.pendingSubs.add(subNested);
-                                const subNestedRel = this.rm.subscribe([{ '#e': [rid], limit: 100 }]);
-                                this.pendingSubs.add(subNestedRel);
-                                this.investigationDepth++;
-                            }
-                        }
-                    }
-                }
-                extractReplyTargets(event) {
-                    const targets = [];
-                    if (event.tags) {
-                        for (const tag of event.tags) {
-                            if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) targets.push(tag[1]);
-                        }
-                    }
-                    return targets;
-                }
-                onAllEOSE() {
-                    this.allDone = true;
-                    hideLoading();
-                    if (this.originalEvent) {
-                        showToast(`Investigation complete: ${this.events.length} events found.`, 'success');
-                    } else if (this.events.length > 0) {
-                        showToast(`Original event not found, but ${this.events.length} related events discovered.`, 'info');
-                    } else {
-                        showToast('No events found. The event may not exist on connected relays.', 'error');
-                    }
-                    if (this.onComplete) this.onComplete(this);
-                }
-                getThreadTree() {
-                    if (!this.hexId) return null;
-                    const rootEvent = this.eventMap.get(this.hexId) || this.originalEvent;
-                    if (!rootEvent && this.events.length === 0) return null;
-                    const childrenMap = new Map();
-                    for (const event of this.events) {
-                        if (event.id === this.hexId) continue;
-                        const parentIds = this.getParentIds(event);
-                        for (const pid of parentIds) {
-                            if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-                            const existing = childrenMap.get(pid);
-                            if (!existing.find(e => e.id === event.id)) existing.push(event);
-                        }
-                    }
-                    for (const [pid, children] of childrenMap) {
-                        children.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
-                    }
-                    return { rootId: this.hexId, rootEvent, childrenMap };
-                }
-                getParentIds(event) {
-                    const parentIds = [];
-                    if (event.tags) {
-                        const eTags = event.tags.filter(t => t[0] === 'e' && t[1] && isValidHex64(t[1]));
-                        if (eTags.length > 0) {
-                            const replyTag = eTags.find(t => t[3] === 'reply');
-                            const rootTag = eTags.find(t => t[3] === 'root');
-                            if (replyTag) {
-                                parentIds.push(replyTag[1]);
-                            } else if (eTags.length === 1) {
-                                parentIds.push(eTags[0][1]);
-                            } else if (eTags.length >= 2) {
-                                parentIds.push(eTags[eTags.length - 1][1]);
-                            }
-                            if (rootTag && rootTag[1] !== parentIds[0]) parentIds.push(rootTag[1]);
-                        }
-                    }
-                    if (parentIds.length === 0 && this.hexId && event.content && event.content.includes(this.hexId)) {
-                        parentIds.push(this.hexId);
-                    }
-                    return [...new Set(parentIds)];
-                }
-                getEventsByKind(kind) { return this.events.filter(e => e.kind === kind); }
-                getUnknownEvents() { return this.events.filter(e => !KNOWN_KINDS[e.kind]); }
-                getUniqueAuthors() { return new Set(this.events.map(e => e.pubkey)).size; }
-                getMediaCounts() {
-                    let images = 0, videos = 0, attachments = 0;
-                    for (const e of this.events) {
-                        if (e.tags) {
-                            for (const tag of e.tags) {
-                                if (tag[0] === 'imeta') {
-                                    const urlTag = tag.find(t => t.startsWith('url '));
-                                    if (urlTag) {
-                                        const url = urlTag.split(' ')[1] || '';
-                                        if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) images++;
-                                        else if (/\.(mp4|mov|webm|avi)/i.test(url)) videos++;
-                                        else attachments++;
-                                    }
-                                }
-                            }
-                        }
-                        if (e.content) {
-                            const imgMatches = e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi);
-                            if (imgMatches) images += imgMatches.length;
-                            const vidMatches = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi);
-                            if (vidMatches) videos += vidMatches.length;
-                        }
-                    }
-                    return { images, videos, attachments };
-                }
-                getHashtags() {
-                    const tags = new Set();
-                    for (const e of this.events) {
-                        if (e.tags) for (const tag of e.tags) if (tag[0] === 't' && tag[1]) tags.add(tag[1].toLowerCase());
-                        if (e.content) {
-                            const matches = e.content.match(/#(\w+)/g);
-                            if (matches) matches.forEach(m => tags.add(m.slice(1).toLowerCase()));
-                        }
-                    }
-                    return tags.size;
-                }
-                getLinks() {
-                    let count = 0;
-                    for (const e of this.events) {
-                        if (e.content) {
-                            const matches = e.content.match(/https?:\/\/[^\s]+/g);
-                            if (matches) count += matches.length;
-                        }
-                    }
-                    return count;
-                }
-                getBchPaymentEvents() {
-                    const bchEvents = [];
-                    for (const e of this.events) {
-                        if (e.kind === 9735) bchEvents.push({ ...e, paymentType: 'zap' });
-                        else if (e.kind === 9734) bchEvents.push({ ...e, paymentType: 'zap_receipt' });
-                        else if (e.kind === 27235) bchEvents.push({ ...e, paymentType: 'bch_tip' });
-                        else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid'))
-                            bchEvents.push({ ...e, paymentType: 'bch_payment' });
-                        else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content))
-                            bchEvents.push({ ...e, paymentType: 'possible_bch' });
-                    }
-                    return bchEvents;
-                }
+                addEvent(ev){if(this.eventMap.has(ev.id))return;this.eventMap.set(ev.id,ev);this.events.push(ev);if(ev.id===this.hexId&&!this.originalEvent)this.originalEvent=ev;if(this.investigationDepth<this.maxDepth&&ev.kind===1){const targets=this.extractReplyTargets(ev);for(const rid of targets){if(!this.eventMap.has(rid)&&rid!==this.hexId){this.pendingSubs.add(this.rm.subscribe([{ids:[rid]}]));this.pendingSubs.add(this.rm.subscribe([{'#e':[rid],limit:100}]));this.investigationDepth++;}}}}
+                extractReplyTargets(ev){const t=[];if(ev.tags)for(const tag of ev.tags)if(tag[0]==='e'&&tag[1]&&isValidHex64(tag[1]))t.push(tag[1]);return t;}
+                onAllEOSE(){this.allDone=true;hideLoading();const msg=this.originalEvent?`Investigation complete: ${this.events.length} events found.`:(this.events.length>0?`Original not found, but ${this.events.length} related events.`:'No events found.');showToast(msg,this.originalEvent?'success':'info');if(this.onComplete)this.onComplete(this);}
+                getThreadTree(){if(!this.hexId)return null;const root=this.eventMap.get(this.hexId)||this.originalEvent;if(!root&&this.events.length===0)return null;const children=new Map();for(const e of this.events){if(e.id===this.hexId)continue;const pids=this.getParentIds(e);for(const pid of pids){if(!children.has(pid))children.set(pid,[]);if(!children.get(pid).find(x=>x.id===e.id))children.get(pid).push(e);}}for(const[pid,c]of children)c.sort((a,b)=>(a.created_at||0)-(b.created_at||0));return{rootId:this.hexId,rootEvent:root,childrenMap:children};}
+                getParentIds(ev){const ids=[];if(ev.tags){const eTags=ev.tags.filter(t=>t[0]==='e'&&t[1]&&isValidHex64(t[1]));if(eTags.length>0){const reply=eTags.find(t=>t[3]==='reply'),root=eTags.find(t=>t[3]==='root');if(reply)ids.push(reply[1]);else if(eTags.length===1)ids.push(eTags[0][1]);else if(eTags.length>=2)ids.push(eTags[eTags.length-1][1]);if(root&&root[1]!==ids[0])ids.push(root[1]);}}if(ids.length===0&&this.hexId&&ev.content&&ev.content.includes(this.hexId))ids.push(this.hexId);return[...new Set(ids)];}
+                getEventsByKind(k){return this.events.filter(e=>e.kind===k);}
+                getUnknownEvents(){return this.events.filter(e=>!KNOWN_KINDS[e.kind]);}
+                getUniqueAuthors(){return new Set(this.events.map(e=>e.pubkey)).size;}
+                getMediaCounts(){let im=0,vi=0,at=0;for(const e of this.events){if(e.tags)for(const t of e.tags)if(t[0]==='imeta'){const u=t.find(x=>x.startsWith('url '));if(u){const url=u.split(' ')[1]||'';if(/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url))im++;else if(/\.(mp4|mov|webm|avi)/i.test(url))vi++;else at++;}}if(e.content){const m=e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi);if(m)im+=m.length;const v=e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi);if(v)vi+=v.length;}}return{images:im,videos:vi,attachments:at};}
+                getHashtags(){const s=new Set();for(const e of this.events){if(e.tags)for(const t of e.tags)if(t[0]==='t'&&t[1])s.add(t[1].toLowerCase());if(e.content){const m=e.content.match(/#(\w+)/g);if(m)m.forEach(x=>s.add(x.slice(1).toLowerCase()));}}return s.size;}
+                getLinks(){let c=0;for(const e of this.events){if(e.content){const m=e.content.match(/https?:\/\/[^\s]+/g);if(m)c+=m.length;}}return c;}
+                getBchPaymentEvents(){const res=[];for(const e of this.events){if(e.kind===9735)res.push({...e,paymentType:'zap'});else if(e.kind===9734)res.push({...e,paymentType:'zap_receipt'});else if(e.kind===27235)res.push({...e,paymentType:'bch_tip'});else if(e.tags&&e.tags.some(t=>t[0]==='cashtoken'||t[0]==='bch'||t[0]==='txid'))res.push({...e,paymentType:'bch_payment'});else if(e.content&&/\b(bch|bitcoincash|cashtoken)\b/i.test(e.content)&&/[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content))res.push({...e,paymentType:'possible_bch'});}return res;}
             }
 
-            // ── UI Rendering ──────────────────────
-            function renderAll(investigator) {
-                allEvents = investigator.events;
-                originalEvent = investigator.originalEvent;
-                eventMap = investigator.eventMap;
-                investigationHexId = investigator.hexId;
-                if (allEvents.length === 0 && !originalEvent) {
-                    mainContent.classList.remove('active');
-                    return;
-                }
-                mainContent.classList.add('active');
-                renderThreadView(investigator);
-                renderTimelineView(investigator);
-                renderStatsView(investigator);
-                renderJsonView(investigator);
-                renderRelaysView();
-                renderExportView();
-                renderBchView(investigator);
+            // Rendering functions (unchanged logic)
+            function renderAll(inv){allEvents=inv.events;originalEvent=inv.originalEvent;eventMap=inv.eventMap;investigationHexId=inv.hexId;if(allEvents.length===0&&!originalEvent){resultsScreen.classList.remove('active');homeScreen.style.display='flex';return;}resultsScreen.classList.add('active');homeScreen.style.display='none';renderThread(inv);renderTimeline(inv);renderStats(inv);renderJson(inv);renderRelays();renderExport();renderBch(inv);}
+            function renderThread(inv){const p=document.getElementById('panel-thread');const tree=inv.getThreadTree();if(!tree||!tree.rootEvent){p.innerHTML='<div class="card"><p style="color:var(--text2);">No thread data.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span><div><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button> <button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div></div><div class="thread-tree">'+buildLines(tree.rootId,tree.childrenMap,0,new Set())+'</div></div>';p.innerHTML=h;p.querySelectorAll('.thread-node').forEach(el=>el.addEventListener('click',function(){const eid=this.dataset.eid;if(eid&&eventMap.has(eid))showEventModal(eventMap.get(eid));}));p.querySelectorAll('.thread-collapsed').forEach(el=>el.addEventListener('click',function(){threadCollapsed.delete(this.dataset.eid);renderThread(inv);}));}
+            function buildLines(eid,childrenMap,depth,visited){if(visited.has(eid)&&depth>0)return'';visited.add(eid);const ev=eventMap.get(eid);if(!ev&&depth>0)return'';let l='';const pre=depth===0?'':'  '.repeat(depth-1)+(depth>0?'├── ':'');const isOrig=eid===investigationHexId;let cls='thread-node';if(isOrig)cls+=' thread-original';else if(ev&&ev.kind===1)cls+=' thread-reply';else if(ev&&ev.kind===6)cls+=' thread-quote';const short=eid.substring(0,8)+'...';const kind=ev?(KNOWN_KINDS[ev.kind]||`Kind ${ev.kind}`):'?';const time=ev?new Date((ev.created_at||0)*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';const prev=ev?(ev.content||'').replace(/\n/g,' ').substring(0,60):'';if(threadCollapsed.has(eid)&&depth>0){l+=`<span class="thread-collapsed" data-eid="${eid}">${pre}[+] ${short} (${kind}) - collapsed</span>\n`;return l;}l+=`<span class="${cls}" data-eid="${eid}" title="${kind} | ${time}">${pre}${isOrig?'★ ':''}${short} [${kind}] ${time} ${prev.substring(0,40)}</span>\n`;const children=childrenMap.get(eid)||[];for(const c of children.filter(c=>!visited.has(c.id))){const cl=buildLines(c.id,childrenMap,depth+1,new Set(visited));if(cl){for(const line of cl.split('\n').filter(x=>x.trim()))l+=line+'\n';}}return l;}
+            function renderTimeline(inv){const p=document.getElementById('panel-timeline');const sorted=[...inv.events].sort((a,b)=>sortOrder==='newest-first'?(b.created_at||0)-(a.created_at||0):(a.created_at||0)-(b.created_at||0));if(!sorted.length){p.innerHTML='<div class="card"><p>No events.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: '+(sortOrder==='oldest-first'?'Oldest First ▲':'Newest First ▼')+'</button></div>';for(const e of sorted){const time=new Date((e.created_at||0)*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});const kind=KNOWN_KINDS[e.kind]||`Kind ${e.kind}`;const isOrig=e.id===investigationHexId;const prev=(e.content||'').replace(/\n/g,' ').substring(0,100);h+=`<div class="timeline-item" style="${isOrig?'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;':''}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig?'badge-green':'badge-purple'}">${kind}</span>${isOrig?' <span class="badge badge-green">★ Original</span>':''}</span><span class="timeline-preview"><code style="font-size:0.65rem;">${e.id.substring(0,10)}...</code> ${escapeHtml(prev)}</span><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button></div>`;}h+='</div>';p.innerHTML=h;}
+            function renderStats(inv){const p=document.getElementById('panel-stats');const tree=inv.getThreadTree();let nested=0;if(tree&&tree.childrenMap){const count=(eid,d)=>{let c=0;for(const child of (tree.childrenMap.get(eid)||[])){if(d>=1)c++;c+=count(child.id,d+1);}return c;};nested=count(tree.rootId,0);}const stats=[{l:'Original Event',v:originalEvent?1:0},{l:'Replies',v:inv.getEventsByKind(1).filter(e=>e.id!==investigationHexId&&inv.getParentIds(e).includes(investigationHexId)).length},{l:'Nested Replies',v:nested},{l:'Quotes',v:inv.events.filter(e=>e.kind===1&&e.content&&e.content.includes(investigationHexId||'')&&!inv.getParentIds(e).includes(investigationHexId||'')).length},{l:'Mentions',v:inv.events.filter(e=>e.tags&&e.tags.some(t=>t[0]==='e'&&t[1]===investigationHexId)).length},{l:'Reposts',v:inv.getEventsByKind(6).length},{l:'Reactions',v:inv.getEventsByKind(7).length},{l:'Zap Events',v:inv.getEventsByKind(9735).length+inv.getEventsByKind(9734).length},{l:'BCH Tips',v:inv.getBchPaymentEvents().length},{l:'Unknown Events',v:inv.getUnknownEvents().length},{l:'Unique Authors',v:inv.getUniqueAuthors()},{l:'Connected Relays',v:[...relayStats.values()].filter(s=>s.status==='connected').length},{l:'Successful Relays',v:[...relayStats.values()].filter(s=>s.events>0).length},{l:'Failed Relays',v:[...relayStats.values()].filter(s=>s.status==='failed'||s.status==='disconnected').length},{l:'Images',v:inv.getMediaCounts().images},{l:'Videos',v:inv.getMediaCounts().videos},{l:'Attachments',v:inv.getMediaCounts().attachments},{l:'Hashtags',v:inv.getHashtags()},{l:'Links',v:inv.getLinks()},{l:'Total Events',v:inv.events.length}];let h='<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';stats.forEach(s=>h+=`<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);h+='</div></div>';p.innerHTML=h;}
+            function renderJson(inv){const p=document.getElementById('panel-json');let h='<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span><div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div></div>';if(originalEvent){h+='<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">'+syntaxHighlight(JSON.stringify(originalEvent,null,2))+'</div><button class="btn btn-small btn-secondary" onclick="window._copyEventJson(\''+originalEvent.id+'\')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson(\''+originalEvent.id+'\')">Download</button>';}h+='<h4 style="margin:16px 0 8px;">All Events ('+inv.events.length+')</h4><input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';for(const e of inv.events){const isOrig=e.id===investigationHexId;h+=`<div><span style="color:${isOrig?'var(--green)':'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig?'★ ':'▸ '}${e.id.substring(0,12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e,null,2))}<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;}h+='</div></div>';p.innerHTML=h;}
+            function renderRelays(){const p=document.getElementById('panel-relays');let h='<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span><button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';[...new Set([...activeRelays,...relayStats.keys()])].forEach(url=>{const s=relayStats.get(url)||{status:'unknown',events:0,errors:0,responseTime:null};let cls='status-connecting',txt=s.status||'unknown';if(s.status==='connected'){cls='status-connected';txt='Connected';}else if(s.status==='failed'){cls='status-failed';txt='Failed';}else if(s.status==='disconnected'){cls='status-failed';txt='Disconnected';}const rt=s.responseTime?`${s.responseTime}ms`:'—';h+=`<tr><td style="max-width:200px;word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events||0}</td><td>${s.errors||0}</td><td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td></tr>`;});h+='</tbody></table></div></div>';p.innerHTML=h;}
+            function renderExport(){document.getElementById('panel-export').innerHTML='<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML</button></div></div>';}
+            function renderBch(inv){const p=document.getElementById('panel-bch');const evs=inv.getBchPaymentEvents();if(!evs.length){p.innerHTML='<div class="card"><p>💸 No BCH payment events found.</p></div>';return;}let h='<div class="card"><div class="card-header"><span class="card-title">💸 BCH Payments</span></div>';evs.forEach(e=>{const sender=e.pubkey?e.pubkey.substring(0,12)+'...':'?';const recipient=e.tags?(e.tags.find(t=>t[0]==='p')?.[1]?.substring(0,12)+'...'||'?'):'?';const amount=e.tags?(e.tags.find(t=>t[0]==='amount')?.[1]||'N/A'):'N/A';const curr=e.paymentType==='zap'?'BTC (Zap)':e.paymentType==='bch_tip'?'BCH':'?';const txid=e.tags?(e.tags.find(t=>t[0]==='txid'||t[0]==='cashtoken')?.[1]||'N/A'):'N/A';h+=`<div class="card" style="margin-bottom:8px;"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code>${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;});h+='</div>';p.innerHTML=h;}
+            function showEventModal(ev){const json=JSON.stringify(ev,null,2);modalContainer.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;const b=modalContainer.querySelector('.modal-backdrop');b.querySelector('.copy-json-btn')?.addEventListener('click',()=>{navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId),null,2)).then(()=>showToast('Copied!'));});b.querySelector('.download-json-btn')?.addEventListener('click',()=>{const eid=b.querySelector('.download-json-btn').dataset.eventId;downloadFile(JSON.stringify(eventMap.get(eid),null,2),`nostr-event-${eid.substring(0,12)}.json`);});}
+            function syntaxHighlight(j){return j.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,m=>{let c='json-number';if(/^"/.test(m))c=/:$/.test(m)?'json-key':'json-string';else if(/true|false/.test(m))c='json-boolean';else if(/null/.test(m))c='json-null';return`<span class="${c}">${m}</span>`;});}
+            function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+            function downloadFile(c,f,m){const b=new Blob([c],{type:m});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+            function exportJSON(t){let d,n;if(t==='original'&&originalEvent){d=JSON.stringify(originalEvent,null,2);n=`nostrscope-original-${investigationHexId?.substring(0,12)||'event'}.json`;}else{d=JSON.stringify({investigationHexId,originalEvent,allEvents,relayStats:[...relayStats.entries()].map(([u,s])=>({url:u,...s})),exportedAt:new Date().toISOString(),totalEvents:allEvents.length},null,2);n=`nostrscope-investigation-${investigationHexId?.substring(0,12)||'all'}.json`;}downloadFile(d,n,'application/json');showToast('Exported!');}
+            function exportCSV(){let csv='Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n';allEvents.forEach(e=>{csv+=`"${e.id}",${e.kind},"${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}","${e.pubkey||''}","${new Date((e.created_at||0)*1000).toISOString()}","${(e.content||'').replace(/"/g,'""').substring(0,200)}","${e.id===investigationHexId?'Yes':'No'}"\n`;});downloadFile(csv,`nostrscope-summary-${investigationHexId?.substring(0,12)||'events'}.csv`,'text/csv');}
+            function exportMarkdown(){let md=`# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`;[...allEvents].sort((a,b)=>(a.created_at||0)-(b.created_at||0)).forEach(e=>{md+=`- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`;});downloadFile(md,`nostrscope-report-${investigationHexId?.substring(0,12)||'events'}.md`,'text/markdown');}
+            function exportHTML(){let h=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;[...allEvents].sort((a,b)=>(a.created_at||0)-(b.created_at||0)).forEach(e=>{h+=`<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`;});h+='</tbody></table></body></html>';downloadFile(h,`nostrscope-report-${investigationHexId?.substring(0,12)||'events'}.html`,'text/html');}
+
+            // Switch to results view
+            function switchToResults(){
+                homeScreen.style.display='none';
+                resultsScreen.classList.add('active');
+                resultsSearchInput.value = homeSearchInput.value;
             }
 
-            function renderThreadView(investigator) {
-                const panel = document.getElementById('panel-thread');
-                const tree = investigator.getThreadTree();
-                if (!tree || !tree.rootEvent) {
-                    panel.innerHTML = '<div class="card"><p style="color:var(--text2);">No thread data available. The original event was not found.</p></div>';
-                    return;
-                }
-                let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Visualization</span>';
-                html += '<div><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button> <button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div>';
-                html += '</div><div class="thread-tree" id="threadTreeContainer">';
-                html += buildThreadLines(tree.rootId, tree.childrenMap, 0, new Set(), investigator);
-                html += '</div></div>';
-                html += '<div class="card" style="font-size:0.75rem;color:var(--text2);"><span style="color:var(--green);">● Original</span> &nbsp;<span style="color:var(--blue);">● Reply</span> &nbsp;<span style="color:var(--orange);">● Quote</span> &nbsp;<span style="color:var(--accent2);">● Mention</span> &nbsp;Click any event ID to inspect its JSON.</div>';
-                panel.innerHTML = html;
-                panel.querySelectorAll('.thread-node').forEach(el => {
-                    el.addEventListener('click', function() {
-                        const eid = this.getAttribute('data-eid');
-                        if (eid && eventMap.has(eid)) showEventModal(eventMap.get(eid));
-                    });
-                });
-                panel.querySelectorAll('.thread-collapsed').forEach(el => {
-                    el.addEventListener('click', function() {
-                        const eid = this.getAttribute('data-eid');
-                        if (eid) {
-                            threadCollapsed.delete(eid);
-                            renderThreadView(investigator);
-                        }
-                    });
-                });
-            }
-
-            function buildThreadLines(eventId, childrenMap, depth, visited, investigator) {
-                if (visited.has(eventId) && depth > 0) return '';
-                visited.add(eventId);
-                const event = eventMap.get(eventId);
-                if (!event && depth > 0) return '';
-                let lines = '';
-                const prefix = depth === 0 ? '' : '  '.repeat(depth - 1) + (depth > 0 ? '├── ' : '');
-                const isOriginal = eventId === investigationHexId;
-                let cssClass = 'thread-node';
-                if (isOriginal) cssClass += ' thread-original';
-                else if (event && event.kind === 1) cssClass += ' thread-reply';
-                else if (event && event.kind === 6) cssClass += ' thread-quote';
-                const shortId = eventId.substring(0, 8) + '...';
-                const kindLabel = event ? (KNOWN_KINDS[event.kind] || `Kind ${event.kind}`) : 'Unknown';
-                const timeStr = event ? new Date((event.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                const contentPreview = event ? (event.content || '').replace(/\n/g, ' ').substring(0, 60) : '';
-                if (threadCollapsed.has(eventId) && depth > 0) {
-                    lines += `<span class="thread-collapsed" data-eid="${eventId}" title="Click to expand">${prefix}[+] ${shortId} (${kindLabel}) - collapsed</span>\n`;
-                    return lines;
-                }
-                lines += `<span class="${cssClass}" data-eid="${eventId}" title="Click to inspect | ${kindLabel} | ${timeStr}">${prefix}${isOriginal ? '★ ' : ''}${shortId} [${kindLabel}] ${timeStr} ${contentPreview.substring(0, 40)}</span>\n`;
-                const children = childrenMap.get(eventId) || [];
-                const uniqueChildren = children.filter(c => !visited.has(c.id));
-                for (let i = 0; i < uniqueChildren.length; i++) {
-                    const child = uniqueChildren[i];
-                    const childLines = buildThreadLines(child.id, childrenMap, depth + 1, new Set(visited), investigator);
-                    if (childLines) {
-                        const childLinesArr = childLines.split('\n').filter(l => l.trim());
-                        for (const cl of childLinesArr) lines += cl + '\n';
-                    }
-                }
-                return lines;
-            }
-
-            function renderTimelineView(investigator) {
-                const panel = document.getElementById('panel-timeline');
-                const sorted = [...investigator.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
-                if (sorted.length === 0) {
-                    panel.innerHTML = '<div class="card"><p style="color:var(--text2);">No events to display in timeline.</p></div>';
-                    return;
-                }
-                let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span>';
-                html += `<div><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ${sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼'}</button></div>`;
-                html += '</div><div>';
-                for (const event of sorted) {
-                    const time = new Date((event.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
-                    const isOriginal = event.id === investigationHexId;
-                    const preview = (event.content || '').replace(/\n/g, ' ').substring(0, 100);
-                    const badgeClass = isOriginal ? 'badge-green' : 'badge-purple';
-                    html += `<div class="timeline-item" style="${isOriginal ? 'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;' : ''}">`;
-                    html += `<span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${badgeClass}">${kindName}</span>${isOriginal ? ' <span class="badge badge-green">★ Original</span>' : ''}</span>`;
-                    html += `<span class="timeline-preview"><code style="font-size:0.65rem;color:var(--text2);">${event.id.substring(0, 10)}...</code> ${escapeHtml(preview)}</span>`;
-                    html += `<button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')" style="flex-shrink:0;">JSON</button>`;
-                    html += '</div>';
-                }
-                html += '</div></div>';
-                panel.innerHTML = html;
-            }
-
-            function renderStatsView(investigator) {
-                const panel = document.getElementById('panel-stats');
-                const tree = investigator.getThreadTree();
-                let nestedReplies = 0;
-                if (tree && tree.childrenMap) {
-                    const countNested = (eid, depth) => {
-                        const children = tree.childrenMap.get(eid) || [];
-                        let count = 0;
-                        for (const child of children) {
-                            if (depth >= 1) count++;
-                            count += countNested(child.id, depth + 1);
-                        }
-                        return count;
-                    };
-                    nestedReplies = countNested(tree.rootId, 0);
-                }
-                const uniqueAuthors = investigator.getUniqueAuthors();
-                const media = investigator.getMediaCounts();
-                const hashtags = investigator.getHashtags();
-                const links = investigator.getLinks();
-                const unknownEvents = investigator.getUnknownEvents().length;
-                const relayStatsArr = [...relayStats.values()];
-                const connectedRelays = relayStatsArr.filter(s => s.status === 'connected').length;
-                const failedRelays = relayStatsArr.filter(s => s.status === 'failed' || s.status === 'disconnected').length;
-                const successfulRelays = relayStatsArr.filter(s => s.events > 0).length;
-                const zapEvents = investigator.getEventsByKind(9735).length + investigator.getEventsByKind(9734).length;
-                const bchTips = investigator.getBchPaymentEvents().length;
-                const stats = [
-                    { label: 'Original Event', value: originalEvent ? 1 : 0 },
-                    { label: 'Replies', value: investigator.getEventsByKind(1).filter(e => e.id !== investigationHexId && investigator.getParentIds(e).includes(investigationHexId)).length },
-                    { label: 'Nested Replies', value: nestedReplies },
-                    { label: 'Quotes', value: investigator.events.filter(e => e.kind === 1 && e.content && e.content.includes(investigationHexId || '') && !investigator.getParentIds(e).includes(investigationHexId || '')).length },
-                    { label: 'Mentions', value: investigator.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] === investigationHexId)).length },
-                    { label: 'Reposts', value: investigator.getEventsByKind(6).length },
-                    { label: 'Reactions', value: investigator.getEventsByKind(7).length },
-                    { label: 'Zap Events', value: zapEvents },
-                    { label: 'BCH Tips', value: bchTips },
-                    { label: 'Unknown Events', value: unknownEvents },
-                    { label: 'Unique Authors', value: uniqueAuthors },
-                    { label: 'Connected Relays', value: connectedRelays },
-                    { label: 'Successful Relays', value: successfulRelays },
-                    { label: 'Failed Relays', value: failedRelays },
-                    { label: 'Images', value: media.images },
-                    { label: 'Videos', value: media.videos },
-                    { label: 'Attachments', value: media.attachments },
-                    { label: 'Hashtags', value: hashtags },
-                    { label: 'Links', value: links },
-                    { label: 'Total Events', value: investigator.events.length },
-                ];
-                let html = '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics Dashboard</span></div>';
-                html += '<div class="stats-grid">';
-                for (const stat of stats) html += `<div class="stat-card"><div class="stat-value">${stat.value}</div><div class="stat-label">${stat.label}</div></div>`;
-                html += '</div></div>';
-                panel.innerHTML = html;
-            }
-
-            function renderJsonView(investigator) {
-                const panel = document.getElementById('panel-json');
-                let html = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span>';
-                html += '<div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div>';
-                html += '</div>';
-                if (originalEvent) {
-                    html += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4>';
-                    html += `<div class="json-viewer" id="jsonOriginal">${syntaxHighlightJSON(JSON.stringify(originalEvent, null, 2))}</div>`;
-                    html += '<button class="btn btn-small btn-secondary" style="margin-top:6px;" onclick="window._copyEventJson(\'' + originalEvent.id + '\')">Copy Original</button> ';
-                    html += '<button class="btn btn-small btn-secondary" style="margin-top:6px;" onclick="window._downloadEventJson(\'' + originalEvent.id + '\')">Download Original</button>';
-                }
-                html += '<h4 style="margin:16px 0 8px;">All Events (' + investigator.events.length + ')</h4>';
-                html += '<input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)">';
-                html += '<div class="json-viewer" id="jsonAll" style="max-height:50vh;">';
-                for (const event of investigator.events) {
-                    const isOrig = event.id === investigationHexId;
-                    html += `<div style="margin-bottom:4px;"><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${event.id}">${isOrig ? '★ ' : '▸ '}${event.id.substring(0, 12)}... [Kind ${event.kind}]</span>`;
-                    html += `<div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">`;
-                    html += syntaxHighlightJSON(JSON.stringify(event, null, 2));
-                    html += `<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${event.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${event.id}')">Download</button>`;
-                    html += '</div></div>';
-                }
-                html += '</div></div>';
-                panel.innerHTML = html;
-            }
-
-            function renderRelaysView() {
-                const panel = document.getElementById('panel-relays');
-                let html = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span>';
-                html += '<button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div>';
-                html += '<div style="overflow-x:auto;"><table class="relay-table"><thead><tr>';
-                html += '<th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';
-                const allUrls = [...new Set([...activeRelays, ...relayStats.keys()])];
-                for (const url of allUrls) {
-                    const stats = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0, responseTime: null };
-                    let statusClass = 'status-connecting', statusText = stats.status || 'unknown';
-                    if (stats.status === 'connected') { statusClass = 'status-connected'; statusText = 'Connected'; }
-                    else if (stats.status === 'failed') { statusClass = 'status-failed'; statusText = 'Failed'; }
-                    else if (stats.status === 'disconnected') { statusClass = 'status-failed'; statusText = 'Disconnected'; }
-                    else if (stats.status === 'connecting') { statusClass = 'status-connecting'; statusText = 'Connecting...'; }
-                    const rt = stats.responseTime ? `${stats.responseTime}ms` : '—';
-                    const isActive = activeRelays.includes(url);
-                    html += '<tr>';
-                    html += `<td style="max-width:200px;word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code>${isActive ? '' : ' <span class="badge badge-yellow">custom</span>'}</td>`;
-                    html += `<td><span class="status-dot ${statusClass}"></span>${statusText}</td><td>${rt}</td><td>${stats.events || 0}</td><td>${stats.errors || 0}</td>`;
-                    html += `<td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td>`;
-                    html += '</tr>';
-                }
-                html += '</tbody></table></div></div>';
-                panel.innerHTML = html;
-            }
-
-            function renderExportView() {
-                const panel = document.getElementById('panel-export');
-                let html = '<div class="card"><div class="card-header"><span class="card-title">💾 Export Investigation</span></div>';
-                html += '<div class="export-btns">';
-                html += '<button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original Event JSON</button>';
-                html += '<button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 Entire Investigation JSON</button>';
-                html += '<button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV Summary</button>';
-                html += '<button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown Report</button>';
-                html += '<button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML Report</button>';
-                html += '</div></div>';
-                panel.innerHTML = html;
-            }
-
-            function renderBchView(investigator) {
-                const panel = document.getElementById('panel-bch');
-                const bchEvents = investigator.getBchPaymentEvents();
-                if (bchEvents.length === 0) {
-                    panel.innerHTML = '<div class="card"><p style="color:var(--text2);">💸 No BCH payment events discovered in this investigation.</p></div>';
-                    return;
-                }
-                let html = '<div class="card"><div class="card-header"><span class="card-title">💸 BCH & Payment Events</span></div>';
-                for (const event of bchEvents) {
-                    const sender = event.pubkey ? event.pubkey.substring(0, 12) + '...' : 'Unknown';
-                    const recipient = event.tags ? (event.tags.find(t => t[0] === 'p')?.[1]?.substring(0, 12) + '...' || 'Unknown') : 'Unknown';
-                    const amount = event.tags ? (event.tags.find(t => t[0] === 'amount')?.[1] || 'N/A') : 'N/A';
-                    const currency = event.paymentType === 'zap' ? 'BTC (Zap)' : event.paymentType === 'bch_tip' ? 'BCH' : 'Unknown';
-                    const txid = event.tags ? (event.tags.find(t => t[0] === 'txid' || t[0] === 'cashtoken')?.[1] || 'N/A') : 'N/A';
-                    const memo = event.content || 'No memo';
-                    const time = new Date((event.created_at || 0) * 1000).toLocaleString();
-                    html += '<div class="card" style="margin-bottom:8px;">';
-                    html += `<div><strong>Type:</strong> <span class="badge badge-orange">${event.paymentType}</span> | <strong>Time:</strong> ${time}</div>`;
-                    html += `<div><strong>Sender:</strong> <code>${sender}</code> → <strong>Recipient:</strong> <code>${recipient}</code></div>`;
-                    html += `<div><strong>Amount:</strong> ${amount} | <strong>Currency:</strong> ${currency}</div>`;
-                    if (txid !== 'N/A') {
-                        html += `<div><strong>TXID:</strong> <code>${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`;
-                    }
-                    html += `<div><strong>Memo:</strong> ${escapeHtml(memo.substring(0, 200))}</div>`;
-                    html += `<button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">View Raw JSON</button>`;
-                    html += '</div>';
-                }
-                html += '</div>';
-                panel.innerHTML = html;
-            }
-
-            function showEventModal(event) {
-                const jsonStr = JSON.stringify(event, null, 2);
-                const html = `
-                <div class="modal-backdrop" onclick="if(event.target===this)this.remove();">
-                    <div class="modal">
-                        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button>
-                        <h3 style="margin-bottom:8px;">Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(event.id)}</code></h3>
-                        <p style="color:var(--text2);font-size:0.8rem;">Kind: ${KNOWN_KINDS[event.kind] || event.kind} | Created: ${new Date((event.created_at||0)*1000).toLocaleString()}</p>
-                        <div class="json-viewer" style="max-height:50vh;">${syntaxHighlightJSON(jsonStr)}</div>
-                        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${event.id}">📋 Copy JSON</button>
-                            <button class="btn btn-small btn-green download-json-btn" data-event-id="${event.id}">⬇ Download</button>
-                        </div>
-                    </div>
-                </div>`;
-                modalContainer.innerHTML = html;
-                const backdrop = modalContainer.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.querySelector('.copy-json-btn')?.addEventListener('click', () => {
-                        const eid = backdrop.querySelector('.copy-json-btn').getAttribute('data-event-id');
-                        if (eid && eventMap.has(eid)) {
-                            navigator.clipboard.writeText(JSON.stringify(eventMap.get(eid), null, 2)).then(() => showToast('Copied!', 'success'));
-                        }
-                    });
-                    backdrop.querySelector('.download-json-btn')?.addEventListener('click', () => {
-                        const eid = backdrop.querySelector('.download-json-btn').getAttribute('data-event-id');
-                        if (eid && eventMap.has(eid)) {
-                            downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0,12)}.json`, 'application/json');
-                            showToast('Downloaded!', 'success');
-                        }
-                    });
-                }
-            }
-
-            function syntaxHighlightJSON(json) {
-                return json
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
-                        let cls = 'json-number';
-                        if (/^"/.test(match)) cls = /:$/.test(match) ? 'json-key' : 'json-string';
-                        else if (/true|false/.test(match)) cls = 'json-boolean';
-                        else if (/null/.test(match)) cls = 'json-null';
-                        return `<span class="${cls}">${match}</span>`;
-                    });
-            }
-
-            function escapeHtml(str) {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-            }
-
-            function downloadFile(content, filename, mimeType) {
-                const blob = new Blob([content], { type: mimeType });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }
-
-            function exportJSON(type) {
-                let data, filename;
-                if (type === 'original' && originalEvent) {
-                    data = JSON.stringify(originalEvent, null, 2);
-                    filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`;
-                } else {
-                    const exportData = {
-                        investigationHexId,
-                        originalEvent,
-                        allEvents,
-                        relayStats: [...relayStats.entries()].map(([url, stats]) => ({ url, ...stats })),
-                        exportedAt: new Date().toISOString(),
-                        totalEvents: allEvents.length,
-                    };
-                    data = JSON.stringify(exportData, null, 2);
-                    filename = `nostrscope-investigation-${investigationHexId?.substring(0,12) || 'all'}.json`;
-                }
-                downloadFile(data, filename, 'application/json');
-                showToast('Export complete!', 'success');
-            }
-
-            function exportCSV() {
-                let csv = 'Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n';
-                for (const event of allEvents) {
-                    const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
-                    const content = (event.content || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 200);
-                    const isOrig = event.id === investigationHexId ? 'Yes' : 'No';
-                    const time = new Date((event.created_at || 0) * 1000).toISOString();
-                    csv += `"${event.id}",${event.kind},"${kindName}","${event.pubkey || ''}","${time}","${content}","${isOrig}"\n`;
-                }
-                downloadFile(csv, `nostrscope-summary-${investigationHexId?.substring(0,12) || 'events'}.csv`, 'text/csv');
-                showToast('CSV exported!', 'success');
-            }
-
-            function exportMarkdown() {
-                let md = `# NostrScope Investigation Report\n\n`;
-                md += `**Event ID:** \`${investigationHexId || 'N/A'}\`\n`;
-                md += `**Generated:** ${new Date().toISOString()}\n`;
-                md += `**Total Events Found:** ${allEvents.length}\n\n`;
-                md += `## Statistics\n\n| Metric | Value |\n|---|---|\n`;
-                md += `| Original Event | ${originalEvent ? 1 : 0} |\n`;
-                md += `| Total Events | ${allEvents.length} |\n`;
-                md += `| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n`;
-                md += `| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n`;
-                md += `| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n`;
-                md += `| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n`;
-                md += `| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n`;
-                md += `## Event Timeline\n\n`;
-                const sorted = [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
-                for (const e of sorted) {
-                    const time = new Date((e.created_at || 0) * 1000).toLocaleString();
-                    const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
-                    md += `- **${time}** [${kindName}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`;
-                }
-                downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.md`, 'text/markdown');
-                showToast('Markdown report exported!', 'success');
-            }
-
-            function exportHTML() {
-                let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title>
-                <style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}
-                h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;margin:16px 0;}th,td{border:1px solid #30363d;padding:8px;text-align:left;font-size:0.85rem;}
-                th{background:#161b22;color:#8b949e;}code{background:#1c2333;padding:2px 6px;border-radius:4px;font-size:0.8rem;word-break:break-all;}
-                .original{background:rgba(63,185,80,0.1);}</style></head><body>`;
-                html += `<h1>🔍 NostrScope Investigation Report</h1>`;
-                html += `<p><strong>Event ID:</strong> <code>${investigationHexId || 'N/A'}</code></p><p><strong>Generated:</strong> ${new Date().toISOString()}</p><p><strong>Total Events:</strong> ${allEvents.length}</p>`;
-                html += `<h2>Events</h2><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;
-                const sorted = [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
-                for (const e of sorted) {
-                    const time = new Date((e.created_at || 0) * 1000).toLocaleString();
-                    const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
-                    const isOrig = e.id === investigationHexId;
-                    html += `<tr class="${isOrig?'original':''}"><td>${time}</td><td>${kindName}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`;
-                }
-                html += `</tbody></table></body></html>`;
-                downloadFile(html, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html');
-                showToast('HTML report exported!', 'success');
-            }
-
-            // ── Main Application ──────────────────
-            let relayManager = null;
-            let investigator = null;
-
-            async function runAnalysis() {
-                const input = eventInput.value.trim();
-                if (!input) { showError('Please enter an event identifier.'); return; }
+            async function runAnalysis(inputValue){
+                const input = inputValue || homeSearchInput.value.trim();
+                if(!input){showError('Please enter an event identifier.');return;}
                 hideError();
                 const parsed = parseInput(input);
-                if (parsed.error) {
-                    showError(parsed.error);
-                    showToast(parsed.error, 'error');
-                    return;
-                }
+                if(parsed.error){showError(parsed.error);showToast(parsed.error,'error');return;}
                 investigationHexId = parsed.hexId;
-                allEvents = [];
-                originalEvent = null;
-                eventMap.clear();
-                threadCollapsed.clear();
-                sortOrder = 'oldest-first';
-                relayStats.clear();
-                mainContent.classList.remove('active');
-                const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
+                allEvents=[];originalEvent=null;eventMap.clear();threadCollapsed.clear();sortOrder='oldest-first';relayStats.clear();
+                const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints||[])])];
                 relayManager = new RelayManager(allUrls);
                 investigator = new EventInvestigator(relayManager);
-                investigator.onUpdate = (inv) => renderAll(inv);
-                investigator.onComplete = (inv) => {
+                investigator.onUpdate = inv => renderAll(inv);
+                investigator.onComplete = inv => {
                     renderAll(inv);
                     hideLoading();
-                    switchTab('thread');
-                    mainContent.classList.add('active');
-                    mainContent.scrollIntoView({ behavior: 'smooth' });
+                    switchToResults();
+                    document.querySelector('.tab-btn.active')?.click();
+                    window.scrollTo({top:0,behavior:'smooth'});
                 };
-                await investigator.investigate(parsed.hexId, parsed.relayHints || []);
+                await investigator.investigate(parsed.hexId, parsed.relayHints||[]);
             }
 
-            function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); }
-            function hideError() { errorMsg.textContent = ''; errorMsg.classList.remove('visible'); }
-
-            function switchTab(tabName) {
-                activeTab = tabName;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            // Tab switching
+            function switchTab(tabName){
+                document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
                 document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
                 document.getElementById(`panel-${tabName}`)?.classList.add('active');
-                if (investigator && tabName === 'relays') renderRelaysView();
-                if (investigator && tabName === 'export') renderExportView();
+                if(investigator&&tabName==='relays')renderRelays();
+                if(investigator&&tabName==='export')renderExport();
             }
 
-            // ── Global Window Functions ──────────
-            window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThreadView(investigator); };
-            window._collapseAll = () => {
-                if (investigator && investigator.eventMap) {
-                    for (const eid of investigator.eventMap.keys()) if (eid !== investigationHexId) threadCollapsed.add(eid);
-                    renderThreadView(investigator);
-                }
-            };
-            window._toggleSortOrder = () => {
-                sortOrder = sortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first';
-                if (investigator) renderTimelineView(investigator);
-            };
-            window._inspectEvent = (eid) => { if (eventMap.has(eid)) showEventModal(eventMap.get(eid)); };
-            window._copyEventJson = (eid) => {
-                const event = eventMap.get(eid);
-                if (event) navigator.clipboard.writeText(JSON.stringify(event, null, 2)).then(() => showToast('Copied!', 'success'));
-            };
-            window._downloadEventJson = (eid) => {
-                const event = eventMap.get(eid);
-                if (event) { downloadFile(JSON.stringify(event, null, 2), `nostr-event-${eid.substring(0,12)}.json`, 'application/json'); showToast('Downloaded!', 'success'); }
-            };
-            window._copyAllJson = () => {
-                if (allEvents.length > 0) navigator.clipboard.writeText(JSON.stringify(allEvents, null, 2)).then(() => showToast('All events copied!', 'success'));
-            };
-            window._downloadAllJson = () => exportJSON('all');
-            window._toggleJsonBlock = (el) => {
-                const block = el.nextElementSibling;
-                if (block?.classList.contains('json-block-content')) {
-                    const isHidden = block.style.display === 'none';
-                    block.style.display = isHidden ? 'block' : 'none';
-                    el.textContent = el.textContent.replace(isHidden ? '▸' : '▾', isHidden ? '▾' : '▸');
-                }
-            };
-            window._searchJson = (query) => {
-                const container = document.getElementById('jsonAll');
-                if (!container) return;
-                const blocks = container.querySelectorAll('.json-block-content');
-                for (const block of blocks) {
-                    if (!query) {
-                        block.style.display = 'none';
-                        const prev = block.previousElementSibling;
-                        if (prev) prev.textContent = prev.textContent.replace('▾', '▸');
-                    } else if (block.textContent.toLowerCase().includes(query.toLowerCase())) {
-                        block.style.display = 'block';
-                        const prev = block.previousElementSibling;
-                        if (prev) prev.textContent = prev.textContent.replace('▸', '▾');
-                    }
-                }
-            };
-            window._reconnectRelay = async (url) => {
-                showToast(`Reconnecting to ${url}...`, 'info');
-                if (relayManager) { await relayManager.reconnect(url); showToast(`Reconnected to ${url}`, 'success'); renderRelaysView(); }
-            };
-            window._removeRelay = (url) => {
-                activeRelays = activeRelays.filter(r => r !== url);
-                if (relayManager) relayManager.relayUrls = activeRelays;
-                showToast(`Removed relay: ${url}`, 'info');
-                renderRelaysView();
-            };
-            window._addCustomRelay = () => {
-                const url = prompt('Enter relay WebSocket URL (e.g., wss://relay.example.com):');
-                if (url && url.startsWith('ws') && !activeRelays.includes(url)) {
-                    activeRelays.push(url);
-                    if (relayManager) relayManager.relayUrls = activeRelays;
-                    showToast(`Added relay: ${url}`, 'success');
-                    renderRelaysView();
-                } else if (url && activeRelays.includes(url)) showToast('Relay already in list.', 'info');
-                else if (url) showToast('Invalid URL. Must start with ws:// or wss://', 'error');
-            };
-            window._exportJSON = exportJSON;
-            window._exportCSV = exportCSV;
-            window._exportMarkdown = exportMarkdown;
-            window._exportHTML = exportHTML;
-            window.showToast = showToast;
+            // Global functions
+            window._expandAll=()=>{threadCollapsed.clear();if(investigator)renderThread(investigator);};
+            window._collapseAll=()=>{if(investigator){investigator.eventMap.forEach((_,k)=>{if(k!==investigationHexId)threadCollapsed.add(k);});renderThread(investigator);}};
+            window._toggleSortOrder=()=>{sortOrder=sortOrder==='oldest-first'?'newest-first':'oldest-first';if(investigator)renderTimeline(investigator);};
+            window._inspectEvent=eid=>{if(eventMap.has(eid))showEventModal(eventMap.get(eid));};
+            window._copyEventJson=eid=>{if(eventMap.has(eid))navigator.clipboard.writeText(JSON.stringify(eventMap.get(eid),null,2)).then(()=>showToast('Copied!'));};
+            window._downloadEventJson=eid=>{if(eventMap.has(eid))downloadFile(JSON.stringify(eventMap.get(eid),null,2),`nostr-event-${eid.substring(0,12)}.json`);};
+            window._copyAllJson=()=>{if(allEvents.length)navigator.clipboard.writeText(JSON.stringify(allEvents,null,2)).then(()=>showToast('Copied!'));};
+            window._downloadAllJson=()=>exportJSON('all');
+            window._toggleJsonBlock=el=>{const b=el.nextElementSibling;if(b?.classList.contains('json-block-content')){const hidden=b.style.display==='none';b.style.display=hidden?'block':'none';el.textContent=el.textContent.replace(hidden?'▸':'▾',hidden?'▾':'▸');}};
+            window._searchJson=q=>{const c=document.getElementById('jsonAll');if(!c)return;c.querySelectorAll('.json-block-content').forEach(b=>{if(!q){b.style.display='none';b.previousElementSibling&&(b.previousElementSibling.textContent=b.previousElementSibling.textContent.replace('▾','▸'));}else if(b.textContent.toLowerCase().includes(q.toLowerCase())){b.style.display='block';b.previousElementSibling&&(b.previousElementSibling.textContent=b.previousElementSibling.textContent.replace('▸','▾'));}});};
+            window._reconnectRelay=async u=>{showToast(`Reconnecting ${u}...`);if(relayManager){await relayManager.reconnect(u);renderRelays();showToast('Reconnected');}};
+            window._removeRelay=u=>{activeRelays=activeRelays.filter(r=>r!==u);if(relayManager)relayManager.relayUrls=activeRelays;renderRelays();showToast('Relay removed');};
+            window._addCustomRelay=()=>{const url=prompt('Enter relay WebSocket URL:');if(url&&url.startsWith('ws')&&!activeRelays.includes(url)){activeRelays.push(url);if(relayManager)relayManager.relayUrls=activeRelays;renderRelays();showToast('Relay added');}else if(url&&activeRelays.includes(url))showToast('Already in list');else if(url)showToast('Invalid URL');};
+            window._exportJSON=exportJSON; window._exportCSV=exportCSV; window._exportMarkdown=exportMarkdown; window._exportHTML=exportHTML;
+            window.showToast=showToast;
 
-            // ── Event Listeners ──────────────────
-            analyzeBtn.addEventListener('click', runAnalysis);
-            eventInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runAnalysis(); });
-            clearBtn.addEventListener('click', () => {
-                eventInput.value = ''; hideError(); mainContent.classList.remove('active');
-                allEvents = []; originalEvent = null; eventMap.clear(); investigationHexId = null;
-                if (relayManager) relayManager.closeAll();
-                relayManager = null; investigator = null; relayStats.clear();
-                ['thread','timeline','stats','json','relays','export','bch'].forEach(id => document.getElementById(`panel-${id}`).innerHTML = '');
-                showToast('Cleared.', 'info');
+            // Event listeners
+            homeAnalyzeBtn.addEventListener('click', ()=> runAnalysis());
+            homeClearBtn.addEventListener('click', ()=>{ homeSearchInput.value=''; hideError(); });
+            homeSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
+            homeLuckyBtn.addEventListener('click', ()=>{
+                const tips = ['note1...','nevent1...','6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a','https://njump.me/note1...'];
+                homeSearchInput.value = tips[Math.floor(Math.random()*tips.length)];
+                runAnalysis();
             });
-            tabsNav.addEventListener('click', (e) => {
+            resultsSearchBtn.addEventListener('click', ()=> runAnalysis(resultsSearchInput.value));
+            resultsSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(resultsSearchInput.value); });
+            document.getElementById('resultsLogo').addEventListener('click', ()=>{ resultsScreen.classList.remove('active'); homeScreen.style.display='flex'; homeSearchInput.value=''; hideError(); });
+            tabsNav.addEventListener('click', e=>{
                 const btn = e.target.closest('.tab-btn');
-                if (btn) { const tabName = btn.getAttribute('data-tab'); if (tabName) switchTab(tabName); }
+                if(btn){ switchTab(btn.dataset.tab); }
             });
 
-            for (const url of DEFAULT_RELAYS) relayStats.set(url, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-            console.log('🔍 NostrScope ready — mobile optimized.');
+            // Init relay stats
+            DEFAULT_RELAYS.forEach(u=>relayStats.set(u,{status:'pending',events:0,errors:0,responseTime:null}));
+            console.log('🔍 NostrScope — Google-style dark theme ready.');
         })();
     </script>
 </body>
