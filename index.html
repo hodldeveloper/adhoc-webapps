@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛸 Project Hub</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --surface: #131a2b;
+            --card: #1a2338;
+            --border: #2a3652;
+            --text: #d6e0f5;
+            --text-secondary: #8b9bb4;
+            --accent: #6c9fff;
+            --accent-hover: #8cb3ff;
+            --danger: #ff6b7a;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a0c4ff, #6c9fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.15rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .project-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.8rem 1.5rem;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 12px 36px rgba(108, 159, 255, 0.15);
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6c9fff, #a0c4ff);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .project-card:hover::before {
+            opacity: 1;
+        }
+
+        .project-icon {
+            font-size: 2.4rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .project-name {
+            font-size: 1.4rem;
+            font-weight: 650;
+            letter-spacing: -0.3px;
+            word-break: break-word;
+        }
+
+        .project-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            flex: 1;
+        }
+
+        .project-link-hint {
+            font-size: 0.8rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .error-state {
+            background: #2a1a1f;
+            border: 1px solid #5a2e35;
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            color: #ffb3b8;
+            margin: 2rem auto;
+            max-width: 500px;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(108, 159, 255, 0.2);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .footer-note {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.2rem;
+            }
+            .project-card {
+                padding: 1.5rem 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛸 Project Hub</h1>
+            <p class="subtitle">A collection of tiny web apps — each in its own folder. Click any card to launch.</p>
+        </header>
+
+        <div id="projectsContainer">
+            <div class="loading-spinner" id="loadingSpinner"></div>
+            <div class="error-state" id="errorState" style="display: none;">
+                <p>⚠️ Unable to load project list automatically.</p>
+                <p style="font-size:0.9rem; margin-top:0.5rem;">If you're running locally, serve via a local server or host on GitHub Pages.</p>
+            </div>
+        </div>
+
+        <div class="footer-note">
+            🔧 New folder? Just push a sub‑folder with its own <code>index.html</code> and it appears here automatically.
+        </div>
+    </div>
+
+    <script>
+        (async function() {
+            const container = document.getElementById('projectsContainer');
+            const spinner = document.getElementById('loadingSpinner');
+            const errorEl = document.getElementById('errorState');
+
+            // ---------- CONFIGURATION ----------
+            // Automatically detect repo from URL when hosted on GitHub Pages.
+            // Format: https://USERNAME.github.io/REPO/   or custom domain.
+            // If detection fails, set these manually:
+            const MANUAL_REPO_OWNER = ''; // e.g., 'your-github-username'
+            const MANUAL_REPO_NAME = '';  // e.g., 'landingpage-repo'
+            // -------------------------------------
+
+            function parseRepoFromHost() {
+                const host = window.location.hostname;
+                const path = window.location.pathname.replace(/\/$/, ''); // remove trailing slash
+
+                // GitHub Pages: username.github.io/repo
+                if (host.endsWith('github.io')) {
+                    const parts = host.split('.');
+                    if (parts.length >= 3) {
+                        const username = parts[0];
+                        const repo = path.split('/')[1] || '';
+                        if (username && repo) {
+                            return { owner: username, repo: repo };
+                        }
+                    }
+                }
+
+                // Custom domain with path (e.g., example.com/repo)
+                // If the path has at least one segment, assume it's the repo name.
+                if (path.length > 1) {
+                    const segments = path.split('/').filter(Boolean);
+                    if (segments.length >= 1) {
+                        // Owner unknown: try using 'pages' or fallback to manual
+                        return { owner: 'pages', repo: segments[0] };
+                    }
+                }
+
+                return null;
+            }
+
+            async function fetchSubfolders(owner, repo) {
+                const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`;
+                const response = await fetch(apiUrl, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+                }
+
+                const items = await response.json();
+                const folders = items.filter(item => item.type === 'dir');
+
+                // Check each folder for an index.html
+                const validProjects = [];
+                const checks = folders.map(async (folder) => {
+                    const folderContentsUrl = folder.url;
+                    const res = await fetch(folderContentsUrl, {
+                        headers: { 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (!res.ok) return;
+                    const files = await res.json();
+                    const hasIndex = files.some(file => file.name.toLowerCase() === 'index.html');
+                    if (hasIndex) {
+                        validProjects.push({
+                            name: folder.name,
+                            path: folder.name,
+                            url: folder.name + '/' // relative link
+                        });
+                    }
+                });
+
+                await Promise.all(checks);
+                return validProjects;
+            }
+
+            function renderProjects(projects) {
+                spinner.style.display = 'none';
+                errorEl.style.display = 'none';
+
+                if (projects.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center; color: var(--text-secondary); padding:2rem;">
+                            📭 No sub‑projects found. Add a folder with an index.html to get started.
+                        </div>`;
+                    return;
+                }
+
+                const grid = document.createElement('div');
+                grid.className = 'projects-grid';
+
+                projects.forEach(proj => {
+                    const card = document.createElement('a');
+                    card.className = 'project-card';
+                    card.href = proj.url;
+                    card.innerHTML = `
+                        <div class="project-icon">📁</div>
+                        <div class="project-name">${escapeHtml(proj.name)}</div>
+                        <div class="project-desc">Web app inside <code>/${escapeHtml(proj.name)}</code></div>
+                        <div class="project-link-hint">
+                            <span>🚀 Launch</span>
+                            <span style="font-size:1.1rem;">→</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                container.innerHTML = '';
+                container.appendChild(grid);
+            }
+
+            function escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, m => map[m]);
+            }
+
+            // ---------- Main execution ----------
+            try {
+                let owner, repo;
+
+                // Try manual config first
+                if (MANUAL_REPO_OWNER && MANUAL_REPO_NAME) {
+                    owner = MANUAL_REPO_OWNER;
+                    repo = MANUAL_REPO_NAME;
+                } else {
+                    const detected = parseRepoFromHost();
+                    if (detected && detected.owner && detected.repo) {
+                        owner = detected.owner;
+                        repo = detected.repo;
+                    } else {
+                        throw new Error('Could not detect repository. Set MANUAL_REPO_OWNER and MANUAL_REPO_NAME in the script.');
+                    }
+                }
+
+                const projects = await fetchSubfolders(owner, repo);
+                renderProjects(projects);
+            } catch (err) {
+                console.error(err);
+                spinner.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.innerHTML += `<p style="font-size:0.85rem; margin-top:0.8rem; color:#b0b0b0;">${escapeHtml(err.message)}</p>`;
+            }
+        })();
+    </script>
+</body>
+</html>
