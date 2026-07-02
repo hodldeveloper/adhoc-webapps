@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NostrScope — Nostr Event Explorer</title>
     <style>
-        /* Minimal dark theme – clean, readable, responsive */
         :root {
             --bg: #0f0f0f;
             --surface: #1a1a1a;
@@ -16,467 +15,215 @@
             --accent: #7c8aff;
             --accent-hover: #5f6fd1;
             --danger: #ff6b6b;
-            --success: #4caf84;
             --radius: 8px;
             --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: var(--font);
-            line-height: 1.6;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            background: var(--bg); color: var(--text); font-family: var(--font);
+            line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column;
         }
-        .header {
-            border-bottom: 1px solid var(--border);
-            padding: 1.5rem 1rem;
-            text-align: center;
-        }
+        .header { border-bottom: 1px solid var(--border); padding: 1.5rem 1rem; text-align: center; }
         .header-inner { max-width: 800px; margin: 0 auto; }
-        .logo { font-size: 2rem; font-weight: 600; letter-spacing: -0.5px; }
+        .logo { font-size: 2rem; font-weight: 600; }
         .subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem; }
-        .main-container {
-            flex: 1;
-            max-width: 900px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 1.5rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        .input-section {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
-        }
-        .input-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-        }
+        .main-container { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+        .input-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
         .event-input {
-            flex: 1 1 200px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 0.7rem 1rem;
-            color: var(--text);
-            font-size: 0.95rem;
-            outline: none;
-            transition: border 0.2s;
+            flex: 1 1 200px; background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 0.7rem 1rem; color: var(--text);
+            font-size: 0.95rem; outline: none;
         }
         .event-input:focus { border-color: var(--accent); }
         .input-hints { margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); }
-        .input-hints code {
-            background: var(--surface-hover);
-            padding: 0.1rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
+        .input-hints code { background: var(--surface-hover); padding: 0.1rem 0.4rem; border-radius: 4px; }
         .btn {
-            padding: 0.5rem 1rem;
-            border: 1px solid transparent;
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: background 0.2s, border-color 0.2s, color 0.2s;
-            background: var(--surface-hover);
-            color: var(--text);
-            white-space: nowrap;
+            padding: 0.5rem 1rem; border: 1px solid transparent; border-radius: var(--radius);
+            cursor: pointer; font-size: 0.9rem; font-weight: 500; background: var(--surface-hover);
+            color: var(--text); white-space: nowrap; transition: background 0.2s;
         }
         .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-secondary { background: transparent; border-color: var(--border); }
         .btn-secondary:hover { background: var(--surface-hover); border-color: #555; }
         .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
-        .btn-text {
-            background: none;
-            border: none;
-            color: var(--accent);
-            padding: 0.25rem 0.5rem;
-            font-size: 0.85rem;
-            text-decoration: underline;
-            text-underline-offset: 2px;
-            cursor: pointer;
-        }
-        .btn-text:hover { color: var(--accent-hover); }
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
-        }
-        .card-section-title {
-            font-size: 1.1rem;
-            margin-bottom: 0.8rem;
-            font-weight: 600;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.4rem;
-        }
+        .btn-text { background: none; border: none; color: var(--accent); padding: 0.25rem 0.5rem; text-decoration: underline; cursor: pointer; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+        .card-section-title { font-size: 1.1rem; margin-bottom: 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
         .status-section { display: flex; justify-content: center; }
-        .status-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.5rem;
-            width: 100%;
-            text-align: center;
-        }
+        .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; width: 100%; text-align: center; }
         .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 0.8rem;
+            width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 0.8rem;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .status-messages { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; min-height: 1.5em; }
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            border-radius: 4px;
-            appearance: none;
-            background: var(--surface-hover);
-        }
+        .status-messages { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; }
+        .progress-bar { width: 100%; height: 6px; border-radius: 4px; appearance: none; background: var(--surface-hover); }
         .progress-bar::-webkit-progress-value { background: var(--accent); border-radius: 4px; }
-        .progress-bar::-moz-progress-bar { background: var(--accent); border-radius: 4px; }
-        .error-card { border-left: 4px solid var(--danger); color: #ffaaaa; }
-        .original-event-card .event-detail {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 0.8rem;
-        }
-        .avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: var(--surface-hover);
-            object-fit: cover;
-        }
-        .event-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem 1rem;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-        .event-content { white-space: pre-wrap; word-break: break-word; margin: 0.8rem 0; font-size: 0.95rem; }
+        .error-card { border-left: 4px solid var(--danger); color: #ffaaaa; padding: 1rem; }
+        .original-event-card .event-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: 0.8rem; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-hover); object-fit: cover; }
+        .event-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.85rem; color: var(--text-secondary); }
+        .event-content { white-space: pre-wrap; word-break: break-word; margin: 0.8rem 0; }
         .event-images img { max-width: 100%; border-radius: var(--radius); margin-top: 0.5rem; }
         .hashtags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
         .hashtag { background: var(--surface-hover); color: var(--accent); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
         .event-actions { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
-        .stat-item {
-            background: var(--surface-hover);
-            padding: 0.5rem;
-            border-radius: var(--radius);
-            display: flex;
-            justify-content: space-between;
-        }
+        .stat-item { background: var(--surface-hover); padding: 0.5rem; border-radius: var(--radius); display: flex; justify-content: space-between; }
         .stat-label { color: var(--text-secondary); font-size: 0.85rem; }
         .stat-value { font-weight: 600; }
         .filter-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
         .chip {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 0.3rem 0.8rem;
-            border-radius: 16px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
+            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+            padding: 0.3rem 0.8rem; border-radius: 16px; font-size: 0.85rem; cursor: pointer;
         }
         .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .chip:hover:not(.active) { border-color: var(--accent); color: var(--text); }
-        .timeline-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.8rem;
-        }
+        .timeline-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
         .event-count { font-size: 0.85rem; color: var(--text-secondary); }
-        .sort-select {
-            background: var(--surface-hover);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 0.3rem 0.6rem;
-            border-radius: var(--radius);
-            font-size: 0.85rem;
-        }
-        .timeline {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            max-height: 600px;
-            overflow-y: auto;
-            padding-right: 0.3rem;
-        }
-        .timeline-item {
-            background: var(--surface-hover);
-            border-radius: var(--radius);
-            padding: 0.75rem;
-            font-size: 0.9rem;
-            border-left: 3px solid var(--border);
-        }
+        .sort-select { background: var(--surface-hover); border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.6rem; border-radius: var(--radius); }
+        .timeline { display: flex; flex-direction: column; gap: 0.5rem; max-height: 600px; overflow-y: auto; }
+        .timeline-item { background: var(--surface-hover); border-radius: var(--radius); padding: 0.75rem; border-left: 3px solid var(--border); }
         .timeline-item.reply { border-left-color: #7c8aff; }
         .timeline-item.reaction { border-left-color: #ff8b8b; }
         .timeline-item.repost { border-left-color: #6fcf97; }
         .timeline-item.quote { border-left-color: #f2c94c; }
         .timeline-item.payment { border-left-color: #bb6bd9; }
-        .timeline-item-author { font-weight: 600; display: inline; margin-right: 0.5rem; }
-        .timeline-item-time { font-size: 0.75rem; color: var(--text-secondary); margin-left: 0.5rem; }
-        .timeline-item-content { margin-top: 0.3rem; white-space: pre-wrap; word-break: break-word; }
         .export-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            padding: 1rem;
-        }
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.5rem;
-            width: 100%;
-            max-width: 500px;
-        }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; width: 100%; max-width: 500px; }
         .modal-wide { max-width: 700px; }
-        .relay-textarea {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 0.75rem;
-            border-radius: var(--radius);
-            resize: vertical;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-        .modal-buttons { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
-        .json-toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
-        .json-viewer {
-            background: #0c0c0c;
-            color: #d4d4d4;
-            padding: 1rem;
-            border-radius: var(--radius);
-            max-height: 60vh;
-            overflow: auto;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .footer {
-            border-top: 1px solid var(--border);
-            padding: 1rem;
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-        .footer-inner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        @media (max-width: 600px) {
-            .input-row { flex-direction: column; }
-            .btn { width: 100%; }
-        }
+        .relay-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.75rem; border-radius: var(--radius); resize: vertical; font-family: monospace; }
+        .json-viewer { background: #0c0c0c; color: #d4d4d4; padding: 1rem; border-radius: var(--radius); max-height: 60vh; overflow: auto; font-family: monospace; white-space: pre-wrap; }
+        .footer { border-top: 1px solid var(--border); padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.10.1/lib/nostr.bundle.js" defer></script>
     <script defer>
-        /**
-         * NostrScope - Nostr Event Explorer
-         * Fully functional, robust error handling, real-time exploration.
-         */
-
-        // ---------- Global State ----------
         const AppState = {
             relays: [],
-            connectedRelays: new Set(),
+            pool: null,
             originalEvent: null,
             relatedEvents: [],
             profiles: {},
             filter: 'all',
             sort: 'newest',
-            pool: null,
-            activeSubs: [],
-            searchTimeout: null,
+            activeSubs: []
         };
-
         const DEFAULT_RELAYS = [
             'wss://relay.damus.io',
             'wss://relay.primal.net',
             'wss://nos.lol',
-            'wss://relay.nostr.band',
-            'wss://relay.snort.social',
         ];
 
-        // ---------- Helpers ----------
-        function escapeHTML(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-        function formatTimestamp(ts) {
-            return new Date(ts * 1000).toLocaleString();
-        }
-        function truncateId(id, n=8) {
-            return id ? id.slice(0, n) + '…' : '';
-        }
+        function escapeHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatTime(ts) { return new Date(ts * 1000).toLocaleString(); }
+        function shortId(id) { return id ? id.slice(0,8)+'…' : ''; }
 
-        // ---------- Input Parsing ----------
-        function parseEventReference(input) {
+        function parseRef(input) {
             input = input.trim();
             if (!input) return null;
             if (input.startsWith('http')) {
-                try {
-                    const url = new URL(input);
-                    const parts = url.pathname.split('/');
-                    const last = parts[parts.length-1];
-                    if (last) return parseEventReference(last);
-                } catch(e) {}
+                try { const u = new URL(input); return parseRef(u.pathname.split('/').pop()); } catch{}
             }
-            if (input.startsWith('nostr:')) return parseEventReference(input.slice(6));
+            if (input.startsWith('nostr:')) return parseRef(input.slice(6));
             if (input.startsWith('note1') || input.startsWith('nevent1')) {
                 try {
                     const { type, data } = NostrTools.nip19.decode(input);
-                    if (type === 'note') return { id: data, relayHint: null };
-                    if (type === 'nevent') return { id: data.id, relayHint: data.relays?.[0] || null };
-                } catch(e) {}
+                    return type === 'note' ? { id: data } : type === 'nevent' ? { id: data.id } : null;
+                } catch {}
             }
-            if (/^[0-9a-fA-F]{64}$/.test(input)) return { id: input, relayHint: null };
-            return null;
+            return /^[0-9a-fA-F]{64}$/.test(input) ? { id: input } : null;
         }
 
-        // ---------- UI Utilities ----------
-        function showStatus(msg, progress = null) {
+        // ---------- UI helpers ----------
+        function status(msg, pct) {
             document.getElementById('statusSection').style.display = 'block';
             document.getElementById('statusMessages').textContent = msg;
-            if (progress !== null) document.getElementById('progressBar').value = progress;
+            if (pct != null) document.getElementById('progressBar').value = pct;
         }
         function hideStatus() { document.getElementById('statusSection').style.display = 'none'; }
         function showError(msg) {
             document.getElementById('errorSection').style.display = 'block';
-            document.getElementById('errorCard').innerHTML = `<strong>⚠️ Error:</strong> ${escapeHTML(msg)}`;
+            document.getElementById('errorCard').textContent = '⚠️ ' + msg;
         }
         function hideError() { document.getElementById('errorSection').style.display = 'none'; }
         function showResults() { document.getElementById('resultsPanel').style.display = 'flex'; }
         function hideResults() { document.getElementById('resultsPanel').style.display = 'none'; }
 
-        // ---------- Relay Connection (robust) ----------
-        async function connectToRelays() {
-            if (AppState.pool) {
-                try { AppState.pool.close(); } catch(e) {}
-            }
+        // ---------- Pool with safe init ----------
+        async function getPool() {
+            if (AppState.pool && typeof AppState.pool.sub === 'function') return AppState.pool;
             if (typeof NostrTools === 'undefined' || !NostrTools.SimplePool) {
-                throw new Error('Nostr tools library not loaded. Please refresh.');
+                throw new Error('Nostr tools not loaded. Refresh the page.');
             }
             AppState.pool = new NostrTools.SimplePool();
             const urls = AppState.relays.length ? AppState.relays : DEFAULT_RELAYS;
             AppState.relays = urls;
-            AppState.connectedRelays.clear();
-            const promises = urls.map(url =>
-                AppState.pool.ensureRelay(url)
-                    .then(() => AppState.connectedRelays.add(url))
-                    .catch(e => console.warn(`Relay ${url} connection issue: ${e.message}`))
+            const results = await Promise.allSettled(
+                urls.map(url => AppState.pool.ensureRelay(url).catch(e => {
+                    console.warn(`Relay ${url} unreachable: ${e?.message || e}`);
+                }))
             );
-            await Promise.allSettled(promises);
             return AppState.pool;
         }
 
-        // ---------- Fetch Original Event ----------
-        async function fetchOriginalEvent(eventId) {
-            showStatus('Connecting to relays...', 5);
-            const pool = await connectToRelays();
-            showStatus('Fetching original event...', 10);
-            const filter = { ids: [eventId] };
-            const events = await pool.querySync(AppState.relays, filter, { maxWait: 8000 });
-            if (!events.length) throw new Error('Event not found on any connected relay.');
+        async function fetchOriginal(eventId) {
+            status('Connecting...', 5);
+            const pool = await getPool();
+            status('Fetching original event...', 10);
+            const events = await pool.querySync(AppState.relays, { ids: [eventId] }, { maxWait: 8000 });
+            if (!events.length) throw new Error('Event not found on any relay.');
             AppState.originalEvent = events[0];
-            await fetchProfiles([AppState.originalEvent.pubkey]);
+            await loadProfiles([AppState.originalEvent.pubkey]);
             return AppState.originalEvent;
         }
 
-        // ---------- Fetch Profiles ----------
-        async function fetchProfiles(pubkeys) {
+        async function loadProfiles(pubkeys) {
             const missing = pubkeys.filter(pk => !AppState.profiles[pk]);
             if (!missing.length) return;
-            showStatus('Loading profiles...', 30);
-            const filter = { kinds: [0], authors: missing };
-            const events = await AppState.pool.querySync(AppState.relays, filter, { maxWait: 5000 });
+            status('Loading profiles...', 30);
+            const events = await AppState.pool.querySync(AppState.relays, { kinds: [0], authors: missing }, { maxWait: 5000 });
             for (const ev of events) {
                 try {
                     const meta = JSON.parse(ev.content);
                     AppState.profiles[ev.pubkey] = {
-                        name: meta.name || meta.display_name || truncateId(ev.pubkey),
+                        name: meta.name || meta.display_name || shortId(ev.pubkey),
                         picture: meta.picture || '',
                         nip05: meta.nip05 || '',
-                        npub: NostrTools.nip19.npubEncode(ev.pubkey),
+                        npub: NostrTools.nip19.npubEncode(ev.pubkey)
                     };
-                } catch(e) {}
+                } catch {}
             }
             for (const pk of missing) {
-                if (!AppState.profiles[pk]) {
-                    AppState.profiles[pk] = {
-                        name: truncateId(pk),
-                        picture: '',
-                        nip05: '',
-                        npub: NostrTools.nip19.npubEncode(pk),
-                    };
-                }
+                if (!AppState.profiles[pk]) AppState.profiles[pk] = {
+                    name: shortId(pk), picture: '', nip05: '', npub: NostrTools.nip19.npubEncode(pk)
+                };
             }
         }
 
-        // ---------- Search Related Events (with stream) ----------
-        async function searchRelatedEvents(eventId) {
-            showStatus('Searching replies, reactions, reposts, zaps...', 40);
+        async function searchRelated(eventId) {
+            status('Searching replies, reactions, zaps...', 40);
             AppState.relatedEvents = [];
-            // Cancel any previous subscriptions
             AppState.activeSubs.forEach(s => s.unsub());
             AppState.activeSubs = [];
-            const filters = [
-                { kinds: [1, 6, 7, 9735, 9734], '#e': [eventId] },
-                { kinds: [1], '#e': [eventId] }, // replies/quotes
-                { kinds: [6], '#e': [eventId] }, // reposts
-                { kinds: [7], '#e': [eventId] }, // reactions
-                { kinds: [9735, 9734], '#e': [eventId] }, // zaps
-            ];
-            const sub = AppState.pool.sub(AppState.relays, filters);
-            AppState.activeSubs.push(sub);
+            const pool = AppState.pool;
+            if (!pool || typeof pool.sub !== 'function') throw new Error('Relay pool not ready.');
 
+            const filters = [
+                { kinds: [1, 6, 7, 9735, 9734], '#e': [eventId] }
+            ];
+            const sub = pool.sub(AppState.relays, filters);
+            AppState.activeSubs.push(sub);
             return new Promise((resolve) => {
                 const timeout = setTimeout(() => {
                     sub.unsub();
                     resolve(AppState.relatedEvents);
                 }, 15000);
-
-                sub.on('event', (event) => {
-                    if (!AppState.relatedEvents.some(e => e.id === event.id)) {
-                        AppState.relatedEvents.push(event);
-                        const bar = document.getElementById('progressBar');
-                        bar.value = Math.min(bar.value + 2, 95);
+                sub.on('event', (ev) => {
+                    if (!AppState.relatedEvents.some(e => e.id === ev.id)) {
+                        AppState.relatedEvents.push(ev);
+                        document.getElementById('progressBar').value = Math.min(60 + AppState.relatedEvents.length, 95);
                     }
                 });
                 sub.on('eose', () => {
@@ -486,337 +233,219 @@
             });
         }
 
-        // ---------- Categorization ----------
-        function categorizeEvents(events) {
+        function categorize() {
+            const e = AppState.originalEvent;
             return {
-                replies: events.filter(e => e.kind === 1 && e.tags.some(t => t[0] === 'e' && t[1] === AppState.originalEvent?.id)),
-                reactions: events.filter(e => e.kind === 7),
-                reposts: events.filter(e => e.kind === 6),
-                quotes: events.filter(e => e.kind === 1 && e.tags.some(t => t[0] === 'e' && t[1] === AppState.originalEvent?.id) && e.content.includes('nostr:')),
-                payments: events.filter(e => [9735, 9734].includes(e.kind)),
-                other: events.filter(e => ![1,6,7,9735,9734].includes(e.kind)),
+                replies: AppState.relatedEvents.filter(ev => ev.kind === 1 && ev.tags.some(t => t[0]==='e' && t[1]===e?.id)),
+                reactions: AppState.relatedEvents.filter(ev => ev.kind === 7),
+                reposts: AppState.relatedEvents.filter(ev => ev.kind === 6),
+                quotes: AppState.relatedEvents.filter(ev => ev.kind === 1 && ev.tags.some(t => t[0]==='e' && t[1]===e?.id) && ev.content.includes('nostr:')),
+                payments: AppState.relatedEvents.filter(ev => [9735,9734].includes(ev.kind)),
+                other: AppState.relatedEvents.filter(ev => ![1,6,7,9735,9734].includes(ev.kind))
             };
         }
 
-        // ---------- Rendering ----------
-        function renderOriginalEvent() {
-            const event = AppState.originalEvent;
-            if (!event) return;
-            const profile = AppState.profiles[event.pubkey] || {};
-            const hashtags = event.tags.filter(t => t[0] === 't').map(t => t[1]);
-            const images = event.tags.filter(t => t[0] === 'image').map(t => t[1]);
-            const container = document.getElementById('originalEventContent');
-            container.innerHTML = `
+        function renderOriginal() {
+            const ev = AppState.originalEvent;
+            if (!ev) return;
+            const p = AppState.profiles[ev.pubkey] || {};
+            const hashtags = ev.tags.filter(t => t[0]==='t').map(t => t[1]);
+            const images = ev.tags.filter(t => t[0]==='image').map(t => t[1]);
+            const html = `
                 <div class="event-detail">
-                    <img class="avatar" src="${escapeHTML(profile.picture || '')}" alt="avatar" onerror="this.style.display='none'">
+                    <img class="avatar" src="${escapeHTML(p.picture)}" onerror="this.style.display='none'">
                     <div>
-                        <strong>${escapeHTML(profile.name)}</strong>
+                        <strong>${escapeHTML(p.name)}</strong>
                         <div class="event-meta">
-                            <span>npub: ${escapeHTML(truncateId(profile.npub, 12))}</span>
-                            <span>Kind: ${event.kind}</span>
-                            <span>${formatTimestamp(event.created_at)}</span>
-                            <span>Relay: ${AppState.relays[0] || 'unknown'}</span>
+                            <span>npub: ${escapeHTML(shortId(p.npub,12))}</span>
+                            <span>Kind ${ev.kind}</span>
+                            <span>${formatTime(ev.created_at)}</span>
                         </div>
                     </div>
                 </div>
-                <div class="event-content">${escapeHTML(event.content)}</div>
-                ${images.length ? '<div class="event-images">' + images.map(url => `<img src="${escapeHTML(url)}" alt="image">`).join('') + '</div>' : ''}
-                ${hashtags.length ? '<div class="hashtags">' + hashtags.map(h => `<span class="hashtag">#${escapeHTML(h)}</span>`).join('') + '</div>' : ''}
+                <div class="event-content">${escapeHTML(ev.content)}</div>
+                ${images.length ? '<div class="event-images">'+images.map(u=>`<img src="${escapeHTML(u)}">`).join('')+'</div>' : ''}
+                ${hashtags.length ? '<div class="hashtags">'+hashtags.map(h=>`<span class="hashtag">#${escapeHTML(h)}</span>`).join('')+'</div>' : ''}
                 <div class="event-actions">
-                    <button class="btn btn-secondary btn-sm raw-json-btn" data-event='${encodeURIComponent(JSON.stringify(event))}'>Raw JSON</button>
-                    <button class="btn btn-secondary btn-sm copy-json-btn" data-event='${encodeURIComponent(JSON.stringify(event))}'>Copy JSON</button>
-                    <button class="btn btn-secondary btn-sm download-json-btn" data-event='${encodeURIComponent(JSON.stringify(event))}'>Download JSON</button>
-                </div>
-            `;
-            attachButtonListeners(container);
+                    <button class="btn btn-secondary btn-sm raw-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Raw JSON</button>
+                    <button class="btn btn-secondary btn-sm copy-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Copy JSON</button>
+                    <button class="btn btn-secondary btn-sm dl-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}'>Download</button>
+                </div>`;
+            document.getElementById('originalEventContent').innerHTML = html;
+            bindButtons(document.getElementById('originalEventContent'));
         }
 
-        function renderStatistics() {
-            const cats = categorizeEvents(AppState.relatedEvents);
-            const uniqueAuthors = new Set(AppState.relatedEvents.map(e => e.pubkey)).size;
+        function renderStats() {
+            const cats = categorize();
+            const authors = new Set(AppState.relatedEvents.map(e=>e.pubkey)).size;
             document.getElementById('statsGrid').innerHTML = `
                 <div class="stat-item"><span class="stat-label">Replies</span><span class="stat-value">${cats.replies.length}</span></div>
                 <div class="stat-item"><span class="stat-label">Reposts</span><span class="stat-value">${cats.reposts.length}</span></div>
                 <div class="stat-item"><span class="stat-label">Reactions</span><span class="stat-value">${cats.reactions.length}</span></div>
                 <div class="stat-item"><span class="stat-label">Quotes</span><span class="stat-value">${cats.quotes.length}</span></div>
                 <div class="stat-item"><span class="stat-label">Payments</span><span class="stat-value">${cats.payments.length}</span></div>
-                <div class="stat-item"><span class="stat-label">Unique Authors</span><span class="stat-value">${uniqueAuthors}</span></div>
-                <div class="stat-item"><span class="stat-label">Relays Connected</span><span class="stat-value">${AppState.connectedRelays.size}</span></div>
-                <div class="stat-item"><span class="stat-label">Events Loaded</span><span class="stat-value">${AppState.relatedEvents.length}</span></div>
-            `;
+                <div class="stat-item"><span class="stat-label">Unique Authors</span><span class="stat-value">${authors}</span></div>
+                <div class="stat-item"><span class="stat-label">Events Loaded</span><span class="stat-value">${AppState.relatedEvents.length}</span></div>`;
         }
 
         function renderTimeline() {
-            const cats = categorizeEvents(AppState.relatedEvents);
-            let filtered = AppState.relatedEvents;
-            if (AppState.filter === 'replies') filtered = cats.replies;
-            else if (AppState.filter === 'reactions') filtered = cats.reactions;
-            else if (AppState.filter === 'reposts') filtered = cats.reposts;
-            else if (AppState.filter === 'quotes') filtered = cats.quotes;
-            else if (AppState.filter === 'payments') filtered = cats.payments;
-            else if (AppState.filter === 'other') filtered = cats.other;
-
-            if (AppState.sort === 'newest') filtered.sort((a,b) => b.created_at - a.created_at);
-            else filtered.sort((a,b) => a.created_at - b.created_at);
-
-            document.getElementById('eventCount').textContent = `${filtered.length} events`;
-            const timeline = document.getElementById('timeline');
-            timeline.innerHTML = filtered.map(event => {
-                const profile = AppState.profiles[event.pubkey] || {};
+            const cats = categorize();
+            let list = AppState.relatedEvents;
+            if (AppState.filter === 'replies') list = cats.replies;
+            else if (AppState.filter === 'reactions') list = cats.reactions;
+            else if (AppState.filter === 'reposts') list = cats.reposts;
+            else if (AppState.filter === 'quotes') list = cats.quotes;
+            else if (AppState.filter === 'payments') list = cats.payments;
+            else if (AppState.filter === 'other') list = cats.other;
+            if (AppState.sort === 'newest') list.sort((a,b)=>b.created_at - a.created_at);
+            else list.sort((a,b)=>a.created_at - b.created_at);
+            document.getElementById('eventCount').textContent = `${list.length} events`;
+            document.getElementById('timeline').innerHTML = list.map(ev => {
+                const p = AppState.profiles[ev.pubkey] || {};
                 let cls = '';
-                if (cats.replies.includes(event)) cls = 'reply';
-                else if (cats.reactions.includes(event)) cls = 'reaction';
-                else if (cats.reposts.includes(event)) cls = 'repost';
-                else if (cats.quotes.includes(event)) cls = 'quote';
-                else if (cats.payments.includes(event)) cls = 'payment';
-                return `
-                    <div class="timeline-item ${cls}">
-                        <div>
-                            <span class="timeline-item-author">${escapeHTML(profile.name)}</span>
-                            <span class="timeline-item-time">${formatTimestamp(event.created_at)} · Kind ${event.kind}</span>
-                        </div>
-                        <div class="timeline-item-content">${escapeHTML(event.content)}</div>
-                        <button class="btn btn-secondary btn-sm raw-json-btn" data-event='${encodeURIComponent(JSON.stringify(event))}' style="margin-top:0.3rem">Raw JSON</button>
-                    </div>
-                `;
+                if (cats.replies.includes(ev)) cls='reply';
+                else if (cats.reactions.includes(ev)) cls='reaction';
+                else if (cats.reposts.includes(ev)) cls='repost';
+                else if (cats.quotes.includes(ev)) cls='quote';
+                else if (cats.payments.includes(ev)) cls='payment';
+                return `<div class="timeline-item ${cls}">
+                    <strong>${escapeHTML(p.name)}</strong> <small>${formatTime(ev.created_at)} · Kind ${ev.kind}</small>
+                    <div>${escapeHTML(ev.content)}</div>
+                    <button class="btn btn-secondary btn-sm raw-btn" data-json='${encodeURIComponent(JSON.stringify(ev))}' style="margin-top:0.3rem">Raw JSON</button>
+                </div>`;
             }).join('');
-            attachButtonListeners(timeline);
+            bindButtons(document.getElementById('timeline'));
         }
 
-        function attachButtonListeners(parent) {
-            parent.querySelectorAll('.raw-json-btn').forEach(btn => {
-                btn.addEventListener('click', () => openJsonModal(decodeURIComponent(btn.dataset.event)));
-            });
-            parent.querySelectorAll('.copy-json-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(decodeURIComponent(btn.dataset.event)).then(() => alert('Copied!'));
-                });
-            });
-            parent.querySelectorAll('.download-json-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const json = decodeURIComponent(btn.dataset.event);
-                    const blob = new Blob([json], {type: 'application/json'});
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `event-${AppState.originalEvent.id.slice(0,8)}.json`;
-                    a.click();
-                });
+        function bindButtons(parent) {
+            parent.querySelectorAll('.raw-btn').forEach(b => b.onclick = () => openJsonModal(decodeURIComponent(b.dataset.json)));
+            parent.querySelectorAll('.copy-btn').forEach(b => b.onclick = () => navigator.clipboard.writeText(decodeURIComponent(b.dataset.json)).then(()=>alert('Copied!')));
+            parent.querySelectorAll('.dl-btn').forEach(b => {
+                b.onclick = () => {
+                    const blob = new Blob([decodeURIComponent(b.dataset.json)],{type:'application/json'});
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                    a.download = 'event.json'; a.click();
+                };
             });
         }
 
-        // ---------- Export ----------
-        function exportOriginalJSON() {
-            if (!AppState.originalEvent) return;
-            downloadFile(`original-${AppState.originalEvent.id.slice(0,8)}.json`, JSON.stringify(AppState.originalEvent, null, 2));
-        }
-        function exportRelatedJSON() {
-            downloadFile(`related-${AppState.originalEvent.id.slice(0,8)}.json`, JSON.stringify(AppState.relatedEvents, null, 2));
-        }
-        function exportCombinedJSON() {
-            const combined = { original: AppState.originalEvent, related: AppState.relatedEvents };
-            downloadFile(`combined-${AppState.originalEvent.id.slice(0,8)}.json`, JSON.stringify(combined, null, 2));
-        }
-        function exportCSV() {
-            const events = [AppState.originalEvent, ...AppState.relatedEvents];
-            let csv = 'id,pubkey,kind,created_at,content\n';
-            events.forEach(e => {
-                csv += `"${e.id}","${e.pubkey}",${e.kind},${e.created_at},"${e.content.replace(/"/g, '""')}"\n`;
-            });
-            downloadFile(`nostrscope-${AppState.originalEvent.id.slice(0,8)}.csv`, csv);
-        }
-        function downloadFile(filename, content) {
-            const blob = new Blob([content], {type: 'text/plain'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            a.click();
-        }
-
-        // ---------- JSON Modal ----------
-        function openJsonModal(jsonStr) {
-            document.getElementById('jsonViewer').textContent = jsonStr;
+        function openJsonModal(json) {
+            document.getElementById('jsonViewer').textContent = json;
             document.getElementById('jsonModal').style.display = 'flex';
         }
-        function closeJsonModal() { document.getElementById('jsonModal').style.display = 'none'; }
 
-        // ---------- Relay Settings Modal ----------
-        function openRelayModal() {
-            document.getElementById('relayTextarea').value = AppState.relays.join('\n');
-            document.getElementById('relayModal').style.display = 'flex';
-        }
-        function closeRelayModal() { document.getElementById('relayModal').style.display = 'none'; }
-        function saveRelays() {
-            const textarea = document.getElementById('relayTextarea');
-            const urls = textarea.value.split('\n').map(u => u.trim()).filter(Boolean);
-            localStorage.setItem('nostrscope_relays', urls.join('\n'));
-            AppState.relays = urls;
-            closeRelayModal();
+        // Export helpers
+        function downloadFile(name, content) {
+            const blob = new Blob([content],{type:'text/plain'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
         }
 
-        // ---------- Main Flow ----------
-        async function analyzeEvent() {
-            hideError();
-            hideResults();
+        async function analyze() {
+            hideError(); hideResults();
             const input = document.getElementById('eventInput').value.trim();
-            if (!input) return showError('Please enter a Nostr event identifier.');
-            const parsed = parseEventReference(input);
-            if (!parsed) return showError('Invalid identifier. Use note1, nevent1, hex ID, or URL.');
-
+            const ref = parseRef(input);
+            if (!ref) return showError('Invalid identifier. Use note1, nevent1, hex ID, or URL.');
             try {
-                // Reset
-                AppState.originalEvent = null;
-                AppState.relatedEvents = [];
-                AppState.profiles = {};
-                AppState.activeSubs.forEach(s => s.unsub());
-                AppState.activeSubs = [];
-
-                await fetchOriginalEvent(parsed.id);
-                showStatus('Searching related events...', 50);
-                await searchRelatedEvents(parsed.id);
-                showStatus('Complete.', 100);
-                setTimeout(() => {
-                    hideStatus();
-                    showResults();
-                    renderAll();
-                }, 300);
+                AppState.originalEvent = null; AppState.relatedEvents = []; AppState.profiles = {};
+                AppState.activeSubs.forEach(s=>s.unsub()); AppState.activeSubs = [];
+                await fetchOriginal(ref.id);
+                await searchRelated(ref.id);
+                status('Complete.', 100);
+                setTimeout(() => { hideStatus(); showResults(); renderAll(); }, 200);
             } catch (err) {
                 hideStatus();
                 showError(err.message || 'Unknown error');
-                console.error(err);
             }
         }
 
-        function renderAll() {
-            if (!AppState.originalEvent) return;
-            renderOriginalEvent();
-            renderStatistics();
-            renderTimeline();
-        }
+        function renderAll() { renderOriginal(); renderStats(); renderTimeline(); }
 
         function clearAll() {
             document.getElementById('eventInput').value = '';
-            hideResults();
-            hideError();
-            hideStatus();
-            AppState.originalEvent = null;
-            AppState.relatedEvents = [];
-            AppState.profiles = {};
-            AppState.activeSubs.forEach(s => s.unsub());
-            AppState.activeSubs = [];
+            hideResults(); hideError(); hideStatus();
+            AppState.originalEvent = null; AppState.relatedEvents = [];
         }
 
-        // ---------- Event Listeners ----------
+        // Init
         document.addEventListener('DOMContentLoaded', () => {
-            const stored = localStorage.getItem('nostrscope_relays');
-            AppState.relays = stored ? stored.split('\n').map(u => u.trim()).filter(Boolean) : DEFAULT_RELAYS;
-
-            document.getElementById('analyzeBtn').addEventListener('click', analyzeEvent);
-            document.getElementById('clearBtn').addEventListener('click', clearAll);
-            document.getElementById('copyIdBtn').addEventListener('click', () => {
-                if (AppState.originalEvent) {
-                    navigator.clipboard.writeText(AppState.originalEvent.id).then(() => alert('Copied!'));
-                } else {
-                    const parsed = parseEventReference(document.getElementById('eventInput').value.trim());
-                    if (parsed) navigator.clipboard.writeText(parsed.id).then(() => alert('Copied!'));
-                    else alert('No valid event ID to copy.');
-                }
-            });
-
-            // Filters
-            document.getElementById('filterChips').addEventListener('click', (e) => {
+            AppState.relays = (localStorage.getItem('nostrscope_relays') || DEFAULT_RELAYS.join('\n')).split('\n').map(s=>s.trim()).filter(Boolean);
+            document.getElementById('analyzeBtn').onclick = analyze;
+            document.getElementById('clearBtn').onclick = clearAll;
+            document.getElementById('copyIdBtn').onclick = () => {
+                const id = AppState.originalEvent?.id || parseRef(document.getElementById('eventInput').value)?.id;
+                if (id) navigator.clipboard.writeText(id).then(()=>alert('Copied!'));
+                else alert('No event ID to copy.');
+            };
+            document.getElementById('filterChips').addEventListener('click', e => {
                 if (e.target.classList.contains('chip')) {
-                    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
                     e.target.classList.add('active');
                     AppState.filter = e.target.dataset.filter;
                     renderTimeline();
                 }
             });
-
-            // Sort
-            document.getElementById('sortOrder').addEventListener('change', (e) => {
-                AppState.sort = e.target.value;
-                renderTimeline();
-            });
-
-            // Export
-            document.getElementById('exportOriginalJson').addEventListener('click', exportOriginalJSON);
-            document.getElementById('exportRelatedJson').addEventListener('click', exportRelatedJSON);
-            document.getElementById('exportCombinedJson').addEventListener('click', exportCombinedJSON);
-            document.getElementById('exportCsv').addEventListener('click', exportCSV);
-
-            // Relay settings
-            document.getElementById('relaySettingsBtn').addEventListener('click', openRelayModal);
-            document.getElementById('relaySaveBtn').addEventListener('click', saveRelays);
-            document.getElementById('relayResetBtn').addEventListener('click', () => {
+            document.getElementById('sortOrder').onchange = e => { AppState.sort = e.target.value; renderTimeline(); };
+            document.getElementById('exportOriginalJson').onclick = () => AppState.originalEvent && downloadFile('original.json', JSON.stringify(AppState.originalEvent,null,2));
+            document.getElementById('exportRelatedJson').onclick = () => downloadFile('related.json', JSON.stringify(AppState.relatedEvents,null,2));
+            document.getElementById('exportCombinedJson').onclick = () => downloadFile('combined.json', JSON.stringify({original:AppState.originalEvent,related:AppState.relatedEvents},null,2));
+            document.getElementById('exportCsv').onclick = () => {
+                const all = [AppState.originalEvent, ...AppState.relatedEvents];
+                const csv = 'id,pubkey,kind,created_at,content\n' + all.map(e=>`"${e.id}","${e.pubkey}",${e.kind},${e.created_at},"${e.content.replace(/"/g,'""')}"`).join('\n');
+                downloadFile('nostrscope.csv', csv);
+            };
+            // Relay settings modal
+            const relayModal = document.getElementById('relayModal');
+            document.getElementById('relaySettingsBtn').onclick = () => {
+                document.getElementById('relayTextarea').value = AppState.relays.join('\n');
+                relayModal.style.display = 'flex';
+            };
+            document.getElementById('relaySaveBtn').onclick = () => {
+                const urls = document.getElementById('relayTextarea').value.split('\n').map(s=>s.trim()).filter(Boolean);
+                localStorage.setItem('nostrscope_relays', urls.join('\n'));
+                AppState.relays = urls;
+                relayModal.style.display = 'none';
+            };
+            document.getElementById('relayResetBtn').onclick = () => {
                 document.getElementById('relayTextarea').value = DEFAULT_RELAYS.join('\n');
                 localStorage.setItem('nostrscope_relays', DEFAULT_RELAYS.join('\n'));
                 AppState.relays = DEFAULT_RELAYS;
-                closeRelayModal();
-            });
-            document.getElementById('relayCancelBtn').addEventListener('click', closeRelayModal);
-
+                relayModal.style.display = 'none';
+            };
+            document.getElementById('relayCancelBtn').onclick = () => relayModal.style.display = 'none';
+            relayModal.onclick = e => { if (e.target === relayModal) relayModal.style.display = 'none'; };
             // JSON modal
-            document.getElementById('jsonCloseBtn').addEventListener('click', closeJsonModal);
-            document.getElementById('jsonCopyBtn').addEventListener('click', () => {
-                navigator.clipboard.writeText(document.getElementById('jsonViewer').textContent).then(() => alert('Copied!'));
-            });
-            document.getElementById('jsonDownloadBtn').addEventListener('click', () => {
-                const blob = new Blob([document.getElementById('jsonViewer').textContent], {type: 'application/json'});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'event.json';
-                a.click();
-            });
-
-            // Overlay clicks
-            document.getElementById('relayModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeRelayModal(); });
-            document.getElementById('jsonModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeJsonModal(); });
+            const jsonModal = document.getElementById('jsonModal');
+            document.getElementById('jsonCloseBtn').onclick = () => jsonModal.style.display = 'none';
+            document.getElementById('jsonCopyBtn').onclick = () => navigator.clipboard.writeText(document.getElementById('jsonViewer').textContent).then(()=>alert('Copied!'));
+            document.getElementById('jsonDownloadBtn').onclick = () => downloadFile('event.json', document.getElementById('jsonViewer').textContent);
+            jsonModal.onclick = e => { if (e.target === jsonModal) jsonModal.style.display = 'none'; };
         });
     </script>
 </head>
 <body>
-    <header class="header">
-        <div class="header-inner">
-            <h1 class="logo">NostrScope</h1>
-            <p class="subtitle">Explore everything connected to a Nostr event</p>
-        </div>
-    </header>
-
+    <header class="header"><div class="header-inner"><h1 class="logo">NostrScope</h1><p class="subtitle">Explore everything connected to a Nostr event</p></div></header>
     <main class="main-container">
-        <section class="input-section" id="inputSection">
+        <section class="input-section">
             <div class="input-row">
-                <input type="text" id="eventInput" class="event-input" placeholder="Paste a Nostr event ID, note1..., nevent1..., or URL..." autocomplete="off" spellcheck="false"/>
+                <input type="text" id="eventInput" class="event-input" placeholder="Paste a Nostr event ID, note1..., nevent1..., or URL..." autocomplete="off">
                 <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
-                <button id="copyIdBtn" class="btn btn-secondary" title="Copy Event ID">Copy ID</button>
+                <button id="copyIdBtn" class="btn btn-secondary">Copy ID</button>
             </div>
-            <div class="input-hints">
-                <span>Accepts: <code>note1…</code> <code>nevent1…</code> <code>hex ID</code> <code>nostr:…</code> <code>https://…</code></span>
-            </div>
+            <div class="input-hints"><span>Accepts: <code>note1…</code> <code>nevent1…</code> <code>hex ID</code> <code>nostr:…</code> <code>https://…</code></span></div>
         </section>
-
         <section class="status-section" id="statusSection" style="display:none;">
             <div class="status-card">
-                <div class="spinner" id="spinner"></div>
+                <div class="spinner"></div>
                 <div class="status-messages" id="statusMessages"></div>
                 <progress id="progressBar" class="progress-bar" value="0" max="100"></progress>
             </div>
         </section>
-
-        <section class="error-section" id="errorSection" style="display:none;">
-            <div class="card error-card" id="errorCard"></div>
-        </section>
-
-        <section class="results-panel" id="resultsPanel" style="display:none;">
-            <div class="card original-event-card" id="originalEventCard">
-                <h2 class="card-section-title">📌 Original Event</h2>
-                <div id="originalEventContent"></div>
-            </div>
-            <div class="card stats-card" id="statsCard">
-                <h2 class="card-section-title">📊 Statistics</h2>
-                <div class="stats-grid" id="statsGrid"></div>
-            </div>
-            <div class="card filters-card" id="filtersCard">
+        <section class="error-section" id="errorSection" style="display:none;"><div class="card error-card" id="errorCard"></div></section>
+        <section class="results-panel" id="resultsPanel" style="display:none; flex-direction:column; gap:1.5rem;">
+            <div class="card"><h2 class="card-section-title">📌 Original Event</h2><div id="originalEventContent"></div></div>
+            <div class="card"><h2 class="card-section-title">📊 Statistics</h2><div class="stats-grid" id="statsGrid"></div></div>
+            <div class="card">
                 <h2 class="card-section-title">🔍 Filters</h2>
                 <div class="filter-chips" id="filterChips">
                     <button class="chip active" data-filter="all">All</button>
@@ -828,18 +457,15 @@
                     <button class="chip" data-filter="other">📦 Other</button>
                 </div>
             </div>
-            <div class="card timeline-card" id="timelineCard">
+            <div class="card">
                 <h2 class="card-section-title">🕒 Related Events</h2>
                 <div class="timeline-controls">
                     <span id="eventCount" class="event-count"></span>
-                    <select id="sortOrder" class="sort-select">
-                        <option value="newest">Newest first</option>
-                        <option value="oldest">Oldest first</option>
-                    </select>
+                    <select id="sortOrder" class="sort-select"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
                 </div>
                 <div class="timeline" id="timeline"></div>
             </div>
-            <div class="card export-card" id="exportCard">
+            <div class="card">
                 <h2 class="card-section-title">📥 Export</h2>
                 <div class="export-buttons">
                     <button id="exportOriginalJson" class="btn btn-secondary">Original JSON</button>
@@ -850,24 +476,21 @@
             </div>
         </section>
     </main>
-
     <div class="modal-overlay" id="relayModal" style="display:none;">
         <div class="modal">
             <h2>⚙️ Relay Settings</h2>
-            <p class="modal-hint">One relay URL per line. Changes apply on next search.</p>
             <textarea id="relayTextarea" class="relay-textarea" rows="8"></textarea>
-            <div class="modal-buttons">
+            <div class="modal-buttons" style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;">
                 <button id="relaySaveBtn" class="btn btn-primary">Save & Close</button>
                 <button id="relayResetBtn" class="btn btn-secondary">Reset Defaults</button>
                 <button id="relayCancelBtn" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
-
     <div class="modal-overlay" id="jsonModal" style="display:none;">
         <div class="modal modal-wide">
             <h2>📄 Raw Event JSON</h2>
-            <div class="json-toolbar">
+            <div style="display:flex; gap:0.5rem; margin-bottom:0.8rem;">
                 <button id="jsonCopyBtn" class="btn btn-secondary btn-sm">Copy</button>
                 <button id="jsonDownloadBtn" class="btn btn-secondary btn-sm">Download</button>
                 <button id="jsonCloseBtn" class="btn btn-secondary btn-sm">Close</button>
@@ -875,12 +498,6 @@
             <pre class="json-viewer" id="jsonViewer"></pre>
         </div>
     </div>
-
-    <footer class="footer">
-        <div class="footer-inner">
-            <span>NostrScope — Open-source Nostr Event Explorer</span>
-            <button id="relaySettingsBtn" class="btn btn-text">⚙️ Relay Settings</button>
-        </div>
-    </footer>
+    <footer class="footer"><div class="footer-inner"><span>NostrScope</span> <button id="relaySettingsBtn" class="btn btn-text">⚙️ Relay Settings</button></div></footer>
 </body>
 </html>
