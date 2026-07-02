@@ -551,9 +551,9 @@
         }
     }
 
-    // ── Helper: Detect and render media ──
+    // ── Helper: media extraction ─────────
     function renderMediaFromContent(content) {
-        if (!content) return '';
+        if (!content) return { text: '', media: '' };
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         let html = escapeHtml(content);
         let mediaHtml = '';
@@ -561,111 +561,112 @@
         while ((match = urlRegex.exec(content)) !== null) {
             const url = match[0];
             if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
-                mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:300px;border-radius:4px;" onerror="this.style.display='none'">`;
+                mediaHtml +=
+                    `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:4px;display:block;margin:4px 0;" onerror="this.style.display='none'">`;
             } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
-                mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:300px;"><source src="${url}" type="video/mp4"></video>`;
+                mediaHtml +=
+                    `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:4px 0;"><source src="${url}" type="video/mp4"></video>`;
             }
         }
-        // Make non-media URLs clickable
         html = html.replace(urlRegex, (u) => {
-            if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u)) return ''; // already handled
+            if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u)) return '';
             return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`;
         });
         return { text: html, media: mediaHtml };
     }
 
-    // ── Build event card (used in thread) ──
-    function buildEventCard(event, isOriginal) {
-        const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
-        const time = new Date((event.created_at || 0) * 1000).toLocaleString();
-        const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
-        const { text, media } = renderMediaFromContent(event.content);
-        const contentId = 'content-' + event.id;
-        const isLongContent = (event.content || '').length > 300;
-        return `
-            <div class="event-preview">
-                <div class="event-header">
-                    <span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span>
-                    <span class="event-time">${time}</span>
-                    <span class="event-author">${authorShort}</span>
-                </div>
-                <div class="event-content" id="${contentId}" style="${isLongContent ? 'max-height:120px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
-                ${isLongContent ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}
-                ${media ? `<div class="media-preview">${media}</div>` : ''}
-                <div class="thread-actions">
-                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">JSON</button>
-                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window._boostEvent('${event.id}')">🚀 Boost</button>` : ''}
-                </div>
-            </div>
-        `;
-    }
-
-    // ── Recursive thread builder (card style) ──
+    // ── Thread View (tree with cards) ────
     function buildThreadCards(eventId, childrenMap, depth, visited) {
         if (visited.has(eventId) && depth > 0) return '';
         visited.add(eventId);
         const event = eventMap.get(eventId);
         if (!event && depth > 0) return '';
         if (threadCollapsed.has(eventId) && depth > 0) {
-            return `<div class="thread-card" style="margin-left:${depth*20}px;"><div class="thread-indicator"></div><span class="show-more-btn" onclick="window._expandThread('${eventId}')">[+] Show replies</span></div>`;
+            return `<div class="tree-collapsed" onclick="window._expandThread('${eventId}')" style="margin-left:${depth*20}px;">[+] Show replies</div>`;
         }
         const isOriginal = eventId === investigationHexId;
-        let html = `<div class="thread-card" style="margin-left:${depth*20}px;">`;
-        if (depth > 0) html += '<div class="thread-indicator"></div>';
-        html += buildEventCard(event, isOriginal);
+        const { text, media } = renderMediaFromContent(event.content);
+        const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
+        const time = new Date((event.created_at || 0) * 1000).toLocaleString();
+        const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
+        const contentId = 'c-' + event.id;
+        const isLong = (event.content || '').length > 250;
+        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;">
+            <div class="event-preview">
+                <div class="event-header">
+                    <span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span>
+                    <span class="event-time">${time}</span>
+                    <span class="event-author">${authorShort}</span>
+                </div>
+                <div class="event-content" id="${contentId}" style="${isLong ? 'max-height:100px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
+                ${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}
+                ${media ? `<div class="media-preview">${media}</div>` : ''}
+                <div class="thread-actions">
+                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${event.id}')">JSON</button>
+                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window._boostEvent('${event.id}')">🚀 Boost</button>` : ''}
+                </div>
+            </div>
+        </div>`;
+        let html = cardHtml;
         const children = childrenMap.get(eventId) || [];
-        for (const child of children) {
-            if (!visited.has(child.id)) {
+        if (children.length > 0) {
+            html += `<div class="tree-branch">`;
+            for (const child of children) {
                 html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited));
             }
+            html += `</div>`;
         }
-        html += '</div>';
         return html;
     }
 
-    // ── Thread View (new) ──────────────
     function renderThread(inv) {
         const p = document.getElementById('panel-thread');
         const tree = inv.getThreadTree();
-        if (!tree || !tree.rootEvent) {
-            p.innerHTML = '<div class="card"><p>No thread data.</p></div>';
-            return;
-        }
-        let html = '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span>';
-        html += '<div style="display:flex; gap:8px;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div>';
-        html += '</div><div class="thread-container">';
+        if (!tree || !tree.rootEvent) { p.innerHTML = '<div class="card"><p>No thread data.</p></div>'; return; }
+        let html =
+            '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span><div style="display:flex; gap:8px;"><button class="btn btn-small btn-secondary" onclick="window._expandAll()">Expand All</button><button class="btn btn-small btn-secondary" onclick="window._collapseAll()">Collapse All</button></div></div><div class="thread-tree-container">';
         html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
         html += '</div></div>';
         p.innerHTML = html;
     }
 
-    // ── Timeline (with media) ──────────
+    // ── Timeline (cards with left border) ──
     function renderTimeline(inv) {
         const p = document.getElementById('panel-timeline');
-        const sorted = [...inv.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
+        const sorted = [...inv.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a
+            .created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
         if (!sorted.length) { p.innerHTML = '<div class="card"><p>No events.</p></div>'; return; }
-        let html = '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ' + (sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼') + '</button></div>';
+        let html =
+            '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-small btn-secondary" onclick="window._toggleSortOrder()">Sort: ' +
+            (sortOrder === 'oldest-first' ? 'Oldest First ▲' : 'Newest First ▼') + '</button></div><div class="timeline-list">';
         sorted.forEach(e => {
-            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], { hour: '2-digit',
+                minute: '2-digit', second: '2-digit' });
             const kind = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
             const isOrig = e.id === investigationHexId;
             const { text, media } = renderMediaFromContent(e.content);
-            html += `<div class="timeline-item" style="${isOrig ? 'background:rgba(63,185,80,0.05);border-radius:4px;padding:8px;' : ''}">
+            let borderClass = 'reply-post';
+            if (isOrig) borderClass = 'original-post';
+            else if (e.kind === 6) borderClass = 'repost-post';
+            html += `<div class="timeline-card ${borderClass}">
                 <span class="timeline-time">${time}</span>
                 <span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span>
-                <span class="timeline-preview">
-                    <code style="font-size:0.65rem;">${e.id.substring(0,10)}...</code>
-                    <span style="word-break:break-word;">${text || ''}</span>
+                <div class="timeline-content">
+                    <code style="font-size:0.65rem;color:var(--text2);">${e.id.substring(0,10)}...</code>
+                    <div>${text || ''}</div>
                     ${media ? `<div class="media-preview">${media}</div>` : ''}
-                </span>
-                <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button>
+                </div>
+                <div class="timeline-actions">
+                    <button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">JSON</button>
+                    ${currentUser ? `<button class="btn btn-small btn-primary" onclick="window._boostEvent('${e.id}')">🚀</button>` : ''}
+                </div>
             </div>`;
         });
-        html += '</div>';
+        html += '</div></div>';
         p.innerHTML = html;
     }
 
-    // ── Stats / JSON / Relays / Export / BCH (unchanged from last working version) ──
+    // ── Statistics ───────────────────────
     function renderStats(inv) {
         const p = document.getElementById('panel-stats');
         const tree = inv.getThreadTree();
@@ -683,10 +684,14 @@
         }
         const stats = [
             { l: 'Original Event', v: originalEvent ? 1 : 0 },
-            { l: 'Replies', v: inv.getEventsByKind(1).filter(e => e.id !== investigationHexId && inv.getParentIds(e).includes(investigationHexId)).length },
+            { l: 'Replies', v: inv.getEventsByKind(1).filter(e => e.id !== investigationHexId && inv.getParentIds(e)
+                    .includes(investigationHexId)).length },
             { l: 'Nested Replies', v: nested },
-            { l: 'Quotes', v: inv.events.filter(e => e.kind === 1 && e.content && e.content.includes(investigationHexId || '') && !inv.getParentIds(e).includes(investigationHexId || '')).length },
-            { l: 'Mentions', v: inv.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] === investigationHexId)).length },
+            { l: 'Quotes', v: inv.events.filter(e => e.kind === 1 && e.content && e.content.includes(
+                    investigationHexId || '') && !inv.getParentIds(e).includes(investigationHexId || ''))
+                .length },
+            { l: 'Mentions', v: inv.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] ===
+                    investigationHexId)).length },
             { l: 'Reposts', v: inv.getEventsByKind(6).length },
             { l: 'Reactions', v: inv.getEventsByKind(7).length },
             { l: 'Zap Events', v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length },
@@ -695,7 +700,8 @@
             { l: 'Unique Authors', v: inv.getUniqueAuthors() },
             { l: 'Connected Relays', v: [...relayStats.values()].filter(s => s.status === 'connected').length },
             { l: 'Successful Relays', v: [...relayStats.values()].filter(s => s.events > 0).length },
-            { l: 'Failed Relays', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status === 'disconnected').length },
+            { l: 'Failed Relays', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status ===
+                    'disconnected').length },
             { l: 'Images', v: inv.getMediaCounts().images },
             { l: 'Videos', v: inv.getMediaCounts().videos },
             { l: 'Attachments', v: inv.getMediaCounts().attachments },
@@ -703,30 +709,42 @@
             { l: 'Links', v: inv.getLinks() },
             { l: 'Total Events', v: inv.events.length },
         ];
-        let h = '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';
-        stats.forEach(s => h += `<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);
+        let h =
+            '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';
+        stats.forEach(s => h +=
+            `<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);
         h += '</div></div>';
         p.innerHTML = h;
     }
 
+    // ── JSON Viewer ─────────────────────
     function renderJson(inv) {
         const p = document.getElementById('panel-json');
-        let h = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span><div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div></div>';
+        let h =
+            '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON Inspector</span><div><button class="btn btn-small btn-secondary" onclick="window._copyAllJson()">📋 Copy All</button> <button class="btn btn-small btn-green" onclick="window._downloadAllJson()">⬇ Download All</button></div></div>';
         if (originalEvent) {
-            h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' + syntaxHighlight(JSON.stringify(originalEvent, null, 2)) + '</div><button class="btn btn-small btn-secondary" onclick="window._copyEventJson(\'' + originalEvent.id + '\')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson(\'' + originalEvent.id + '\')">Download</button>';
+            h += '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' +
+                syntaxHighlight(JSON.stringify(originalEvent, null, 2)) +
+                '</div><button class="btn btn-small btn-secondary" onclick="window._copyEventJson(\'' + originalEvent
+                .id + '\')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson(\'' +
+                originalEvent.id + '\')">Download</button>';
         }
-        h += '<h4 style="margin:16px 0 8px;">All Events (' + inv.events.length + ')</h4><input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
+        h += '<h4 style="margin:16px 0 8px;">All Events (' + inv.events.length +
+            ')</h4><input type="text" placeholder="Search within JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
         for (const e of inv.events) {
             const isOrig = e.id === investigationHexId;
-            h += `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0, 12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
+            h +=
+                `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0,12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-small btn-secondary" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-small btn-secondary" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
         }
         h += '</div></div>';
         p.innerHTML = h;
     }
 
+    // ── Relays ──────────────────────────
     function renderRelays() {
         const p = document.getElementById('panel-relays');
-        let h = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span><button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';
+        let h =
+            '<div class="card"><div class="card-header"><span class="card-title">🔗 Relay Inspector</span><button class="btn btn-small btn-primary" onclick="window._addCustomRelay()">+ Add Relay</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>Relay URL</th><th>Status</th><th>Response Time</th><th>Events</th><th>Errors</th><th>Actions</th></tr></thead><tbody>';
         [...new Set([...activeRelays, ...relayStats.keys()])].forEach(url => {
             const s = relayStats.get(url) || { status: 'unknown', events: 0, errors: 0, responseTime: null };
             let cls = 'status-connecting',
@@ -736,16 +754,20 @@
                 txt = 'Failed'; } else if (s.status === 'disconnected') { cls = 'status-failed';
                 txt = 'Disconnected'; }
             const rt = s.responseTime ? `${s.responseTime}ms` : '—';
-            h += `<tr><td style="max-width:200px;word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events || 0}</td><td>${s.errors || 0}</td><td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td></tr>`;
+            h +=
+                `<tr><td style="word-break:break-all;"><code style="font-size:0.7rem;">${escapeHtml(url)}</code></td><td><span class="status-dot ${cls}"></span>${txt}</td><td>${rt}</td><td>${s.events || 0}</td><td>${s.errors || 0}</td><td><button class="btn btn-small btn-secondary" onclick="window._reconnectRelay('${escapeHtml(url)}')">Reconnect</button> <button class="btn btn-small btn-danger" onclick="window._removeRelay('${escapeHtml(url)}')">✕</button></td></tr>`;
         });
         h += '</tbody></table></div></div>';
         p.innerHTML = h;
     }
 
+    // ── Export ──────────────────────────
     function renderExport() {
-        document.getElementById('panel-export').innerHTML = '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML</button></div></div>';
+        document.getElementById('panel-export').innerHTML =
+            '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-secondary" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-secondary" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-secondary" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-secondary" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-secondary" onclick="window._exportHTML()">🌐 HTML</button></div></div>';
     }
 
+    // ── BCH Payments ────────────────────
     function renderBch(inv) {
         const p = document.getElementById('panel-bch');
         const evs = inv.getBchPaymentEvents();
@@ -757,36 +779,39 @@
             const amount = e.tags ? (e.tags.find(t => t[0] === 'amount')?.[1] || 'N/A') : 'N/A';
             const curr = e.paymentType === 'zap' ? 'BTC (Zap)' : e.paymentType === 'bch_tip' ? 'BCH' : '?';
             const txid = e.tags ? (e.tags.find(t => t[0] === 'txid' || t[0] === 'cashtoken')?.[1] || 'N/A') : 'N/A';
-            h += `<div class="card" style="margin-bottom:8px;"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code>${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;
+            h +=
+                `<div class="bch-card"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code style="word-break:break-all;">${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-small btn-secondary" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;
         });
         h += '</div>';
         p.innerHTML = h;
     }
 
+    // ── Modal for event JSON ────────────
     function showEventModal(ev) {
         const json = JSON.stringify(ev, null, 2);
-        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;
+        modalContainer.innerHTML =
+            `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-small btn-secondary copy-json-btn" data-event-id="${ev.id}">📋 Copy</button><button class="btn btn-small btn-green download-json-btn" data-event-id="${ev.id}">⬇ Download</button></div></div></div>`;
         const b = modalContainer.querySelector('.modal-backdrop');
         b.querySelector('.copy-json-btn').addEventListener('click', () => {
-            navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId), null, 2)).then(() => showToast('Copied!'));
+            navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset
+                .eventId), null, 2)).then(() => showToast('Copied!'));
         });
         b.querySelector('.download-json-btn').addEventListener('click', () => {
             const eid = b.querySelector('.download-json-btn').dataset.eventId;
-            downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0,12)}.json`);
+            downloadFile(JSON.stringify(eventMap.get(eid), null, 2),
+                `nostr-event-${eid.substring(0,12)}.json`);
         });
     }
 
-    // ── Login / Boost (using NostrTools) ──
+    // ── Login / Boost (NostrTools) ──────
     function showLoginModal() {
-        modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
+        modalContainer.innerHTML =
+            `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-secondary" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
         backdrop.querySelector('#loginCancelBtn').addEventListener('click', () => backdrop.remove());
         backdrop.querySelector('#loginConfirmBtn').addEventListener('click', () => {
             const nsec = document.getElementById('nsecInput').value.trim();
-            if (typeof NostrTools === 'undefined') {
-                showToast('Nostr tools not loaded. Please check your internet and refresh.', 'error');
-                return;
-            }
+            if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; }
             try {
                 const { type, data } = NostrTools.nip19.decode(nsec);
                 if (type !== 'nsec') throw new Error('Not an nsec');
@@ -796,20 +821,15 @@
                 updateUserUI();
                 showToast('Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
                 backdrop.remove();
-                const boostBtn = document.getElementById('boostBtn');
-                if (boostBtn) boostBtn.disabled = false;
-            } catch (e) {
-                console.error('Login error:', e);
-                showToast('Invalid nsec. Please check and try again.', 'error');
-            }
+                const boostBtn = document.getElementById('boostBtn'); if (boostBtn) boostBtn.disabled = false;
+            } catch (e) { showToast('Invalid nsec.', 'error'); }
         });
     }
 
     function logout() {
         currentUser = null;
         updateUserUI();
-        const boostBtn = document.getElementById('boostBtn');
-        if (boostBtn) boostBtn.disabled = true;
+        const boostBtn = document.getElementById('boostBtn'); if (boostBtn) boostBtn.disabled = true;
         showToast('Logged out.', 'info');
     }
 
@@ -837,70 +857,53 @@
         if (!currentUser) { showToast('Please login first.', 'info');
             showLoginModal(); return; }
         if (!relayManager) { showToast('No relay connection.', 'error'); return; }
-        if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; }
-        const eventTemplate = {
-            kind: 6,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [
+        const eventTemplate = { kind: 6, created_at: Math.floor(Date.now() / 1000), tags: [
                 ['e', originalEvent.id],
                 ['p', originalEvent.pubkey],
                 ['k', String(originalEvent.kind)]
-            ],
-            content: '',
-        };
+            ], content: '' };
         try {
             const signedEvent = await NostrTools.signEvent(eventTemplate, currentUser.privateKey);
             relayManager.publish(signedEvent);
-            showToast('🚀 Boost published! Kind 6 repost sent to all connected relays.', 'success');
+            showToast('🚀 Boost published!', 'success');
             setTimeout(() => { if (investigator) runAnalysis(investigationHexId); }, 2000);
-        } catch (e) {
-            showToast('Error signing event: ' + e.message, 'error');
-        }
+        } catch (e) { showToast('Error: ' + e.message, 'error'); }
     }
 
     // ── Exports ─────────────────────────
     function exportJSON(type) {
         let data, filename;
-        if (type === 'original' && originalEvent) {
-            data = JSON.stringify(originalEvent, null, 2);
-            filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`;
-        } else {
-            data = JSON.stringify({
-                investigationHexId,
-                originalEvent,
-                allEvents,
-                relayStats: [...relayStats.entries()].map(([u, s]) => ({ url: u, ...s })),
-                exportedAt: new Date().toISOString(),
-                totalEvents: allEvents.length,
-            }, null, 2);
-            filename = `nostrscope-investigation-${investigationHexId?.substring(0,12) || 'all'}.json`;
-        }
+        if (type === 'original' && originalEvent) { data = JSON.stringify(originalEvent, null, 2);
+            filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`; } else { data =
+                JSON.stringify({ investigationHexId, originalEvent, allEvents, relayStats: [...relayStats.entries()]
+                        .map(([u, s]) => ({ url: u, ...s })), exportedAt: new Date().toISOString(), totalEvents: allEvents
+                        .length }, null, 2);
+            filename = `nostrscope-investigation-${investigationHexId?.substring(0,12) || 'all'}.json`; }
         downloadFile(data, filename, 'application/json');
         showToast('Exported!');
     }
 
     function exportCSV() {
         let csv = 'Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n';
-        allEvents.forEach(e => {
-            const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
-            csv += `"${e.id}",${e.kind},"${kindName}","${e.pubkey || ''}","${new Date((e.created_at||0)*1000).toISOString()}","${(e.content||'').replace(/"/g,'""').substring(0,200)}","${e.id===investigationHexId?'Yes':'No'}"\n`;
-        });
+        allEvents.forEach(e => { const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
+            csv +=
+                `"${e.id}",${e.kind},"${kindName}","${e.pubkey || ''}","${new Date((e.created_at||0)*1000).toISOString()}","${(e.content||'').replace(/"/g,'""').substring(0,200)}","${e.id===investigationHexId?'Yes':'No'}"\n`; });
         downloadFile(csv, `nostrscope-summary-${investigationHexId?.substring(0,12) || 'events'}.csv`, 'text/csv');
     }
 
     function exportMarkdown() {
-        let md = `# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`;
-        [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => {
-            md += `- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`;
-        });
+        let md =
+            `# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`;
+        [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { md +=
+                `- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`; });
         downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.md`, 'text/markdown');
     }
 
     function exportHTML() {
-        let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;
-        [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => {
-            h += `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`;
-        });
+        let h =
+            `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;
+        [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h +=
+                `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`; });
         h += '</tbody></table></body></html>';
         downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html');
     }
@@ -916,97 +919,60 @@
     }
 
     // ── Global window functions ──────────
-    window._expandThread = (eventId) => {
-        threadCollapsed.delete(eventId);
-        if (investigator) renderThread(investigator);
-    };
+    window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
-    window._collapseAll = () => {
-        if (investigator) {
-            investigator.eventMap.forEach((_, k) => { if (k !== investigationHexId) threadCollapsed.add(k); });
-            renderThread(investigator);
-        }
-    };
-    window._boostEvent = async (eventId) => {
-        const ev = eventMap.get(eventId);
-        if (!ev) return;
-        if (!currentUser) { showToast('Please login first.', 'info');
-            showLoginModal(); return; }
-        if (!relayManager) { showToast('No relay connection.', 'error'); return; }
-        if (typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; }
-        const eventTemplate = {
-            kind: 6,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [['e', ev.id], ['p', ev.pubkey], ['k', String(ev.kind)]],
-            content: '',
-        };
-        try {
-            const signedEvent = await NostrTools.signEvent(eventTemplate, currentUser.privateKey);
+    window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !==
+                investigationHexId) threadCollapsed.add(k); });
+            renderThread(investigator); } };
+    window._boostEvent = async (eventId) => { const ev = eventMap.get(eventId); if (!ev) return; if (!currentUser) {
+            showToast('Please login first.', 'info');
+            showLoginModal(); return; } if (!relayManager) { showToast('No relay connection.', 'error'); return; } if (
+            typeof NostrTools === 'undefined') { showToast('Nostr tools not loaded.', 'error'); return; } const
+        eventTemplate = { kind: 6, created_at: Math.floor(Date.now() / 1000), tags: [
+                ['e', ev.id],
+                ['p', ev.pubkey],
+                ['k', String(ev.kind)]
+            ], content: '' }; try { const signedEvent = await NostrTools.signEvent(eventTemplate, currentUser
+            .privateKey);
             relayManager.publish(signedEvent);
-            showToast('🚀 Boost published!', 'success');
-            setTimeout(() => { if (investigator) runAnalysis(investigationHexId); }, 2000);
-        } catch (e) {
-            showToast('Error signing: ' + e.message, 'error');
-        }
-    };
-    window._toggleSortOrder = () => {
-        sortOrder = sortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first';
-        if (investigator) renderTimeline(investigator);
-    };
+            showToast('🚀 Boost sent!', 'success');
+            setTimeout(() => { if (investigator) runAnalysis(investigationHexId); }, 2000); } catch (e) { showToast(
+                'Error: ' + e.message, 'error'); } };
+    window._toggleSortOrder = () => { sortOrder = sortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first'; if (
+            investigator) renderTimeline(investigator); };
     window._inspectEvent = eid => { if (eventMap.has(eid)) showEventModal(eventMap.get(eid)); };
-    window._copyEventJson = eid => {
-        if (eventMap.has(eid)) navigator.clipboard.writeText(JSON.stringify(eventMap.get(eid), null, 2)).then(() => showToast('Copied!'));
-    };
-    window._downloadEventJson = eid => {
-        if (eventMap.has(eid)) downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0,12)}.json`);
-    };
-    window._copyAllJson = () => {
-        if (allEvents.length) navigator.clipboard.writeText(JSON.stringify(allEvents, null, 2)).then(() => showToast('Copied!'));
-    };
+    window._copyEventJson = eid => { if (eventMap.has(eid)) navigator.clipboard.writeText(JSON.stringify(eventMap.get(eid),
+        null, 2)).then(() => showToast('Copied!')); };
+    window._downloadEventJson = eid => { if (eventMap.has(eid)) downloadFile(JSON.stringify(eventMap.get(eid), null, 2),
+        `nostr-event-${eid.substring(0,12)}.json`); };
+    window._copyAllJson = () => { if (allEvents.length) navigator.clipboard.writeText(JSON.stringify(allEvents, null, 2))
+        .then(() => showToast('Copied!')); };
     window._downloadAllJson = () => exportJSON('all');
-    window._toggleJsonBlock = el => {
-        const b = el.nextElementSibling;
-        if (b?.classList.contains('json-block-content')) {
+    window._toggleJsonBlock = el => { const b = el.nextElementSibling; if (b?.classList.contains('json-block-content')) {
             const hidden = b.style.display === 'none';
             b.style.display = hidden ? 'block' : 'none';
-            el.textContent = el.textContent.replace(hidden ? '▸' : '▾', hidden ? '▾' : '▸');
-        }
-    };
-    window._searchJson = q => {
-        const c = document.getElementById('jsonAll');
-        if (!c) return;
-        c.querySelectorAll('.json-block-content').forEach(b => {
-            if (!q) {
-                b.style.display = 'none';
-                b.previousElementSibling && (b.previousElementSibling.textContent = b.previousElementSibling.textContent.replace('▾', '▸'));
-            } else if (b.textContent.toLowerCase().includes(q.toLowerCase())) {
-                b.style.display = 'block';
-                b.previousElementSibling && (b.previousElementSibling.textContent = b.previousElementSibling.textContent.replace('▸', '▾'));
-            }
-        });
-    };
-    window._reconnectRelay = async u => {
-        showToast(`Reconnecting ${u}...`);
-        if (relayManager) { await relayManager.reconnect(u);
+            el.textContent = el.textContent.replace(hidden ? '▸' : '▾', hidden ? '▾' : '▸'); } };
+    window._searchJson = q => { const c = document.getElementById('jsonAll'); if (!c) return;
+        c.querySelectorAll('.json-block-content').forEach(b => { if (!q) { b.style.display = 'none';
+                b.previousElementSibling && (b.previousElementSibling.textContent = b.previousElementSibling
+                    .textContent.replace('▾', '▸')); } else if (b.textContent.toLowerCase().includes(q.toLowerCase())) { b
+                    .style.display = 'block';
+                b.previousElementSibling && (b.previousElementSibling.textContent = b.previousElementSibling
+                    .textContent.replace('▸', '▾')); } }); };
+    window._reconnectRelay = async u => { showToast(`Reconnecting ${u}...`); if (relayManager) { await relayManager
+            .reconnect(u);
             renderRelays();
-            showToast('Reconnected'); }
-    };
-    window._removeRelay = u => {
-        activeRelays = activeRelays.filter(r => r !== u);
-        if (relayManager) relayManager.relayUrls = activeRelays;
+            showToast('Reconnected'); } };
+    window._removeRelay = u => { activeRelays = activeRelays.filter(r => r !== u); if (relayManager) relayManager
+            .relayUrls = activeRelays;
         renderRelays();
-        showToast('Relay removed');
-    };
-    window._addCustomRelay = () => {
-        const url = prompt('Enter relay WebSocket URL:');
-        if (url && url.startsWith('ws') && !activeRelays.includes(url)) {
-            activeRelays.push(url);
-            if (relayManager) relayManager.relayUrls = activeRelays;
+        showToast('Relay removed'); };
+    window._addCustomRelay = () => { const url = prompt('Enter relay WebSocket URL:'); if (url && url.startsWith('ws') && !
+            activeRelays.includes(url)) { activeRelays.push(url); if (relayManager) relayManager.relayUrls =
+                activeRelays;
             renderRelays();
-            showToast('Relay added');
-        } else if (url && activeRelays.includes(url)) showToast('Already in list');
-        else if (url) showToast('Invalid URL');
-    };
+            showToast('Relay added'); } else if (url && activeRelays.includes(url)) showToast('Already in list'); else if (
+            url) showToast('Invalid URL'); };
     window._exportJSON = exportJSON;
     window._exportCSV = exportCSV;
     window._exportMarkdown = exportMarkdown;
@@ -1049,11 +1015,8 @@
         originalEvent = inv.originalEvent;
         eventMap = inv.eventMap;
         investigationHexId = inv.hexId;
-        if (allEvents.length === 0 && !originalEvent) {
-            resultsScreen.classList.remove('active');
-            homeScreen.style.display = 'flex';
-            return;
-        }
+        if (allEvents.length === 0 && !originalEvent) { resultsScreen.classList.remove('active');
+            homeScreen.style.display = 'flex'; return; }
         resultsScreen.classList.add('active');
         homeScreen.style.display = 'none';
         renderThread(inv);
@@ -1070,28 +1033,22 @@
     homeClearBtn.addEventListener('click', () => { homeSearchInput.value = '';
         hideError(); });
     homeSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
-    homeLuckyBtn.addEventListener('click', () => {
-        const tips = ['6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a', 'note1...', 'nevent1...'];
+    homeLuckyBtn.addEventListener('click', () => { const tips = [
+        '6b89af997f24b1d960249b15d95e0c6c6ef40378f2460a8c7e08c675e4f8ac8a' ];
         homeSearchInput.value = tips[Math.floor(Math.random() * tips.length)];
-        runAnalysis();
-    });
+        runAnalysis(); });
     resultsSearchBtn.addEventListener('click', () => runAnalysis(resultsSearchInput.value));
     resultsSearchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(resultsSearchInput.value); });
-    document.getElementById('resultsLogo').addEventListener('click', () => {
-        resultsScreen.classList.remove('active');
+    document.getElementById('resultsLogo').addEventListener('click', () => { resultsScreen.classList.remove('active');
         homeScreen.style.display = 'flex';
         homeSearchInput.value = '';
-        hideError();
-    });
-    tabsNav.addEventListener('click', e => {
-        const btn = e.target.closest('.tab-btn');
-        if (btn) switchTab(btn.dataset.tab);
-    });
+        hideError(); });
+    tabsNav.addEventListener('click', e => { const btn = e.target.closest('.tab-btn'); if (btn) switchTab(btn.dataset.tab); });
     homeLoginBtn.addEventListener('click', showLoginModal);
     homeLogoutBtn.addEventListener('click', logout);
     resultsLoginBtn.addEventListener('click', showLoginModal);
     resultsLogoutBtn.addEventListener('click', logout);
 
     DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-    console.log('🔍 NostrScope ready — card-based thread with media.');
+    console.log('🔍 NostrScope ready — full version with improved tree & timeline.');
 })();
