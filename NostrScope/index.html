@@ -8,6 +8,13 @@
 </head>
 <body>
     <div class="home-container" id="homeScreen">
+        <!-- New user area at top right of home screen -->
+        <div class="home-user-area">
+            <span id="homeUserStatus" class="user-info">Not logged in</span>
+            <button id="homeLoginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
+            <button id="homeLogoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
+        </div>
+
         <div class="home-logo">Nostr<span>Scope</span></div>
         <div class="home-subtitle">Explore every piece of information connected to any Nostr event.</div>
         <div class="search-box">
@@ -34,9 +41,9 @@
                 </div>
             </div>
             <div class="user-area">
-                <div id="userStatus" class="user-info">Not logged in</div>
-                <button id="loginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
-                <button id="logoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
+                <span id="resultsUserStatus" class="user-info">Not logged in</span>
+                <button id="resultsLoginBtn" class="btn btn-small btn-secondary">🔑 Login</button>
+                <button id="resultsLogoutBtn" class="btn btn-small btn-danger" style="display:none;">Logout</button>
             </div>
         </div>
         <div class="results-tabs" id="tabsNav">
