@@ -327,7 +327,7 @@
         p.innerHTML = h;
     }
 
-    // ── Profile Tab (collapsible followers, other events) ─────
+    // ── Profile Tab (collapsible followers, other events with special handling for kind 30023) ─────
     function renderProfileTab(data, pubkey) {
         const p = document.getElementById('panel-profile');
         const profile = data.profile || {};
@@ -356,11 +356,35 @@
             data.otherEvents.forEach(ev => {
                 const kindName = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
                 const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
-                html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;">
-                    <div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>
-                    <details><summary style="font-size:0.75rem;color:var(--accent2);">Show JSON</summary>
-                    <div class="json-viewer" style="max-height:150px;margin-top:4px;">${syntaxHighlight(JSON.stringify(ev, null, 2))}</div></details>
-                </div>`;
+                html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;">`;
+
+                // Special handling for Long-form Content (kind 30023)
+                if (ev.kind === 30023) {
+                    try {
+                        const article = JSON.parse(ev.content);
+                        const title = article.title || 'Untitled';
+                        const summary = article.summary || (article.content || '').substring(0, 150) + '...';
+                        const image = article.image || '';
+                        const linkTag = ev.tags.find(t => t[0] === 'd' && t[1]) || [];
+                        const identifier = linkTag[1] || ev.id;
+                        const readUrl = `https://njump.me/${npubFromHex(ev.pubkey)}/${identifier}`;
+                        html += `<div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>`;
+                        html += `<strong>${escapeHtml(title)}</strong>`;
+                        if (image) html += `<div><img src="${image}" alt="Article image" style="max-width:100%;max-height:150px;border-radius:6px;margin:4px 0;"></div>`;
+                        html += `<p style="font-size:0.8rem;margin:4px 0;">${escapeHtml(summary)}</p>`;
+                        html += `<a href="${readUrl}" target="_blank" style="color:var(--blue);font-size:0.75rem;">Read full article →</a>`;
+                    } catch (e) {
+                        // Fallback to raw content if JSON parsing fails
+                        html += `<div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>`;
+                        html += `<div class="event-content" style="max-height:80px;overflow-y:auto;">${escapeHtml(ev.content.substring(0, 300))}</div>`;
+                    }
+                } else {
+                    // Generic other events
+                    html += `<div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>`;
+                    html += `<details><summary style="font-size:0.75rem;color:var(--accent2);">Show JSON</summary>
+                    <div class="json-viewer" style="max-height:150px;margin-top:4px;">${syntaxHighlight(JSON.stringify(ev, null, 2))}</div></details>`;
+                }
+                html += `</div>`;
             });
             html += `</details>`;
         }
@@ -499,7 +523,7 @@
         resultsAccountBtn?.addEventListener('click', () => showAccountModal());
         if (bottomNav) { bottomNav.addEventListener('click', e => { const btn = e.target.closest('.nav-btn'); if (btn) switchTab(btn.dataset.tab); }); }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — full version.');
+        console.log('🔍 NostrScope ready — full version with article previews.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
