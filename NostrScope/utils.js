@@ -262,8 +262,88 @@ class EventInvestigator {
 }
 
 // ── User Profile Investigator ─────
-class UserProfileInvestigator { constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; } async investigate(pubkey, hints = [], options = {}) { const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear(); for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() }); showLoading('Connecting to relays...'); await this.rm.connectAll(10000); const connected = [...relayStats.values()].filter(s => s.status === 'connected').length; if (connected === 0) { hideLoading(); if (!options.silent) showToast('No relays connected.', 'error'); return; } showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`); this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; const pending = new Set(); const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]); const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]); const relaySub = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]); pending.add(profileSub); pending.add(followsSub); pending.add(relaySub); this.rm.onEvent = (ev) => { if (ev.pubkey === pubkey) { if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; } if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]); if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]); } }; return new Promise((resolve) => { this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } }; setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000); }).then(() => { hideLoading(); if (!options.silent) { if (!this.profile && this.follows.length === 0 && this.relays.length === 0) showToast('No profile found.', 'info'); else showToast('Profile loaded.', 'success'); } }); } }
+// ── User Profile Investigator (extended) ─────
+class UserProfileInvestigator {
+    constructor(relayManager) {
+        this.rm = relayManager;
+        this.profile = null;
+        this.follows = [];
+        this.relays = [];
+        this.profileEvent = null;
+        this.otherEvents = [];   // other event kinds for the user
+    }
 
+    async investigate(pubkey, hints = [], options = {}) {
+        const allRelays = [...new Set([...activeRelays, ...hints])];
+        this.rm.relayUrls = allRelays;
+        this.rm.connections.clear();
+        this.rm.subscriptions.clear();
+        relayStats.clear();
+        for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
+
+        showLoading('Connecting to relays...');
+        await this.rm.connectAll(10000);
+        const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
+        if (connected === 0) {
+            hideLoading();
+            if (!options.silent) showToast('No relays connected.', 'error');
+            return;
+        }
+        showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
+
+        this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
+        this.otherEvents = [];
+
+        const pending = new Set();
+        const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
+        const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
+        const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
+        pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
+
+        // Subscribe to additional user attribute events (badges, lists, etc.)
+        const extraKinds = options.extraKinds || [8, 30000, 30001, 30023, 10000, 10001];
+        const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
+        pending.add(extraSub);
+
+        this.rm.onEvent = (ev) => {
+            if (ev.pubkey === pubkey) {
+                if (ev.kind === 0) {
+                    try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
+                    this.profileEvent = ev;
+                }
+                else if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
+                else if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
+                else if (extraKinds.includes(ev.kind)) {
+                    // Store other events
+                    this.otherEvents.push(ev);
+                }
+            }
+        };
+
+        return new Promise((resolve) => {
+            this.rm.onEOSE = (subId) => {
+                pending.delete(subId);
+                if (pending.size === 0) {
+                    this.rm.onEvent = null;
+                    this.rm.onEOSE = null;
+                    resolve();
+                }
+            };
+            setTimeout(() => {
+                for (const sid of pending) this.rm.closeSubscription(sid);
+                pending.clear();
+                this.rm.onEvent = null;
+                this.rm.onEOSE = null;
+                resolve();
+            }, 10000);
+        }).then(() => {
+            hideLoading();
+            if (!options.silent) {
+                showToast('Profile loaded.', 'success');
+            }
+        });
+    }
+}
 // ── Login Persistence ──────────────
 // ── Login Persistence ──────────────
 function saveLogin(privateKey) {
