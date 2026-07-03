@@ -1,478 +1,686 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nostr Kind Explorer & Editor</title>
-  <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
-  <style>
-    :root {
-      --bg: #0d1117; --surface: #161b22; --surface2: #1c2333; --border: #30363d;
-      --text: #e6edf3; --text2: #8b949e; --accent: #58a6ff; --accent2: #1f6feb;
-      --success: #3fb950; --warning: #d29922; --error: #f85149; --purple: #a371f7;
-      --radius: 8px; --radius-sm: 5px;
-      --font-mono: 'SF Mono','Fira Code','Consolas',monospace;
-      --font-sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    }
-    *{margin:0;padding:0;box-sizing:border-box;}
-    body{background:var(--bg);color:var(--text);font-family:var(--font-sans);line-height:1.6;min-height:100vh;padding:20px;}
-    .container{max-width:1300px;margin:0 auto;display:flex;flex-direction:column;gap:18px;}
-    .header{text-align:center;padding:10px 0;}
-    .header h1{font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-    .subtitle{color:var(--text2);font-size:0.9rem;}
-    .auth-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 18px;}
-    .auth-bar .logged-info{display:flex;align-items:center;gap:10px;}
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:var(--radius-sm);border:1px solid transparent;font-size:0.9rem;font-weight:600;cursor:pointer;transition:0.2s;white-space:nowrap;font-family:var(--font-sans);}
-    .btn-primary{background:var(--accent2);color:#fff;}
-    .btn-outline{background:transparent;color:var(--text);border-color:var(--border);}
-    .btn-sm{padding:6px 12px;font-size:0.8rem;}
-    .btn-xs{padding:3px 8px;font-size:0.7rem;}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
-    .input-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
-    .input-row input{flex:1;min-width:220px;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font-mono);outline:none;}
-    .progress-area{margin-top:8px;font-size:0.85rem;color:var(--text2);}
-    .summary-panel{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:14px 18px;}
-    .toolbar{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:10px;}
-    .table-wrapper{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);max-height:55vh;}
-    table{width:100%;border-collapse:collapse;font-size:0.82rem;min-width:900px;}
-    thead th{background:var(--surface2);color:var(--text2);font-size:0.72rem;text-transform:uppercase;padding:10px 8px;text-align:left;border-bottom:2px solid var(--border);position:sticky;top:0;}
-    tbody td{padding:8px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:0.78rem;}
-    .badge{padding:2px 8px;border-radius:12px;font-size:0.72rem;font-weight:600;display:inline-block;}
-    .badge-editable{background:rgba(63,185,80,0.2);color:var(--success);}
-    .badge-readonly{background:rgba(139,148,158,0.2);color:var(--text2);}
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
-    .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:850px;max-height:85vh;overflow-y:auto;}
-    .modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);}
-    .modal-body{padding:20px;}
-    .tab-btn{background:transparent;border:none;color:var(--text2);padding:6px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:0.9rem;}
-    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
-    .hidden{display:none !important;}
-    .toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border);padding:10px 18px;border-radius:var(--radius-sm);z-index:200;}
-    .diff-insert{color:var(--success);} .diff-delete{color:var(--error);}
-    .tag-table{width:100%;border-collapse:collapse;}
-    .tag-table td{padding:4px;}
-    .tag-table input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px;}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Kind Explorer – Full Reference</title>
+    <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #1c2333;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text2: #8b949e;
+            --accent: #58a6ff;
+            --accent2: #1f6feb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --purple: #a371f7;
+            --radius: 8px;
+            --radius-sm: 5px;
+            --font-mono: 'SF Mono','Fira Code','Consolas',monospace;
+            --font-sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:var(--bg);color:var(--text);font-family:var(--font-sans);line-height:1.6;min-height:100vh;padding:20px;}
+        .container{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}
+        .header{text-align:center;padding:10px 0;}
+        .header h1{font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+        .subtitle{color:var(--text2);font-size:0.9rem;}
+        .auth-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 18px;flex-wrap:wrap;gap:8px;}
+        .auth-bar .logged-info{display:flex;align-items:center;gap:10px;}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:var(--radius-sm);border:1px solid transparent;font-size:0.9rem;font-weight:600;cursor:pointer;transition:0.2s;white-space:nowrap;font-family:var(--font-sans);}
+        .btn-primary{background:var(--accent2);color:#fff;}
+        .btn-outline{background:transparent;color:var(--text);border-color:var(--border);}
+        .btn-sm{padding:6px 12px;font-size:0.8rem;}
+        .btn-xs{padding:3px 8px;font-size:0.7rem;}
+        .btn-success{background:var(--success);color:#000;border-color:var(--success);}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+        .input-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+        .input-row input{flex:1;min-width:220px;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font-mono);outline:none;}
+        .progress-area{margin-top:8px;font-size:0.85rem;color:var(--text2);}
+        .summary-panel{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:14px 18px;}
+        .summary-item{display:flex;flex-direction:column;gap:2px;padding:0 14px;border-right:1px solid var(--border);}
+        .summary-item:last-child{border-right:none;}
+        .summary-item .s-label{font-size:0.68rem;text-transform:uppercase;color:var(--text2);}
+        .summary-item .s-value{font-size:1.1rem;font-weight:700;font-family:var(--font-mono);}
+        .filter-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+        .filter-btn{padding:5px 11px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:0.72rem;font-family:var(--font-sans);transition:0.2s;}
+        .filter-btn.active{background:var(--accent2);color:#fff;border-color:var(--accent2);}
+        .filter-btn:hover:not(.active){border-color:var(--text2);}
+        .toolbar{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+        .table-wrapper{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);max-height:55vh;}
+        table{width:100%;border-collapse:collapse;font-size:0.8rem;min-width:1000px;}
+        thead th{background:var(--surface2);color:var(--text2);font-size:0.7rem;text-transform:uppercase;padding:10px 8px;text-align:left;border-bottom:2px solid var(--border);position:sticky;top:0;cursor:pointer;user-select:none;}
+        thead th:hover{color:var(--accent);}
+        tbody td{padding:7px 8px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:0.76rem;}
+        tbody tr.row-unpublished{opacity:0.55;}
+        tbody tr.row-unknown{background:rgba(210,153,34,0.06)!important;border-left:3px solid rgba(210,153,34,0.4);}
+        tbody tr.row-unknown td{font-style:italic;}
+        .badge{padding:2px 8px;border-radius:12px;font-size:0.7rem;font-weight:600;display:inline-block;}
+        .badge-editable{background:rgba(63,185,80,0.2);color:var(--success);}
+        .badge-readonly{background:rgba(139,148,158,0.2);color:var(--text2);}
+        .badge-published{background:rgba(88,166,255,0.2);color:var(--accent);}
+        .badge-unpublished{background:rgba(139,148,158,0.15);color:var(--text2);}
+        .badge-unknown{background:rgba(210,153,34,0.2);color:var(--warning);}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+        .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:850px;max-height:85vh;overflow-y:auto;}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);}
+        .modal-body{padding:20px;}
+        .tab-btn{background:transparent;border:none;color:var(--text2);padding:6px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:0.9rem;}
+        .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .hidden{display:none!important;}
+        .toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border);padding:10px 18px;border-radius:var(--radius-sm);z-index:200;}
+        .diff-insert{color:var(--success);}.diff-delete{color:var(--error);}
+        .tag-row{display:flex;gap:4px;align-items:center;margin-bottom:4px;}
+        .tag-row input{width:100px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-family:monospace;}
+        .search-input{padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:0.85rem;width:200px;outline:none;}
+    </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <h1>🔍 Nostr Kind Explorer & Editor</h1>
-    <p class="subtitle">Discover every event kind, then edit and republish your own events</p>
-  </div>
-  <div class="auth-bar" id="authBar">
-    <div class="logged-info" id="loggedInfo" style="display:none;">
-      <span>🔑 Logged in as: <strong id="loggedNpubDisplay">npub1...</strong></span>
-      <button class="btn btn-sm btn-outline" id="logoutBtn">🚪 Logout</button>
-    </div>
-    <div id="loginButtons">
-      <button class="btn btn-sm btn-outline" id="loginNsecBtn">🔓 Login with nsec</button>
-      <button class="btn btn-sm btn-outline" id="loginNip07Btn">🦊 Login with NIP-07</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="input-row">
-      <input type="text" id="npubInput" placeholder="Enter npub to scan... (e.g. npub1...)" autocomplete="off" spellcheck="false">
-      <button class="btn btn-primary" id="scanBtn">🔎 Scan</button>
-      <button class="btn btn-outline btn-sm" id="clearBtn">✕ Clear</button>
-    </div>
-  </div>
-  <div id="progressArea" class="progress-area hidden"></div>
-  <div id="statsGrid" class="summary-panel hidden" style="display:none;"></div>
-  <div class="toolbar" id="toolbar" style="display:none;">
-    <input type="text" id="searchInput" placeholder="Filter by kind/name...">
-    <div>
-      <button class="btn btn-sm btn-outline" id="kindManagerBtn">📚 Kind Manager</button>
-      <button class="btn btn-sm btn-outline" id="publishLogBtn">📋 Publishing Log</button>
-      <button class="btn btn-sm btn-outline" id="exportCSVBtn">📄 CSV</button>
-      <button class="btn btn-sm btn-outline" id="exportJSONBtn">📦 JSON</button>
-    </div>
-  </div>
-  <div class="table-wrapper" id="tableWrapper" style="display:none;">
-    <table id="resultsTable">
-      <thead><tr>
-        <th>Kind</th><th>Name</th><th>Category</th><th>Count</th><th>Editable</th><th>Action</th>
-      </tr></thead>
-      <tbody id="resultsBody"></tbody>
-    </table>
-  </div>
-</div>
-<div id="modalOverlay" class="modal-overlay hidden"><div class="modal" id="modalContent"></div></div>
-<div id="toastContainer"></div>
-
-<script>
-(function() {
-  // ── state ──
-  const DEFAULT_RELAYS = ['wss://relay.damus.io','wss://nos.lol','wss://relay.primal.net','wss://purplepag.es','wss://relay.snort.social'];
-  let currentNpub = null, currentHexPubkey = null;
-  let allEventsMap = new Map(), kindGroups = new Map(), kindSummaries = [];
-  let user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
-  let publishLog = [];
-  let customKindDB = {};
-
-  // ── helpers ──
-  function showToast(msg) {
-    const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
-    document.getElementById('toastContainer').appendChild(t);
-    setTimeout(()=>t.remove(), 2000);
-  }
-  function hideModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
-  function showModal(html) {
-    document.getElementById('modalContent').innerHTML = html;
-    document.getElementById('modalOverlay').classList.remove('hidden');
-    document.getElementById('modalContent').querySelector('.modal-close')?.addEventListener('click', hideModal);
-  }
-
-  // ── kind database ──
-  const BASE_KINDS = {
-    0:{name:"Profile Metadata",nip:"NIP-01",category:"Replaceable",purpose:"User profile"},
-    1:{name:"Short Text Note",nip:"NIP-01",category:"Regular",purpose:"Posts"},
-    3:{name:"Contact List",nip:"NIP-02",category:"Replaceable",purpose:"Following list"},
-    4:{name:"Encrypted DM",nip:"NIP-04",category:"Regular",purpose:"Encrypted direct message"},
-    5:{name:"Event Deletion",nip:"NIP-09",category:"Regular",purpose:"Delete request"},
-    6:{name:"Repost",nip:"NIP-18",category:"Regular",purpose:"Boost"},
-    7:{name:"Reaction",nip:"NIP-25",category:"Regular",purpose:"Like/emoji"},
-    9734:{name:"Zap Request",nip:"NIP-57",category:"Regular",purpose:"Lightning zap"},
-    9735:{name:"Zap Receipt",nip:"NIP-57",category:"Regular",purpose:"Proof of payment"},
-    10002:{name:"Relay List",nip:"NIP-65",category:"Replaceable",purpose:"Preferred relays"},
-    10019:{name:"NutZap Info",nip:"NIP-60",category:"Replaceable",purpose:"Cashu wallet info"},
-    30023:{name:"Long-form Article",nip:"NIP-23",category:"Addressable",purpose:"Blog article"},
-    30078:{name:"Application Data",nip:"NIP-78",category:"Addressable",purpose:"App‑specific data"},
-    34550:{name:"Community Definition",nip:"NIP-72",category:"Addressable",purpose:"Community definition"},
-  };
-  function loadKindDB() {
-    const s = localStorage.getItem('nostr_kind_db');
-    if (s) try { customKindDB = JSON.parse(s); } catch{}
-  }
-  function saveKindDB() { localStorage.setItem('nostr_kind_db', JSON.stringify(customKindDB)); }
-  function getKindInfo(kind) {
-    const merged = { ...BASE_KINDS, ...customKindDB };
-    if (merged[kind]) return { ...merged[kind], isUnknown: false };
-    return { name:"Unknown", nip:"—", category:"Unknown", purpose:"Not recognized", isUnknown:true };
-  }
-  function isEditableKind(kind) {
-    const cat = getKindInfo(kind).category;
-    return cat === 'Replaceable' || cat === 'Addressable';
-  }
-
-  // ── authentication ──
-  async function loginNsec(nsec) {
-    try {
-      const { type, data } = NostrTools.nip19.decode(nsec);
-      if (type !== 'nsec') throw new Error('Not an nsec');
-      // data can be hex string or Uint8Array
-      const privkey = typeof data === 'string' ? data : [...data].map(b => b.toString(16).padStart(2,'0')).join('');
-      const pubkey = NostrTools.getPublicKey(privkey);
-      user = { loggedIn: true, pubkey, privkey, signerType: 'nsec' };
-      updateAuthUI();
-      showToast('Logged in with nsec');
-    } catch(e) { showToast('Invalid nsec: '+e.message); }
-  }
-  async function loginNip07() {
-    if (!window.nostr) return showToast('No NIP‑07 extension found');
-    try {
-      const pubkey = await window.nostr.getPublicKey();
-      user = { loggedIn: true, pubkey, privkey: null, signerType: 'nip07' };
-      updateAuthUI();
-      showToast('Connected with NIP‑07');
-    } catch(e) { showToast('NIP‑07 error: '+e.message); }
-  }
-  function logout() {
-    user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
-    updateAuthUI();
-    renderTable();
-    showToast('Logged out');
-  }
-  function updateAuthUI() {
-    document.getElementById('loginButtons').style.display = user.loggedIn ? 'none' : '';
-    document.getElementById('loggedInfo').style.display = user.loggedIn ? '' : 'none';
-    if (user.loggedIn) {
-      const npub = NostrTools.nip19.npubEncode(user.pubkey);
-      document.getElementById('loggedNpubDisplay').textContent = npub.substring(0,12)+'...';
-    }
-  }
-
-  // ── scanning ──
-  async function fetchFromRelay(url, hexPubkey, signal) {
-    return new Promise((resolve, reject) => {
-      const events=[]; let ws, subId, oldest=null, round=0, done=false;
-      function finish(err) {
-        if(done) return; done=true;
-        if(ws) { try{ws.close();}catch{} }
-        err ? reject(err) : resolve(events);
-      }
-      function sendReq() {
-        if(done) return; round++;
-        subId = 'sub'+Math.random().toString(36).slice(2);
-        const filter = { authors:[hexPubkey], limit:500 };
-        if(oldest) filter.until = oldest-1;
-        ws.send(JSON.stringify(['REQ',subId,filter]));
-      }
-      ws = new WebSocket(url);
-      ws.onopen = () => sendReq();
-      ws.onmessage = (msg) => {
-        let data; try{data=JSON.parse(msg.data);}catch{return;}
-        if(data[0]==='EVENT' && data[1]===subId) {
-          const ev = data[2];
-          events.push({event:ev, relayUrl:url});
-          if(!oldest || ev.created_at<oldest) oldest=ev.created_at;
-        }
-        if(data[0]==='EOSE' && data[1]===subId) {
-          if(events.length>=400 && round<3) setTimeout(sendReq,200);
-          else finish();
-        }
-      };
-      ws.onerror = () => finish(new Error('connection error'));
-      setTimeout(()=> finish(new Error('timeout')), 10000);
-      signal?.addEventListener('abort', ()=> finish(new Error('aborted')), {once:true});
-    });
-  }
-
-  async function performScan() {
-    const raw = document.getElementById('npubInput').value.trim();
-    if(!raw.startsWith('npub1')) return showToast('Enter a valid npub');
-    try {
-      const hex = NostrTools.nip19.decode(raw).data;
-      currentHexPubkey = hex; currentNpub = raw;
-    } catch { return showToast('Invalid npub'); }
-    allEventsMap.clear(); kindGroups.clear(); kindSummaries=[];
-    document.getElementById('progressArea').classList.remove('hidden');
-    document.getElementById('progressArea').textContent = 'Connecting...';
-    const results = await Promise.allSettled(DEFAULT_RELAYS.map(url =>
-      fetchFromRelay(url, currentHexPubkey).then(evts => ({url, evts})).catch(e => ({url, evts:[]}))
-    ));
-    for(const r of results) if(r.status==='fulfilled') for(const {event,relayUrl} of r.value.evts) {
-      if(!allEventsMap.has(event.id)) allEventsMap.set(event.id, {event, relayUrls:[relayUrl]});
-      else allEventsMap.get(event.id).relayUrls.push(relayUrl);
-    }
-    for(const [id, data] of allEventsMap) {
-      const k = data.event.kind;
-      if(!kindGroups.has(k)) kindGroups.set(k, []);
-      kindGroups.get(k).push(data);
-    }
-    kindSummaries = Array.from(kindGroups.entries()).map(([kind, events]) => {
-      const info = getKindInfo(kind);
-      const first = Math.min(...events.map(e=>e.event.created_at));
-      const latest = Math.max(...events.map(e=>e.event.created_at));
-      return { kind, name:info.name, category:info.category, count:events.length, firstSeen:first, latestSeen:latest, ...info };
-    }).sort((a,b)=>a.kind-b.kind);
-    document.getElementById('progressArea').classList.add('hidden');
-    renderStats(); renderTable();
-    document.getElementById('toolbar').style.display='flex';
-    document.getElementById('tableWrapper').style.display='block';
-    showToast(`Found ${kindSummaries.length} kinds`);
-  }
-
-  function renderStats() {
-    const total = allEventsMap.size;
-    const known = kindSummaries.filter(s=>!s.isUnknown).length;
-    const unknown = kindSummaries.filter(s=>s.isUnknown).length;
-    document.getElementById('statsGrid').innerHTML = `
-      <div>Total events: <strong>${total}</strong></div>
-      <div>Unique kinds: <strong>${kindSummaries.length}</strong></div>
-      <div>Known: <strong style="color:var(--accent)">${known}</strong></div>
-      <div>Unknown: <strong style="color:var(--warning)">${unknown}</strong></div>
-    `;
-    document.getElementById('statsGrid').style.display='flex';
-  }
-
-  function renderTable(filter='') {
-    let filtered = kindSummaries;
-    if(filter) filtered = filtered.filter(s => String(s.kind).includes(filter) || s.name.toLowerCase().includes(filter));
-    const body = document.getElementById('resultsBody');
-    const canEdit = user.loggedIn && currentHexPubkey === user.pubkey;
-    body.innerHTML = filtered.map(s => {
-      const editable = isEditableKind(s.kind);
-      const btnLabel = (editable && canEdit) ? '✏️ Edit' : '👁 View';
-      const editableBadge = editable ? '<span class="badge badge-editable">Editable</span>' : '<span class="badge badge-readonly">Read‑only</span>';
-      return `<tr>
-        <td><span class="badge">${s.kind}</span></td>
-        <td>${s.name}</td>
-        <td>${s.category}</td>
-        <td>${s.count}</td>
-        <td>${editableBadge}</td>
-        <td><button class="btn btn-xs btn-outline action-btn" data-kind="${s.kind}" data-action="${editable&&canEdit?'edit':'view'}">${btnLabel}</button></td>
-      </tr>`;
-    }).join('');
-    document.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', function() {
-      const kind = parseInt(this.dataset.kind);
-      if(this.dataset.action==='edit') openEditor(kind); else openViewer(kind);
-    }));
-  }
-
-  // ── viewer / editor ──
-  function openViewer(kind) {
-    const group = kindGroups.get(kind); if(!group) return;
-    const info = getKindInfo(kind);
-    const eventsHtml = group.map(item => {
-      const ev = item.event;
-      const relays = item.relayUrls.join(', ');
-      return `<div class="card" style="margin-bottom:8px;"><pre>${JSON.stringify(ev,null,2)}</pre><div>Relays: ${relays}</div></div>`;
-    }).join('');
-    showModal(`
-      <div class="modal-header"><h3>Kind ${kind} - ${info.name}</h3><button class="btn modal-close">✕</button></div>
-      <div class="modal-body">${eventsHtml}</div>
-    `);
-  }
-
-  function openEditor(kind) {
-    const group = kindGroups.get(kind); if(!group) return;
-    const originalEvent = group[0].event;
-    const info = getKindInfo(kind);
-    let visualHtml = '';
-    if (kind===0) visualHtml = profileEditorHTML(originalEvent);
-    else if (kind===3) visualHtml = contactListEditorHTML(originalEvent);
-    else if (kind===10002) visualHtml = relayListEditorHTML(originalEvent);
-    else visualHtml = genericEditorHTML(originalEvent);
-
-    const modalHtml = `
-      <div class="modal-header"><h3>Edit Kind ${kind} – ${info.name}</h3><button class="btn modal-close">✕</button></div>
-      <div class="modal-body">
-        <div style="margin-bottom:12px;">
-          <button class="tab-btn active" data-tab="visual">Visual</button>
-          <button class="tab-btn" data-tab="json">JSON</button>
-          <button class="btn btn-sm btn-outline" id="showDiffBtn">🔍 Show Diff</button>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Nostr Kind Explorer – Full Reference</h1>
+            <p class="subtitle">Every known kind from the database — discover what's published and what's missing</p>
         </div>
-        <div id="visualPanel">${visualHtml}</div>
-        <div id="jsonPanel" class="hidden"><textarea id="jsonEditor" style="width:100%;height:300px;background:var(--bg);color:var(--text);border:1px solid var(--border);">${JSON.stringify(originalEvent,null,2)}</textarea></div>
-        <div id="diffPanel" class="hidden" style="white-space:pre-wrap;font-family:monospace;"></div>
-        <div style="margin-top:16px;">
-          <button class="btn btn-primary" id="saveAndSignBtn">✍️ Sign & Publish</button>
-          <button class="btn btn-outline" id="cancelBtn">Cancel</button>
+        <div class="auth-bar" id="authBar">
+            <div class="logged-info" id="loggedInfo" style="display:none;">
+                <span>🔑 <strong id="loggedNpubDisplay">npub1...</strong></span>
+                <button class="btn btn-sm btn-outline" id="logoutBtn">🚪 Logout</button>
+            </div>
+            <div id="loginButtons">
+                <button class="btn btn-sm btn-outline" id="loginNsecBtn">🔓 Login with nsec</button>
+                <button class="btn btn-sm btn-outline" id="loginNip07Btn">🦊 Login with NIP-07</button>
+            </div>
         </div>
-      </div>`;
-    showModal(modalHtml);
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', function() {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById('visualPanel').classList.toggle('hidden', this.dataset.tab!=='visual');
-      document.getElementById('jsonPanel').classList.toggle('hidden', this.dataset.tab!=='json');
-      document.getElementById('diffPanel').classList.add('hidden');
-    }));
-    document.getElementById('showDiffBtn').addEventListener('click', () => {
-      const original = originalEvent;
-      let edited;
-      try { edited = JSON.parse(document.getElementById('jsonEditor').value); } catch{ return showToast('Invalid JSON'); }
-      const diff = generateDiff(original, edited);
-      document.getElementById('diffPanel').innerHTML = diff;
-      document.getElementById('diffPanel').classList.remove('hidden');
-    });
-    document.getElementById('cancelBtn').addEventListener('click', hideModal);
-    document.getElementById('saveAndSignBtn').addEventListener('click', () => signAndPublish(kind, originalEvent));
-  }
-
-  function generateDiff(orig, edited) {
-    let diff = '';
-    for(const key of Object.keys(orig)) {
-      if(JSON.stringify(orig[key]) !== JSON.stringify(edited[key])) {
-        diff += `<span class="diff-delete">- ${key}: ${JSON.stringify(orig[key])}</span>\n`;
-        diff += `<span class="diff-insert">+ ${key}: ${JSON.stringify(edited[key])}</span>\n`;
-      }
-    }
-    return diff || 'No changes';
-  }
-
-  function profileEditorHTML(ev) {
-    const c = JSON.parse(ev.content||'{}');
-    return `<div><label>Name</label><input value="${c.name||''}" class="field-name" style="width:100%"></div>
-            <div><label>About</label><textarea class="field-about" style="width:100%">${c.about||''}</textarea></div>
-            <div><label>Picture</label><input value="${c.picture||''}" class="field-picture" style="width:100%"></div>`;
-  }
-  function contactListEditorHTML(ev) { return `<textarea class="content-field" style="width:100%;height:200px">${ev.content}</textarea>`; }
-  function relayListEditorHTML(ev) { return `<textarea class="content-field" style="width:100%;height:200px">${ev.content}</textarea>`; }
-  function genericEditorHTML(ev) {
-    return `<div><label>Content</label><textarea class="content-field" style="width:100%;height:200px">${ev.content}</textarea></div>
-            <div style="margin-top:12px"><strong>Tags</strong> <button class="btn btn-xs add-tag-btn">+ Add tag</button></div>
-            <div class="tags-container">${renderTags(ev.tags)}</div>`;
-  }
-  function renderTags(tags) {
-    return tags.map((tag,idx) => `
-      <div class="tag-row" data-idx="${idx}">
-        ${tag.map((v,i)=>`<input value="${v}" data-tagidx="${i}">`).join('')}
-        <button class="btn btn-xs remove-tag-btn">✕</button>
-      </div>`).join('');
-  }
-
-  async function signAndPublish(kind, originalEvent) {
-    if(!user.loggedIn) return showToast('Not logged in');
-    let editedEvent;
-    const contentField = document.querySelector('.content-field');
-    if(contentField) {
-      editedEvent = { ...originalEvent, content: contentField.value };
-    } else {
-      try { editedEvent = JSON.parse(document.getElementById('jsonEditor').value); } catch { return showToast('Invalid JSON'); }
-    }
-    if([0,3,10002,10019].includes(kind)) {
-      if(!confirm(`You are about to replace your existing Kind ${kind} event. Continue?`)) return;
-    }
-    let signed;
-    try {
-      if(user.signerType==='nip07') {
-        signed = await window.nostr.signEvent(editedEvent);
-      } else {
-        signed = NostrTools.signEvent(editedEvent, user.privkey);
-      }
-    } catch(e) { showToast('Signing failed: '+e.message); return; }
-    publishLog = [];
-    for(const url of DEFAULT_RELAYS) {
-      try {
-        const ws = new WebSocket(url);
-        ws.onopen = () => { ws.send(JSON.stringify(['EVENT', signed])); publishLog.push({url, status:'sent'}); };
-        ws.onerror = () => publishLog.push({url, status:'error'});
-      } catch { publishLog.push({url, status:'error'}); }
-    }
-    showToast('Published');
-    hideModal();
-  }
-
-  function openKindManager() {
-    showModal(`
-      <div class="modal-header"><h3>Kind Reference Manager</h3><button class="btn modal-close">✕</button></div>
-      <div class="modal-body">
-        <textarea id="kindDbTextarea" style="width:100%;height:400px;background:var(--bg);color:var(--text);">${JSON.stringify(customKindDB,null,2)}</textarea>
-        <div style="margin-top:12px;">
-          <button class="btn btn-primary" id="saveKindDbBtn">💾 Save</button>
-          <button class="btn btn-outline" id="resetKindDbBtn">🔄 Reset</button>
+        <div class="card">
+            <div class="input-row">
+                <input type="text" id="npubInput" placeholder="Enter npub to scan... (e.g. npub1...)" autocomplete="off" spellcheck="false">
+                <button class="btn btn-primary" id="scanBtn">🔎 Scan</button>
+                <button class="btn btn-outline btn-sm" id="clearBtn">✕ Clear</button>
+            </div>
         </div>
-      </div>`);
-    document.getElementById('saveKindDbBtn').addEventListener('click', () => {
-      try { customKindDB = JSON.parse(document.getElementById('kindDbTextarea').value); saveKindDB(); showToast('Saved'); } catch { showToast('Invalid JSON'); }
-    });
-    document.getElementById('resetKindDbBtn').addEventListener('click', () => {
-      customKindDB = {}; saveKindDB(); document.getElementById('kindDbTextarea').value = '{}'; showToast('Reset');
-    });
-  }
+        <div id="progressArea" class="progress-area hidden"></div>
+        <div id="statsGrid" class="summary-panel hidden" style="display:none;"></div>
+        <div id="filterBar" class="filter-bar" style="display:none;">
+            <span style="color:var(--text2);font-size:0.72rem;margin-right:4px;">Filter:</span>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="published">Published</button>
+            <button class="filter-btn" data-filter="unpublished">Not Published</button>
+            <button class="filter-btn" data-filter="editable">Editable</button>
+            <button class="filter-btn" data-filter="readonly">Read Only</button>
+            <button class="filter-btn" data-filter="replaceable">Replaceable</button>
+            <button class="filter-btn" data-filter="addressable">Addressable</button>
+            <button class="filter-btn" data-filter="regular">Regular</button>
+            <button class="filter-btn" data-filter="unknown">Unknown</button>
+        </div>
+        <div class="toolbar" id="toolbar" style="display:none;">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search kind/name...">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-outline" id="kindManagerBtn">📚 Kind Manager</button>
+                <button class="btn btn-sm btn-outline" id="publishLogBtn">📋 Publishing Log</button>
+                <button class="btn btn-sm btn-outline" id="exportCSVBtn">📄 CSV</button>
+                <button class="btn btn-sm btn-outline" id="exportJSONBtn">📦 JSON</button>
+            </div>
+        </div>
+        <div class="table-wrapper" id="tableWrapper" style="display:none;">
+            <table id="resultsTable">
+                <thead><tr>
+                    <th data-sort="kind">Kind</th><th data-sort="name">Name</th><th data-sort="category">Category</th>
+                    <th data-sort="nip">NIP</th><th data-sort="count">Count</th><th>Status</th><th>Editable</th><th>Action</th>
+                </tr></thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <div id="modalOverlay" class="modal-overlay hidden"><div class="modal" id="modalContent"></div></div>
+    <div id="toastContainer"></div>
 
-  function openPublishLog() {
-    const list = publishLog.length ? publishLog.map(l => `<div>${l.url}: ${l.status}</div>`).join('') : 'No publishes yet.';
-    showModal(`<div class="modal-header"><h3>Publishing Log</h3><button class="btn modal-close">✕</button></div><div class="modal-body">${list}</div>`);
-  }
+    <script>
+        (function() {
+            const DEFAULT_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net',
+            'wss://purplepag.es', 'wss://relay.snort.social'];
+            let currentNpub = null,
+                currentHexPubkey = null;
+            let allEventsMap = new Map(),
+                kindGroups = new Map(),
+                kindSummaries = [];
+            let user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
+            let publishLog = [];
+            let customKindDB = {};
+            let currentFilter = 'all';
+            let sortColumn = 'kind',
+                sortDirection = 'asc';
 
-  // ── event listeners ──
-  document.getElementById('scanBtn').addEventListener('click', performScan);
-  document.getElementById('clearBtn').addEventListener('click', ()=> location.reload());
-  document.getElementById('searchInput').addEventListener('input', e => renderTable(e.target.value));
-  document.getElementById('loginNsecBtn').addEventListener('click', ()=>{
-    const nsec = prompt('Enter nsec:');
-    if(nsec) loginNsec(nsec);
-  });
-  document.getElementById('loginNip07Btn').addEventListener('click', loginNip07);
-  document.getElementById('logoutBtn').addEventListener('click', logout);
-  document.getElementById('kindManagerBtn').addEventListener('click', openKindManager);
-  document.getElementById('publishLogBtn').addEventListener('click', openPublishLog);
-  document.getElementById('exportCSVBtn').addEventListener('click', ()=>{
-    if(!kindSummaries.length) return;
-    const csv = 'Kind,Name,Category,Count\n'+kindSummaries.map(s=>`${s.kind},${s.name},${s.category},${s.count}`).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nostr_kinds.csv'; a.click();
-  });
-  document.getElementById('exportJSONBtn').addEventListener('click', ()=>{
-    const data = kindSummaries.map(s=>({kind:s.kind,name:s.name,category:s.category,count:s.count}));
-    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nostr_kinds.json'; a.click();
-  });
+            function showToast(msg) { const t = document.createElement('div');
+                t.className = 'toast';
+                t.textContent = msg;
+                document.getElementById('toastContainer').appendChild(t);
+                setTimeout(() => t.remove(), 2200); }
 
-  loadKindDB();
-  updateAuthUI();
-})();
-</script>
+            function hideModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
+
+            function showModal(html) { document.getElementById('modalContent').innerHTML = html;
+                document.getElementById('modalOverlay').classList.remove('hidden');
+                document.getElementById('modalContent').querySelector('.modal-close')?.addEventListener('click',
+                hideModal); }
+
+            const BASE_KINDS = {
+                0: { name: "Profile Metadata", nip: "NIP-01", category: "Replaceable",
+                purpose: "User profile information" },
+                1: { name: "Short Text Note", nip: "NIP-01", category: "Regular", purpose: "Text notes / posts" },
+                2: { name: "Recommend Relay", nip: "NIP-01", category: "Regular",
+                    purpose: "Deprecated relay recommendation" },
+                3: { name: "Contact List", nip: "NIP-02", category: "Replaceable",
+                purpose: "Following list / petnames" },
+                4: { name: "Encrypted DM", nip: "NIP-04", category: "Regular",
+                purpose: "Encrypted direct messages (legacy)" },
+                5: { name: "Event Deletion", nip: "NIP-09", category: "Regular", purpose: "Deletion request" },
+                6: { name: "Repost", nip: "NIP-18", category: "Regular", purpose: "Repost / boost" },
+                7: { name: "Reaction", nip: "NIP-25", category: "Regular", purpose: "Like / emoji reaction" },
+                8: { name: "Badge Award", nip: "NIP-58", category: "Regular", purpose: "Award a badge to a user" },
+                9: { name: "Chat Message", nip: "NIP-28", category: "Regular", purpose: "Public chat message" },
+                10: { name: "Threaded Note", nip: "NIP-10", category: "Regular",
+                    purpose: "Text note with thread markers" },
+                11: { name: "Thread", nip: "NIP-10", category: "Regular", purpose: "Thread root/reply marker" },
+                12: { name: "Mute List", nip: "NIP-51", category: "Replaceable", purpose: "Muted users list" },
+                13: { name: "Pin List", nip: "NIP-51", category: "Replaceable", purpose: "Pinned events list" },
+                14: { name: "Sealed DM", nip: "NIP-17", category: "Regular", purpose: "Sealed direct messages" },
+                16: { name: "Generic Repost", nip: "NIP-18", category: "Regular", purpose: "Generic repost" },
+                17: { name: "Gift Wrap", nip: "NIP-59", category: "Regular",
+                purpose: "Gift-wrapped sealed event" },
+                20: { name: "Picture Feed", nip: "NIP-38", category: "Regular", purpose: "Picture-only feed" },
+                21: { name: "Video Feed", nip: "NIP-38", category: "Regular", purpose: "Video-only feed" },
+                40: { name: "Channel Creation", nip: "NIP-28", category: "Regular",
+                purpose: "Create public channel" },
+                41: { name: "Channel Metadata", nip: "NIP-28", category: "Regular",
+                purpose: "Channel metadata update" },
+                42: { name: "Channel Message", nip: "NIP-28", category: "Regular",
+                purpose: "Message in a channel" },
+                43: { name: "Hide Message", nip: "NIP-28", category: "Regular",
+                purpose: "Hide a channel message" },
+                44: { name: "Mute User", nip: "NIP-28", category: "Regular",
+                purpose: "Mute user in channel" },
+                1063: { name: "File Metadata", nip: "NIP-94", category: "Regular",
+                purpose: "File header / metadata" },
+                1311: { name: "Live Chat Message", nip: "NIP-53", category: "Regular",
+                purpose: "Live stream chat message" },
+                1984: { name: "Reporting", nip: "NIP-56", category: "Regular", purpose: "Content reporting" },
+                1985: { name: "Label", nip: "NIP-32", category: "Regular", purpose: "Label / tag content" },
+                9734: { name: "Zap Request", nip: "NIP-57", category: "Regular",
+                purpose: "Lightning zap request" },
+                9735: { name: "Zap Receipt", nip: "NIP-57", category: "Regular", purpose: "Proof of payment" },
+                9802: { name: "Highlight", nip: "NIP-84", category: "Regular",
+                purpose: "Highlight / annotation" },
+                10000: { name: "Mute List (Plain)", nip: "NIP-51", category: "Replaceable",
+                    purpose: "Plain mute list" },
+                10001: { name: "Pin List (Plain)", nip: "NIP-51", category: "Replaceable",
+                purpose: "Plain pin list" },
+                10002: { name: "Relay List", nip: "NIP-65", category: "Replaceable",
+                purpose: "Preferred relay list" },
+                10003: { name: "Bookmark List", nip: "NIP-51", category: "Replaceable",
+                purpose: "Bookmarks" },
+                10004: { name: "Communities List", nip: "NIP-51", category: "Replaceable",
+                    purpose: "Joined communities" },
+                10005: { name: "Public Chats List", nip: "NIP-51", category: "Replaceable",
+                purpose: "Public chats" },
+                10006: { name: "Blocked Relays", nip: "NIP-51", category: "Replaceable",
+                purpose: "Blocked relays" },
+                10007: { name: "Search Relays", nip: "NIP-51", category: "Replaceable",
+                    purpose: "Search relay preferences" },
+                10015: { name: "Interests List", nip: "NIP-51", category: "Replaceable",
+                purpose: "User interests" },
+                10019: { name: "NutZap Info", nip: "NIP-60", category: "Replaceable",
+                purpose: "Cashu wallet info" },
+                10030: { name: "Emoji List", nip: "NIP-51", category: "Replaceable",
+                purpose: "Custom emoji set" },
+                13194: { name: "Wallet Info", nip: "NIP-47", category: "Regular",
+                purpose: "NWC wallet info" },
+                22242: { name: "Client Auth", nip: "NIP-42", category: "Regular",
+                purpose: "Client authentication" },
+                23194: { name: "NWC Request", nip: "NIP-47", category: "Regular",
+                purpose: "Wallet connect request" },
+                23195: { name: "NWC Response", nip: "NIP-47", category: "Regular",
+                purpose: "Wallet connect response" },
+                24133: { name: "Nostr Connect", nip: "NIP-46", category: "Regular",
+                purpose: "Remote signing" },
+                27235: { name: "HTTP Auth", nip: "NIP-98", category: "Regular",
+                purpose: "HTTP authentication" },
+                30000: { name: "Profile Set", nip: "NIP-51", category: "Addressable", purpose: "Profile set" },
+                30001: { name: "Bookmark Set", nip: "NIP-51", category: "Addressable",
+                purpose: "Bookmark set" },
+                30002: { name: "Relay Set", nip: "NIP-51", category: "Addressable",
+                purpose: "Relay curation set" },
+                30003: { name: "Interest Set", nip: "NIP-51", category: "Addressable",
+                purpose: "Interest set" },
+                30008: { name: "Badge Definition", nip: "NIP-58", category: "Addressable",
+                    purpose: "Badge definition event" },
+                30009: { name: "Badge Profile", nip: "NIP-58", category: "Addressable",
+                purpose: "Badge profile / collection" },
+                30015: { name: "Interest Set (Alt)", nip: "NIP-51", category: "Addressable",
+                    purpose: "Curated interest set" },
+                30017: { name: "Stall", nip: "NIP-15", category: "Addressable",
+                purpose: "Marketplace stall" },
+                30018: { name: "Product", nip: "NIP-15", category: "Addressable",
+                purpose: "Product listing" },
+                30023: { name: "Long-form Article", nip: "NIP-23", category: "Addressable",
+                    purpose: "Blog / long-form article" },
+                30024: { name: "Draft Article", nip: "NIP-23", category: "Addressable",
+                purpose: "Draft article" },
+                30030: { name: "Emoji Set", nip: "NIP-51", category: "Addressable",
+                purpose: "Emoji set definition" },
+                30078: { name: "Application Data", nip: "NIP-78", category: "Addressable",
+                    purpose: "App-specific data (e.g. BCHNostr)" },
+                30311: { name: "Live Event", nip: "NIP-53", category: "Addressable",
+                purpose: "Live streaming event" },
+                30315: { name: "User Status", nip: "NIP-38", category: "Addressable",
+                purpose: "Extended user status" },
+                30402: { name: "Classified Listing", nip: "NIP-99", category: "Addressable",
+                    purpose: "Classified ad" },
+                30617: { name: "Repository", nip: "NIP-34", category: "Addressable",
+                purpose: "Git repository" },
+                30618: { name: "Patch", nip: "NIP-34", category: "Addressable", purpose: "Repository patch" },
+                30619: { name: "Issue", nip: "NIP-34", category: "Addressable", purpose: "Repository issue" },
+                31234: { name: "Draft Event", nip: "NIP-37", category: "Addressable", purpose: "Generic draft" },
+                31337: { name: "Audio Track", nip: "NIP-38", category: "Addressable",
+                purpose: "Audio / podcast" },
+                31989: { name: "App Handler", nip: "NIP-89", category: "Addressable",
+                purpose: "Handler recommendation" },
+                31990: { name: "Handler Info", nip: "NIP-89", category: "Addressable",
+                purpose: "Handler information" },
+                34550: { name: "Community Definition", nip: "NIP-72", category: "Addressable",
+                    purpose: "Community definition" },
+                39000: { name: "Group Metadata", nip: "NIP-29", category: "Addressable",
+                purpose: "Group metadata" },
+                39001: { name: "Group Member", nip: "NIP-29", category: "Addressable",
+                purpose: "Group membership" },
+            };
+
+            function loadKindDB() { const s = localStorage.getItem('nostr_kind_db'); if (s) try { customKindDB = JSON
+                        .parse(s); } catch {} }
+
+            function saveKindDB() { localStorage.setItem('nostr_kind_db', JSON.stringify(customKindDB)); }
+
+            function getKindInfo(kind) { const merged = { ...BASE_KINDS, ...customKindDB }; if (merged[kind]) return { ...
+                        merged[kind], isUnknown: false }; return { name: "Unknown", nip: "—",
+                    category: "Unknown", purpose: "Not recognized. Possibly application‑specific.",
+                isUnknown: true }; }
+
+            function isEditableKind(kind) { const cat = getKindInfo(kind).category; return cat === 'Replaceable' || cat ===
+                    'Addressable'; }
+
+            function createBlankEvent(kind) {
+                const info = getKindInfo(kind);
+                const now = Math.floor(Date.now() / 1000);
+                const base = { kind, content: '', tags: [], created_at: now, pubkey: user.pubkey || '' };
+                if (kind === 0) base.content = JSON.stringify({ name: '', about: '', picture: '' });
+                if (kind === 3) base.tags = [
+                    ['p', '']
+                ];
+                if (kind === 10002) base.tags = [
+                    ['r', '']
+                ];
+                if (info.category === 'Addressable') base.tags = [
+                    ['d', '']
+                ];
+                return base;
+            }
+
+            async function loginNsec(nsec) { try { const { type, data } = NostrTools.nip19.decode(
+                nsec); if (type !== 'nsec') throw new Error('Not an nsec'); const privkey = typeof data ===
+                    'string' ? data : [...data].map(b => b.toString(16).padStart(2, '0')).join(''); const
+                    pubkey = NostrTools.getPublicKey(privkey);
+                user = { loggedIn: true, pubkey, privkey, signerType: 'nsec' };
+                updateAuthUI();
+                showToast('Logged in with nsec'); } catch (e) { showToast('Invalid nsec: ' + e.message); } }
+            async function loginNip07() { if (!window.nostr) return showToast(
+                'No NIP‑07 extension found'); try { const pubkey = await window.nostr
+            .getPublicKey(); user = { loggedIn: true, pubkey, privkey: null, signerType: 'nip07' };
+            updateAuthUI();
+            showToast('Connected with NIP‑07'); } catch (e) { showToast('NIP‑07 error: ' + e.message); } }
+
+            function logout() { user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
+                updateAuthUI();
+                renderTable();
+                showToast('Logged out'); }
+
+            function updateAuthUI() { document.getElementById('loginButtons').style.display = user.loggedIn ? 'none' :
+                    ''; document.getElementById('loggedInfo').style.display = user.loggedIn ? '' : 'none'; if (user
+                    .loggedIn) { const npub = NostrTools.nip19.npubEncode(user.pubkey);
+                    document.getElementById('loggedNpubDisplay').textContent = npub.substring(0, 14) + '...'; } }
+
+            async function fetchFromRelay(url, hexPubkey, signal) { return new Promise((resolve, reject) => { const events =
+                    []; let ws, subId, oldest = null,
+                    round = 0,
+                    done = false;
+
+                    function finish(err) { if (done) return;
+                        done = true; if (ws) { try { ws.close(); } catch {} } err ? reject(err) :
+                        resolve(events); }
+
+                    function sendReq() { if (done) return;
+                        round++;
+                        subId = 'sub' + Math.random().toString(36).slice(2); const filter = { authors: [
+                            hexPubkey], limit: 500 }; if (oldest) filter.until = oldest - 1;
+                        ws.send(JSON.stringify(['REQ', subId, filter])); }
+                    ws = new WebSocket(url);
+                    ws.onopen = () => sendReq();
+                    ws.onmessage = (msg) => { let data; try { data = JSON.parse(msg.data); } catch { return } if (
+                            data[0] === 'EVENT' && data[1] === subId) { const ev = data[2];
+                            events.push({ event: ev, relayUrl: url }); if (!oldest || ev.created_at <
+                                oldest) oldest = ev.created_at; } if (data[0] === 'EOSE' && data[1] ===
+                            subId) { if (events.length >= 400 && round < 3) setTimeout(sendReq,
+                                200); else finish(); } };
+                    ws.onerror = () => finish(new Error('connection error'));
+                    setTimeout(() => finish(new Error('timeout')), 10000);
+                    signal?.addEventListener('abort', () => finish(new Error('aborted')), { once: true }); }); }
+
+            async function performScan() { const raw = document.getElementById('npubInput').value.trim(); if (!raw
+                    .startsWith('npub1')) return showToast('Enter a valid npub'); try { const hex = NostrTools.nip19
+                    .decode(raw).data;
+                    currentHexPubkey = hex;
+                    currentNpub = raw; } catch { return showToast('Invalid npub'); }
+                allEventsMap.clear();
+                kindGroups.clear();
+                kindSummaries = [];
+                document.getElementById('progressArea').classList.remove('hidden');
+                document.getElementById('progressArea').textContent = 'Connecting to relays...'; const results =
+                    await Promise.allSettled(DEFAULT_RELAYS.map(url => fetchFromRelay(url, currentHexPubkey).then(
+                        evts => ({ url, evts })).catch(e => ({ url, evts: [] })))); for (const r of results) if (r
+                        .status === 'fulfilled') for (const { event, relayUrl } of r.value.evts) { if (!allEventsMap
+                            .has(event.id)) allEventsMap.set(event.id, { event, relayUrls: [relayUrl] }); else
+                        allEventsMap.get(event.id).relayUrls.push(relayUrl); } for (const [id, data] of allEventsMap) { const
+                        k = data.event.kind; if (!kindGroups.has(k)) kindGroups.set(k, []);
+                    kindGroups.get(k).push(data); }
+                buildAllKindSummaries();
+                document.getElementById('progressArea').classList.add('hidden');
+                renderStats();
+                renderTable();
+                document.getElementById('filterBar').style.display = 'flex';
+                document.getElementById('toolbar').style.display = 'flex';
+                document.getElementById('tableWrapper').style.display = 'block';
+                showToast(`Scanned — ${kindSummaries.filter(s=>s.count>0).length} kinds published`); }
+
+            function buildAllKindSummaries() {
+                const merged = { ...BASE_KINDS, ...customKindDB };
+                const allKinds = new Set([...Object.keys(merged).map(Number), ...kindGroups.keys()]);
+                kindSummaries = [];
+                for (const kind of allKinds) {
+                    const info = getKindInfo(kind);
+                    const events = kindGroups.get(kind) || [];
+                    const count = events.length;
+                    let firstSeen = null,
+                        latestSeen = null;
+                    if (count > 0) { const timestamps = events.map(e => e.event.created_at).filter(t => t);
+                        firstSeen = timestamps.length ? Math.min(...timestamps) : null;
+                        latestSeen = timestamps.length ? Math.max(...timestamps) : null; }
+                    kindSummaries.push({ kind, name: info.name, category: info.category, nip: info.nip,
+                        purpose: info.purpose, isUnknown: info.isUnknown, count, firstSeen,
+                        latestSeen, events, isPublished: count > 0, isEditable: isEditableKind(kind) });
+                }
+                kindSummaries.sort((a, b) => a.kind - b.kind);
+            }
+
+            function renderStats() {
+                const totalKnown = kindSummaries.filter(s => !s.isUnknown).length;
+                const published = kindSummaries.filter(s => s.count > 0 && !s.isUnknown).length;
+                const unpublished = kindSummaries.filter(s => s.count === 0 && !s.isUnknown).length;
+                const unknown = kindSummaries.filter(s => s.isUnknown).length;
+                const totalEvents = allEventsMap.size;
+                document.getElementById('statsGrid').innerHTML = `
+                    <div class="summary-item"><span class="s-label">Known Kinds</span><span class="s-value">${totalKnown}</span></div>
+                    <div class="summary-item"><span class="s-label">Published</span><span class="s-value" style="color:var(--accent)">${published}</span></div>
+                    <div class="summary-item"><span class="s-label">Unpublished</span><span class="s-value" style="color:var(--text2)">${unpublished}</span></div>
+                    <div class="summary-item"><span class="s-label">Unknown</span><span class="s-value" style="color:var(--warning)">${unknown}</span></div>
+                    <div class="summary-item"><span class="s-label">Total Events</span><span class="s-value">${totalEvents}</span></div>`;
+                document.getElementById('statsGrid').style.display = 'flex';
+            }
+
+            function applyFilter(summaries) {
+                switch (currentFilter) {
+                    case 'published':
+                        return summaries.filter(s => s.count > 0);
+                    case 'unpublished':
+                        return summaries.filter(s => s.count === 0);
+                    case 'editable':
+                        return summaries.filter(s => s.isEditable);
+                    case 'readonly':
+                        return summaries.filter(s => !s.isEditable);
+                    case 'replaceable':
+                        return summaries.filter(s => s.category === 'Replaceable');
+                    case 'addressable':
+                        return summaries.filter(s => s.category === 'Addressable');
+                    case 'regular':
+                        return summaries.filter(s => s.category === 'Regular');
+                    case 'unknown':
+                        return summaries.filter(s => s.isUnknown);
+                    default:
+                        return summaries;
+                }
+            }
+
+            function sortSummaries(arr) { const m = sortDirection === 'asc' ? 1 : -1; return [...arr].sort((a, b) => { let
+                    va, vb; switch (sortColumn) { case 'kind':
+                        va = a.kind;
+                        vb = b.kind; break; case 'name':
+                        va = a.name.toLowerCase();
+                        vb = b.name.toLowerCase(); break; case 'category':
+                        va = a.category.toLowerCase();
+                        vb = b.category.toLowerCase(); break; case 'nip':
+                        va = a.nip.toLowerCase();
+                        vb = b.nip.toLowerCase(); break; case 'count':
+                        va = a.count;
+                        vb = b.count; break; default:
+                        va = a.kind;
+                        vb = b.kind; } return va < vb ? -m : va > vb ? m : 0; }); }
+
+            function renderTable(searchText = '') {
+                let filtered = applyFilter(kindSummaries);
+                if (searchText.trim()) { const s = searchText.trim().toLowerCase();
+                    filtered = filtered.filter(x => String(x.kind).includes(s) || x.name.toLowerCase().includes(
+                    s)); }
+                filtered = sortSummaries(filtered);
+                const canEditOwn = user.loggedIn && currentHexPubkey === user.pubkey;
+                const body = document.getElementById('resultsBody');
+                body.innerHTML = filtered.map(s => {
+                    const rowClass = s.isUnknown ? 'row-unknown' : (s.count === 0 ? 'row-unpublished' : '');
+                    const statusBadge = s.count > 0 ? '<span class="badge badge-published">Published</span>' :
+                        '<span class="badge badge-unpublished">Not Published</span>';
+                    const editableBadge = s.isEditable ?
+                        '<span class="badge badge-editable">Editable</span>' :
+                        '<span class="badge badge-readonly">Read‑only</span>';
+                    let actionBtn = '';
+                    if (s.count > 0) {
+                        const canEdit = s.isEditable && canEditOwn;
+                        actionBtn =
+                            `<button class="btn btn-xs btn-outline action-btn" data-kind="${s.kind}" data-action="${canEdit?'edit':'view'}">${canEdit?'✏️ Edit':'👁 View'}</button>`;
+                    } else if (s.isEditable && canEditOwn) {
+                        actionBtn =
+                            `<button class="btn btn-xs btn-success action-btn" data-kind="${s.kind}" data-action="create">➕ Create</button>`;
+                    } else if (s.isEditable && !canEditOwn) {
+                        actionBtn =
+                            '<span style="color:var(--text2);font-size:0.7rem;">Login to create</span>';
+                    } else {
+                        actionBtn =
+                        '<span style="color:var(--text2);font-size:0.7rem;">—</span>';
+                    }
+                    return `<tr class="${rowClass}">
+                        <td><span class="badge">${s.kind}</span></td><td>${s.name}</td><td>${s.category}</td>
+                        <td>${s.nip}</td><td>${s.count}</td><td>${statusBadge}</td><td>${editableBadge}</td>
+                        <td>${actionBtn}</td></tr>`;
+                }).join('');
+                document.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', function() { const kind =
+                        parseInt(this.dataset.kind); const action = this.dataset.action; if (action ===
+                        'create') openEditorForCreate(kind); else if (action === 'edit')
+                    openEditor(kind); else openViewer(kind); }));
+                document.querySelectorAll('thead th[data-sort]').forEach(th => { const col = th.dataset.sort;
+                    th.style.color = col === sortColumn ? 'var(--accent)' : ''; });
+            }
+
+            function openViewer(kind) { const group = kindGroups.get(kind); if (!group) return; const info =
+                getKindInfo(kind); const eventsHtml = group.map(item => { const ev = item.event; const relays = item
+                    .relayUrls.join(', '); return `<div class="card" style="margin-bottom:8px;"><pre>${JSON.stringify(ev,null,2)}</pre><div>Relays: ${relays}</div></div>`; })
+                .join('');
+            showModal(`<div class="modal-header"><h3>Kind ${kind} - ${info.name}</h3><button class="btn modal-close">✕</button></div><div class="modal-body">${eventsHtml}</div>`); }
+
+            function openEditor(kind) { const group = kindGroups.get(kind); if (!group) return openEditorForCreate(
+                kind); const originalEvent = group[0].event;
+            openEditorWithEvent(kind, originalEvent); }
+
+            function openEditorForCreate(kind) { const blankEvent = createBlankEvent(kind);
+            openEditorWithEvent(kind, blankEvent, true); }
+
+            function openEditorWithEvent(kind, event, isNew = false) { const info = getKindInfo(kind); let visualHtml =
+                    ''; if (kind === 0) visualHtml = profileEditorHTML(event); else if (kind === 3) visualHtml =
+                    contactListEditorHTML(event); else if (kind === 10002) visualHtml = relayListEditorHTML(
+                event); else visualHtml = genericEditorHTML(event); const modalHtml = `
+                <div class="modal-header"><h3>${isNew?'Create':'Edit'} Kind ${kind} – ${info.name}</h3><button class="btn modal-close">✕</button></div>
+                <div class="modal-body">
+                    <div style="margin-bottom:12px;">
+                        <button class="tab-btn active" data-tab="visual">Visual</button>
+                        <button class="tab-btn" data-tab="json">JSON</button>
+                        ${!isNew?'<button class="btn btn-sm btn-outline" id="showDiffBtn">🔍 Show Diff</button>':''}
+                    </div>
+                    <div id="visualPanel">${visualHtml}</div>
+                    <div id="jsonPanel" class="hidden"><textarea id="jsonEditor" style="width:100%;height:300px;background:var(--bg);color:var(--text);border:1px solid var(--border);font-family:monospace;">${JSON.stringify(event,null,2)}</textarea></div>
+                    <div id="diffPanel" class="hidden" style="white-space:pre-wrap;font-family:monospace;"></div>
+                    <div style="margin-top:16px;">
+                        <button class="btn btn-primary" id="saveAndSignBtn">✍️ Sign & Publish</button>
+                        <button class="btn btn-outline" id="cancelBtn">Cancel</button>
+                    </div>
+                </div>`;
+            showModal(modalHtml);
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('visualPanel').classList.toggle('hidden', this.dataset.tab !==
+                    'visual');
+                document.getElementById('jsonPanel').classList.toggle('hidden', this.dataset.tab !== 'json');
+                document.getElementById('diffPanel')?.classList.add('hidden');
+            })); if (!isNew) { document.getElementById('showDiffBtn')?.addEventListener('click', () => { const
+                    original = event; let edited; try { edited = JSON.parse(document.getElementById(
+                        'jsonEditor').value); } catch { return showToast('Invalid JSON'); } document
+                    .getElementById('diffPanel').innerHTML = generateDiff(original, edited);
+                document.getElementById('diffPanel').classList.remove('hidden'); }); }
+            document.getElementById('cancelBtn').addEventListener('click', hideModal);
+            document.getElementById('saveAndSignBtn').addEventListener('click', () => signAndPublish(kind, event,
+            isNew)); }
+
+            function generateDiff(orig, edited) { let diff = ''; for (const key of Object.keys(orig)) { if (JSON.stringify(
+                        orig[key]) !== JSON.stringify(edited[key])) { diff +=
+                        `<span class="diff-delete">- ${key}: ${JSON.stringify(orig[key])}</span>\n`;
+                    diff +=
+                        `<span class="diff-insert">+ ${key}: ${JSON.stringify(edited[key])}</span>\n`; } } return diff ||
+                    'No changes'; }
+
+            function profileEditorHTML(ev) { const c = JSON.parse(ev.content || '{}'); return `
+                <div><label>Name</label><input value="${c.name||''}" class="field-name" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px;"></div>
+                <div><label>About</label><textarea class="field-about" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);">${c.about||''}</textarea></div>
+                <div><label>Picture URL</label><input value="${c.picture||''}" class="field-picture" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px;"></div>`; }
+
+            function contactListEditorHTML(ev) { return `<textarea class="content-field" style="width:100%;height:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);">${ev.content}</textarea>
+                <div style="margin-top:8px;"><strong>Tags (pubkeys):</strong> ${renderTags(ev.tags)}</div>`; }
+
+            function relayListEditorHTML(ev) { return `<textarea class="content-field" style="width:100%;height:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);">${ev.content}</textarea>
+                <div style="margin-top:8px;"><strong>Relay tags:</strong> ${renderTags(ev.tags)}</div>`; }
+
+            function genericEditorHTML(ev) { return `
+                <div><label>Content</label><textarea class="content-field" style="width:100%;height:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);">${ev.content}</textarea></div>
+                <div style="margin-top:10px;"><strong>Tags</strong> <button class="btn btn-xs add-tag-btn" style="margin-left:8px;">+ Add tag</button></div>
+                <div class="tags-container">${renderTags(ev.tags)}</div>`; }
+
+            function renderTags(tags) { return (tags || []).map((tag, idx) => `
+                <div class="tag-row" data-idx="${idx}">${tag.map((v,i)=>`<input value="${v}" data-tagidx="${i}">`).join('')}
+                    <button class="btn btn-xs remove-tag-btn" style="color:var(--error);">✕</button></div>`).join(''); }
+
+            async function signAndPublish(kind, originalEvent, isNew = false) { if (!user.loggedIn) return showToast(
+                    'Not logged in'); let editedEvent; const contentField = document.querySelector('.content-field'); if (
+                    contentField) { editedEvent = { ...originalEvent, content: contentField.value }; } else { try {
+                    editedEvent = JSON.parse(document.getElementById('jsonEditor').value); } catch { return showToast(
+                        'Invalid JSON'); } } if (!isNew && [0, 3, 10002, 10019].includes(kind)) { if (!confirm(
+                        `You are about to replace your existing Kind ${kind} event. Continue?`)) return; } if (isNew &&
+                    !confirm(`Create a new Kind ${kind} event?`)) return; let signed; try { if (user.signerType ===
+                    'nip07') { signed = await window.nostr.signEvent(editedEvent); } else { signed = NostrTools
+                    .signEvent(editedEvent, user.privkey); } } catch (e) { showToast('Signing failed: ' + e
+                .message); return; }
+            publishLog = []; for (const url of DEFAULT_RELAYS) { try { const ws = new WebSocket(url);
+                    ws.onopen = () => { ws.send(JSON.stringify(['EVENT', signed]));
+                        publishLog.push({ url, status: 'sent' }); };
+                    ws.onerror = () => publishLog.push({ url, status: 'error' }); } catch { publishLog.push({ url,
+                        status: 'error' }); } }
+            showToast('Published to relays');
+            hideModal(); }
+
+            function openKindManager() { showModal(`
+                <div class="modal-header"><h3>Kind Reference Manager</h3><button class="btn modal-close">✕</button></div>
+                <div class="modal-body">
+                    <textarea id="kindDbTextarea" style="width:100%;height:400px;background:var(--bg);color:var(--text);border:1px solid var(--border);font-family:monospace;">${JSON.stringify(customKindDB,null,2)}</textarea>
+                    <div style="margin-top:12px;">
+                        <button class="btn btn-primary" id="saveKindDbBtn">💾 Save to localStorage</button>
+                        <button class="btn btn-outline" id="resetKindDbBtn">🔄 Reset to built‑in</button>
+                    </div>
+                </div>`);
+            document.getElementById('saveKindDbBtn').addEventListener('click', () => { try { customKindDB = JSON.parse(
+                    document.getElementById('kindDbTextarea').value);
+                saveKindDB();
+                showToast('Saved'); } catch { showToast('Invalid JSON'); } });
+            document.getElementById('resetKindDbBtn').addEventListener('click', () => { customKindDB = {};
+                saveKindDB();
+                document.getElementById('kindDbTextarea').value = '{}';
+                showToast('Reset to built‑in'); }); }
+
+            function openPublishLog() { const list = publishLog.length ? publishLog.map(l =>
+                    `<div>${l.url}: ${l.status}</div>`).join('') : 'No publishes yet.';
+            showModal(
+                `<div class="modal-header"><h3>Publishing Log</h3><button class="btn modal-close">✕</button></div><div class="modal-body">${list}</div>`
+                ); }
+
+            document.getElementById('scanBtn').addEventListener('click', performScan);
+            document.getElementById('clearBtn').addEventListener('click', () => location.reload());
+            document.getElementById('searchInput').addEventListener('input', e => renderTable(e.target.value));
+            document.getElementById('loginNsecBtn').addEventListener('click', () => { const nsec = prompt(
+                    'Enter nsec:'); if (nsec) loginNsec(nsec); });
+            document.getElementById('loginNip07Btn').addEventListener('click', loginNip07);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('kindManagerBtn').addEventListener('click', openKindManager);
+            document.getElementById('publishLogBtn').addEventListener('click', openPublishLog);
+            document.getElementById('exportCSVBtn').addEventListener('click', () => { if (!kindSummaries.length)
+            return; const csv = 'Kind,Name,Category,NIP,Count,Status\n' + kindSummaries.map(s =>
+                    `${s.kind},${s.name},${s.category},${s.nip},${s.count},${s.count>0?'Published':'Not Published'}`)
+                .join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const a = document.createElement(
+                    'a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'nostr_kinds_full.csv';
+                a.click(); });
+            document.getElementById('exportJSONBtn').addEventListener('click', () => { const data = kindSummaries.map(s =>
+                    ({ kind: s.kind, name: s.name, category: s.category, nip: s.nip, count: s.count,
+                        status: s.count > 0 ? 'Published' : 'Not Published' })); const blob = new Blob([JSON
+                    .stringify(data, null, 2)
+                ], { type: 'application/json' }); const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'nostr_kinds_full.json';
+                a.click(); });
+            document.getElementById('resultsTable').querySelector('thead').addEventListener('click', e => { const th = e
+                    .target.closest('th[data-sort]'); if (!th) return; const col = th.dataset.sort; if (sortColumn ===
+                        col) sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'; else { sortColumn = col;
+                    sortDirection = 'asc'; }
+                renderTable(document.getElementById('searchInput').value); });
+            document.getElementById('filterBar').addEventListener('click', e => { if (e.target.classList.contains(
+                    'filter-btn')) { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove(
+                    'active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                renderTable(document.getElementById('searchInput').value); } });
+
+            loadKindDB();
+            updateAuthUI();
+            document.getElementById('npubInput').focus();
+            console.log('✅ Nostr Kind Explorer – Full Reference ready.');
+            console.log(`   ${Object.keys(BASE_KINDS).length} built‑in kinds + custom overrides.`);
+        })();
+    </script>
 </body>
 </html>
