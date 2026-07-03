@@ -202,14 +202,11 @@
         if (saved) {
             try {
                 const { type, identifier } = JSON.parse(saved);
-                // We keep the saved state – we’ll only clear it after a successful manual new analysis.
-                // We’ll run the analysis now.
                 if (type === 'event' && identifier) {
                     setTimeout(() => runAnalysis(identifier), 500);
                 } else if (type === 'profile' && identifier) {
                     setTimeout(() => runAnalysis(identifier), 500);
                 }
-                // Do NOT clear here – we clear only on manual logout or successful new analysis.
             } catch (e) {}
         }
     }
@@ -230,7 +227,7 @@
         const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
         const contentId = 'c-' + event.id;
         const isLong = (event.content || '').length > 250;
-        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}</div></div></div>`;
+        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostWithBCH('${event.id}','${event.pubkey}')">💸 Boost</button>` : ''}</div></div></div>`;
         let html = cardHtml;
         const children = childrenMap.get(eventId) || [];
         if (children.length > 0) { html += `<div class="tree-branch">`; for (const child of children) { html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited)); } html += `</div>`; }
@@ -262,7 +259,7 @@
             let borderClass = 'reply-post';
             if (isOrig) borderClass = 'original-post';
             else if (e.kind === 6) borderClass = 'repost-post';
-            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div><span class="event-author author-name" data-pubkey="${e.pubkey || ''}" style="display:none;">${escapeHtml(e.pubkey?.substring(0,8) + '...')}</span></div>`;
+            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostWithBCH('${e.id}','${e.pubkey}')">💸 Boost</button>` : ''}</div></div>`;
         });
         html += '</div></div>';
         p.innerHTML = html;
@@ -455,8 +452,6 @@
         const parsed = parseInput(input);
         if (parsed.error) { showError(parsed.error); showToast(parsed.error, 'error'); return; }
         if (parsed.pubkey) {
-            // Clear any existing investigation state before saving a new one
-            clearSavedInvestigation();
             await investigateUser(parsed.pubkey, parsed.relayHints || []);
             return;
         }
@@ -475,7 +470,6 @@
             homeScreen.classList.remove('active');
             switchTab('thread');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            // Save the new investigation state
             saveInvestigationState('event', investigationHexId);
         };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
@@ -520,10 +514,9 @@
 
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
 
-        // Resume last investigation if available
         loadSavedInvestigation();
 
-        console.log('🔍 NostrScope ready — state now persists across reloads.');
+        console.log('🔍 NostrScope ready — BCH boost modal active.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
