@@ -106,7 +106,7 @@ class EventInvestigator {
     getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
 }
 
-// ── User Profile Investigator (extended) ─────
+// ── User Profile Investigator (extended with many event kinds) ─────
 class UserProfileInvestigator {
     constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
     async investigate(pubkey, hints = [], options = {}) {
@@ -122,9 +122,24 @@ class UserProfileInvestigator {
         const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
         const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
         pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
-        const extraKinds = options.extraKinds || [8, 30000, 30001, 30023, 10000, 10001];
+
+        // Fetch a broad range of additional user attribute events
+        const extraKinds = [
+            8,      // Badge Award
+            30000,  // Follow Sets
+            30001,  // Bookmark Sets
+            30002,  // Relay Sets
+            30003,  // Bookmark Sets v2
+            30023,  // Long-form Content
+            30024,  // Draft Long-form Content
+            10000,  // Mute List
+            10001,  // Pin List
+            30040,  // Community Definition
+            30041,  // Community Approval
+        ];
         const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
         pending.add(extraSub);
+
         this.rm.onEvent = (ev) => {
             if (ev.pubkey === pubkey) {
                 if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; }
@@ -133,6 +148,7 @@ class UserProfileInvestigator {
                 else if (extraKinds.includes(ev.kind)) { this.otherEvents.push(ev); }
             }
         };
+
         return new Promise((resolve) => {
             this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
             setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000);
@@ -140,7 +156,7 @@ class UserProfileInvestigator {
     }
 }
 
-// ── Login Persistence (visible in localStorage) ──
+// ── Login Persistence ──────────────
 function saveLogin(privateKey) {
     localStorage.setItem('nostrscope_privkey', privateKey);
     localStorage.setItem('nostrscope_loggedIn', 'true');
