@@ -24,13 +24,7 @@
             --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
             --transition: 0.2s ease;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: var(--bg);
             color: var(--text);
@@ -40,467 +34,108 @@
             padding: 20px;
             -webkit-font-smoothing: antialiased;
         }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .header {
-            text-align: center;
-            padding: 10px 0 0 0;
-        }
-        .header h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--accent), var(--purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .header .subtitle {
-            color: var(--text2);
-            font-size: 0.9rem;
-            margin-top: 2px;
-        }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-        }
-        .input-row {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+        .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        .header { text-align: center; padding: 10px 0 0 0; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .header .subtitle { color: var(--text2); font-size: 0.9rem; margin-top: 2px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+        .input-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .input-row input {
-            flex: 1;
-            min-width: 280px;
-            padding: 12px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            outline: none;
+            flex: 1; min-width: 280px; padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 0.9rem; outline: none;
             transition: border var(--transition), box-shadow var(--transition);
         }
-        .input-row input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.12);
-        }
-        .input-row input::placeholder {
-            color: var(--text2);
-            opacity: 0.6;
-        }
+        .input-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,0.12); }
+        .input-row input::placeholder { color: var(--text2); opacity: 0.6; }
         .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 11px 20px;
-            border-radius: var(--radius-sm);
-            border: 1px solid transparent;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition);
-            white-space: nowrap;
-            font-family: var(--font-sans);
-            letter-spacing: 0.2px;
+            display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; border-radius: var(--radius-sm);
+            border: 1px solid transparent; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all var(--transition);
+            white-space: nowrap; font-family: var(--font-sans); letter-spacing: 0.2px;
         }
-        .btn-primary {
-            background: var(--accent2);
-            color: #fff;
-            border-color: var(--accent2);
-        }
-        .btn-primary:hover {
-            background: #388bfd;
-            border-color: #388bfd;
-            box-shadow: 0 4px 14px rgba(31, 111, 235, 0.35);
-        }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-        .btn-outline {
-            background: transparent;
-            color: var(--text);
-            border-color: var(--border);
-        }
-        .btn-outline:hover {
-            background: var(--surface2);
-            border-color: #5a6575;
-        }
-        .btn-sm {
-            padding: 6px 14px;
-            font-size: 0.8rem;
-            border-radius: 4px;
-        }
-        .btn-xs {
-            padding: 4px 10px;
-            font-size: 0.72rem;
-            border-radius: 4px;
-        }
-
-        .progress-area {
-            min-height: 20px;
-        }
-        .progress-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 16px;
-            font-size: 0.85rem;
-            color: var(--text2);
-        }
-        .progress-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .progress-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--border);
-            flex-shrink: 0;
-            transition: background var(--transition);
-        }
-        .progress-dot.connected {
-            background: var(--success);
-            box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
-        }
-        .progress-dot.failed {
-            background: var(--error);
-        }
-        .progress-dot.active {
-            background: var(--warning);
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 12px;
-        }
-        .stat-item {
-            background: var(--surface2);
-            border-radius: var(--radius-sm);
-            padding: 14px 16px;
-            border: 1px solid var(--border);
-        }
-        .stat-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text2);
-            margin-bottom: 4px;
-        }
-        .stat-value {
-            font-size: 1.3rem;
-            font-weight: 700;
-            font-family: var(--font-mono);
-            color: var(--text);
-            word-break: break-all;
-        }
-        .stat-value.highlight {
-            color: var(--purple);
-        }
-        .stat-value.small {
-            font-size: 0.8rem;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-        }
+        .btn-primary { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+        .btn-primary:hover { background: #388bfd; border-color: #388bfd; box-shadow: 0 4px 14px rgba(31,111,235,0.35); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+        .btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
+        .btn-outline:hover { background: var(--surface2); border-color: #5a6575; }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 4px; }
+        .btn-xs { padding: 4px 10px; font-size: 0.72rem; border-radius: 4px; }
+        .progress-area { min-height: 20px; }
+        .progress-list { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--text2); }
+        .progress-item { display: flex; align-items: center; gap: 5px; }
+        .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background var(--transition); }
+        .progress-dot.connected { background: var(--success); box-shadow: 0 0 6px rgba(63,185,80,0.5); }
+        .progress-dot.failed { background: var(--error); }
+        .progress-dot.active { background: var(--warning); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .stat-item { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 16px; border: 1px solid var(--border); }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 4px; }
+        .stat-value { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); color: var(--text); word-break: break-all; }
+        .stat-value.highlight { color: var(--purple); }
+        .stat-value.small { font-size: 0.8rem; }
+        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
         .toolbar .search-input {
-            padding: 8px 14px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            width: 200px;
-            outline: none;
+            padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg);
+            color: var(--text); font-family: var(--font-mono); font-size: 0.85rem; width: 200px; outline: none;
             transition: border var(--transition);
         }
-        .toolbar .search-input:focus {
-            border-color: var(--accent);
-        }
-        .toolbar .btn-group {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .table-wrapper {
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            max-height: 55vh;
-            overflow-y: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-            min-width: 600px;
-        }
-        thead {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
-        thead th {
-            background: var(--surface2);
-            color: var(--text2);
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            padding: 12px 14px;
-            text-align: left;
-            border-bottom: 2px solid var(--border);
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-            transition: color var(--transition);
-        }
-        thead th:hover {
-            color: var(--accent);
-        }
-        thead th .sort-arrow {
-            margin-left: 4px;
-            font-size: 0.7rem;
-        }
-        tbody td {
-            padding: 10px 14px;
-            border-bottom: 1px solid var(--border);
-            font-family: var(--font-mono);
-            font-size: 0.82rem;
-            white-space: nowrap;
-        }
-        tbody tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.015);
-        }
-        tbody tr:hover {
-            background: rgba(88, 166, 255, 0.06);
-        }
-        .kind-badge {
-            display: inline-block;
-            background: var(--accent2);
-            color: #fff;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.78rem;
-        }
-        .no-results {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text2);
-            font-size: 1rem;
-        }
-        .no-results .icon {
-            font-size: 2.5rem;
-            display: block;
-            margin-bottom: 10px;
-        }
-
+        .toolbar .search-input:focus { border-color: var(--accent); }
+        .toolbar .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); max-height: 55vh; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 600px; }
+        thead { position: sticky; top: 0; z-index: 2; }
+        thead th { background: var(--surface2); color: var(--text2); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 14px; text-align: left; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; transition: color var(--transition); }
+        thead th:hover { color: var(--accent); }
+        thead th .sort-arrow { margin-left: 4px; font-size: 0.7rem; }
+        tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+        tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+        tbody tr:hover { background: rgba(88,166,255,0.06); }
+        .kind-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; }
+        .no-results { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 1rem; }
+        .no-results .icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
         .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            animation: fadeIn 0.2s ease;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: center;
+            justify-content: center; padding: 20px; animation: fadeIn 0.2s ease;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            width: 100%;
-            max-width: 800px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%;
+            max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
             animation: slideUp 0.25s ease;
         }
-        @keyframes slideUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-        .modal-header h3 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text2);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: all var(--transition);
-            line-height: 1;
-        }
-        .modal-close:hover {
-            color: var(--text);
-            background: var(--surface2);
-        }
-        .modal-body {
-            overflow-y: auto;
-            padding: 16px 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .event-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 14px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .event-card .event-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 16px;
-            font-size: 0.78rem;
-            color: var(--text2);
-            font-family: var(--font-mono);
-        }
-        .event-card .event-meta span {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .event-card .event-meta .label {
-            color: var(--text2);
-            font-weight: 500;
-            font-family: var(--font-sans);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .modal-header h3 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .modal-close { background: none; border: none; color: var(--text2); font-size: 1.5rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all var(--transition); line-height: 1; }
+        .modal-close:hover { color: var(--text); background: var(--surface2); }
+        .modal-body { overflow-y: auto; padding: 16px 20px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+        .event-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .event-card .event-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.78rem; color: var(--text2); font-family: var(--font-mono); }
+        .event-card .event-meta span { display: inline-flex; align-items: center; gap: 4px; }
+        .event-card .event-meta .label { color: var(--text2); font-weight: 500; font-family: var(--font-sans); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; }
         .event-card pre {
-            background: #0a0d12;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            overflow-x: auto;
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            line-height: 1.5;
-            color: #c9d1d9;
-            max-height: 250px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
+            background: #0a0d12; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;
+            overflow-x: auto; font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; color: #c9d1d9;
+            max-height: 250px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
         }
-        .event-card .btn-row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
+        .event-card .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
         .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            padding: 10px 18px;
-            border-radius: var(--radius-sm);
-            font-size: 0.85rem;
-            z-index: 200;
-            animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s forwards;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border);
+            padding: 10px 18px; border-radius: var(--radius-sm); font-size: 0.85rem; z-index: 200;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s forwards; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-        @keyframes slideIn {
-            from { transform: translateX(100px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes fadeOut {
-            to { opacity: 0; transform: translateY(10px); }
-        }
-
+        @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
         @media (max-width: 600px) {
-            .input-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .input-row input {
-                min-width: auto;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .toolbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .toolbar .search-input {
-                width: 100%;
-            }
-            table {
-                font-size: 0.75rem;
-            }
-            thead th, tbody td {
-                padding: 8px 10px;
-            }
+            .input-row { flex-direction: column; align-items: stretch; }
+            .input-row input { min-width: auto; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar .search-input { width: 100%; }
+            table { font-size: 0.75rem; }
+            thead th, tbody td { padding: 8px 10px; }
         }
     </style>
 </head>
@@ -510,23 +145,17 @@
             <h1>🔍 Nostr Custom Kind Explorer</h1>
             <p class="subtitle">Discover non-standard event kinds published by any npub</p>
         </div>
-
         <div class="card">
             <div class="input-row">
                 <input type="text" id="npubInput" placeholder="Enter npub... (e.g. npub1...)" autocomplete="off" spellcheck="false">
-                <button class="btn btn-primary" id="scanBtn" title="Scan relays for custom kinds">
-                    <span>🔎</span> Scan
-                </button>
+                <button class="btn btn-primary" id="scanBtn" title="Scan relays for custom kinds"><span>🔎</span> Scan</button>
                 <button class="btn btn-outline btn-sm" id="clearBtn" title="Clear all results">✕ Clear</button>
             </div>
         </div>
-
         <div class="progress-area" id="progressArea" style="display:none;">
             <div class="progress-list" id="progressList"></div>
         </div>
-
         <div class="stats-grid" id="statsGrid" style="display:none;"></div>
-
         <div class="toolbar" id="toolbar" style="display:none;">
             <input type="text" class="search-input" id="searchInput" placeholder="Filter by kind...">
             <div class="btn-group">
@@ -534,15 +163,14 @@
                 <button class="btn btn-outline btn-sm" id="exportJSONBtn">📦 Export JSON</button>
             </div>
         </div>
-
         <div class="table-wrapper" id="tableWrapper" style="display:none;">
             <table id="resultsTable">
                 <thead>
                     <tr>
                         <th data-sort="kind">Kind <span class="sort-arrow">▼</span></th>
-                        <th data-sort="count">Count</th>
-                        <th data-sort="firstSeen">First Seen</th>
-                        <th data-sort="latestSeen">Latest Seen</th>
+                        <th data-sort="count">Count <span class="sort-arrow"></span></th>
+                        <th data-sort="firstSeen">First Seen <span class="sort-arrow"></span></th>
+                        <th data-sort="latestSeen">Latest Seen <span class="sort-arrow"></span></th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -554,7 +182,6 @@
             </div>
         </div>
     </div>
-
     <div class="modal-overlay" id="modalOverlay" style="display:none;">
         <div class="modal">
             <div class="modal-header">
@@ -564,14 +191,9 @@
             <div class="modal-body" id="modalBody"></div>
         </div>
     </div>
-
     <div id="toastContainer"></div>
-
     <script>
         (function() {
-            // ═══════════════════════════════════════════════════════════
-            //  CONSTANTS
-            // ═══════════════════════════════════════════════════════════
             const DEFAULT_RELAYS = [
                 'wss://relay.damus.io',
                 'wss://nos.lol',
@@ -579,20 +201,22 @@
                 'wss://purplepag.es',
                 'wss://relay.snort.social',
             ];
-
-            const STANDARD_KINDS = new Set([
-                0, 1, 3, 5, 6, 7, 8, 14, 16, 20, 21, 40, 41, 42, 43, 44,
-                9734, 9735, 10002, 10019, 30023,
-            ]);
-
+            const STANDARD_KINDS = new Set([0,1,3,5,6,7,8,14,16,20,21,40,41,42,43,44,9734,9735,10002,10019,30023]);
             const RELAY_TIMEOUT_MS = 10000;
             const PAGE_LIMIT = 500;
             const MAX_PAGINATION_ROUNDS = 3;
             const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
-            // ═══════════════════════════════════════════════════════════
-            //  DOM REFERENCES
-            // ═══════════════════════════════════════════════════════════
+            let currentHexPubkey = null;
+            let currentNpub = null;
+            let allEventsMap = new Map();
+            let customKindGroups = new Map();
+            let customKindSummaries = [];
+            let isScanning = false;
+            let abortController = null;
+            let sortColumn = 'kind';
+            let sortDirection = 'asc';
+
             const npubInput = document.getElementById('npubInput');
             const scanBtn = document.getElementById('scanBtn');
             const clearBtn = document.getElementById('clearBtn');
@@ -605,7 +229,6 @@
             const resultsBody = document.getElementById('resultsBody');
             const noResults = document.getElementById('noResults');
             const modalOverlay = document.getElementById('modalOverlay');
-            const modalTitle = document.getElementById('modalTitle');
             const modalKindBadge = document.getElementById('modalKindBadge');
             const modalBody = document.getElementById('modalBody');
             const modalClose = document.getElementById('modalClose');
@@ -614,494 +237,198 @@
             const exportJSONBtn = document.getElementById('exportJSONBtn');
             const resultsTable = document.getElementById('resultsTable');
 
-            // ═══════════════════════════════════════════════════════════
-            //  APPLICATION STATE
-            // ═══════════════════════════════════════════════════════════
-            let currentHexPubkey = null;
-            let currentNpub = null;
-            let allEventsMap = new Map();
-            let customKindGroups = new Map();
-            let customKindSummaries = [];
-            let isScanning = false;
-            let abortController = null;
-            let sortColumn = 'kind';
-            let sortDirection = 'asc';
-
-            // ═══════════════════════════════════════════════════════════
-            //  BECH32 DECODER (for npub → hex pubkey conversion)
-            // ═══════════════════════════════════════════════════════════
             function bech32Decode(bech32Str) {
-                if (!bech32Str || bech32Str !== bech32Str.toLowerCase()) {
-                    throw new Error('Bech32 string must be all lowercase');
-                }
-                if (bech32Str.length < 8 || bech32Str.length > 90) {
-                    throw new Error('Bech32 string length out of range');
-                }
+                if (!bech32Str || bech32Str !== bech32Str.toLowerCase()) throw new Error('Bech32 string must be all lowercase');
+                if (bech32Str.length < 8 || bech32Str.length > 90) throw new Error('Bech32 string length out of range');
                 const sepIndex = bech32Str.lastIndexOf('1');
-                if (sepIndex < 1 || sepIndex + 7 > bech32Str.length) {
-                    throw new Error('Invalid bech32 format: missing or misplaced separator');
-                }
+                if (sepIndex < 1 || sepIndex + 7 > bech32Str.length) throw new Error('Invalid bech32 format');
                 const hrp = bech32Str.slice(0, sepIndex);
                 const dataPart = bech32Str.slice(sepIndex + 1);
-                if (!/^[a-z]+$/.test(hrp)) {
-                    throw new Error('HRP must contain only lowercase letters');
-                }
-                if (hrp.length < 1 || hrp.length > 83) {
-                    throw new Error('HRP length out of range');
-                }
+                if (!/^[a-z]+$/.test(hrp)) throw new Error('HRP must contain only lowercase letters');
+                if (hrp.length < 1 || hrp.length > 83) throw new Error('HRP length out of range');
                 const dataValues = [];
                 for (let i = 0; i < dataPart.length; i++) {
-                    const ch = dataPart[i];
-                    const val = BECH32_ALPHABET.indexOf(ch);
-                    if (val === -1) {
-                        throw new Error(`Invalid bech32 character: '${ch}'`);
-                    }
+                    const val = BECH32_ALPHABET.indexOf(dataPart[i]);
+                    if (val === -1) throw new Error(`Invalid bech32 character: '${dataPart[i]}'`);
                     dataValues.push(val);
                 }
-                if (!bech32VerifyChecksum(hrp, dataValues)) {
-                    throw new Error('Bech32 checksum verification failed');
-                }
-                const payload = dataValues.slice(0, -6);
-                return { hrp, data: payload };
+                if (!bech32VerifyChecksum(hrp, dataValues)) throw new Error('Bech32 checksum verification failed');
+                return { hrp, data: dataValues.slice(0, -6) };
             }
-
             function bech32Polymod(values) {
-                const GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+                const GEN = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
                 let chk = 1;
-                for (let i = 0; i < values.length; i++) {
+                for (let v of values) {
                     const top = chk >> 25;
-                    chk = ((chk & 0x1ffffff) << 5) ^ values[i];
-                    for (let j = 0; j < 5; j++) {
-                        if ((top >> j) & 1) {
-                            chk ^= GENERATOR[j];
-                        }
-                    }
+                    chk = ((chk & 0x1ffffff) << 5) ^ v;
+                    for (let j = 0; j < 5; j++) if ((top >> j) & 1) chk ^= GEN[j];
                 }
                 return chk;
             }
-
             function bech32HrpExpand(hrp) {
                 const result = [];
-                for (let i = 0; i < hrp.length; i++) {
-                    result.push(hrp.charCodeAt(i) >> 5);
-                }
+                for (let i=0;i<hrp.length;i++) result.push(hrp.charCodeAt(i) >> 5);
                 result.push(0);
-                for (let i = 0; i < hrp.length; i++) {
-                    result.push(hrp.charCodeAt(i) & 31);
-                }
+                for (let i=0;i<hrp.length;i++) result.push(hrp.charCodeAt(i) & 31);
                 return result;
             }
-
             function bech32VerifyChecksum(hrp, data) {
-                const expanded = bech32HrpExpand(hrp);
-                const combined = expanded.concat(data);
-                return bech32Polymod(combined) === 1;
+                return bech32Polymod(bech32HrpExpand(hrp).concat(data)) === 1;
             }
-
             function convert5to8Bits(data5bit, expectedBytes) {
-                let bitBuffer = 0;
-                let bitCount = 0;
-                const result = [];
-                for (const value5 of data5bit) {
-                    bitBuffer = (bitBuffer << 5) | value5;
+                let bitBuffer=0, bitCount=0, result=[];
+                for (const v of data5bit) {
+                    bitBuffer = (bitBuffer << 5) | v;
                     bitCount += 5;
-                    while (bitCount >= 8) {
-                        bitCount -= 8;
-                        const byte = (bitBuffer >> bitCount) & 0xff;
-                        result.push(byte);
-                    }
+                    while (bitCount >= 8) { bitCount -= 8; result.push((bitBuffer >> bitCount) & 0xff); }
                 }
-                if (expectedBytes !== null && result.length !== expectedBytes) {
-                    throw new Error(`Unexpected decoded byte count: got ${result.length}, expected ${expectedBytes}`);
-                }
+                if (expectedBytes !== null && result.length !== expectedBytes) throw new Error('Unexpected byte count');
                 return result;
             }
-
             function decodeNpub(npub) {
                 const trimmed = npub.trim();
-                if (!trimmed.startsWith('npub1')) {
-                    throw new Error('Invalid npub: must start with "npub1"');
+                if (!trimmed.startsWith('npub1')) throw new Error('Invalid npub');
+                const {hrp, data} = bech32Decode(trimmed);
+                if (hrp !== 'npub') throw new Error('Not an npub');
+                const bytes = convert5to8Bits(data, 32);
+                return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
+            }
+
+            function formatDate(ts) { if (!ts || isNaN(ts)) return '—'; const d = new Date(ts*1000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+            function formatDateTime(ts) { if (!ts || isNaN(ts)) return '—'; return new Date(ts*1000).toISOString().replace('T',' ').slice(0,19); }
+            function showToast(msg, type='info') {
+                const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
+                if (type==='error') t.style.borderColor='var(--error)';
+                if (type==='success') t.style.borderColor='var(--success)';
+                toastContainer.appendChild(t);
+                setTimeout(() => t.remove(), 2200);
+            }
+            async function copyToClipboard(text, label='Text') {
+                try { await navigator.clipboard.writeText(text); } catch {
+                    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
                 }
-                const decoded = bech32Decode(trimmed);
-                if (decoded.hrp !== 'npub') {
-                    throw new Error(`Unexpected HRP: "${decoded.hrp}", expected "npub"`);
-                }
-                const bytes = convert5to8Bits(decoded.data, 32);
-                const hexPubkey = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
-                if (hexPubkey.length !== 64) {
-                    throw new Error(`Decoded pubkey has incorrect length: ${hexPubkey.length} hex chars`);
-                }
-                return hexPubkey;
+                showToast(`${label} copied!`,'success');
             }
 
-            // ═══════════════════════════════════════════════════════════
-            //  UTILITY FUNCTIONS (with null‑safe guards)
-            // ═══════════════════════════════════════════════════════════
-            function formatDate(ts) {
-                if (ts === null || ts === undefined || isNaN(ts)) return '—';
-                const d = new Date(ts * 1000);
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            }
-
-            function formatDateTime(ts) {
-                if (ts === null || ts === undefined || isNaN(ts)) return '—';
-                const d = new Date(ts * 1000);
-                return d.toISOString().replace('T', ' ').slice(0, 19);
-            }
-
-            function escapeHTML(str) {
-                const safe = String(str ?? '');
-                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-                return safe.replace(/[&<>"']/g, ch => map[ch]);
-            }
-
-            function escapeAttr(str) {
-                const safe = String(str ?? '');
-                return safe.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-
-            function unescapeAttr(str) {
-                const ta = document.createElement('textarea');
-                ta.innerHTML = String(str ?? '');
-                return ta.value;
-            }
-
-            function showToast(message, type = 'info') {
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = message;
-                if (type === 'error') toast.style.borderColor = 'var(--error)';
-                if (type === 'success') toast.style.borderColor = 'var(--success)';
-                toastContainer.appendChild(toast);
-                setTimeout(() => {
-                    if (toast.parentNode) toast.parentNode.removeChild(toast);
-                }, 2200);
-            }
-
-            async function copyToClipboard(text, label = 'Text') {
-                try {
-                    await navigator.clipboard.writeText(text);
-                    showToast(`${label} copied!`, 'success');
-                } catch {
-                    const ta = document.createElement('textarea');
-                    ta.value = text;
-                    ta.style.position = 'fixed';
-                    ta.style.opacity = '0';
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(ta);
-                    showToast(`${label} copied!`, 'success');
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            //  RELAY CONNECTION & EVENT FETCHING
-            // ═══════════════════════════════════════════════════════════
             function fetchFromRelay(relayUrl, hexPubkey, signal, onStatus) {
                 return new Promise((resolve, reject) => {
-                    const events = [];
-                    const seenIds = new Set();
-                    let socket = null;
-                    let currentSubId = null;
-                    let paginationRound = 0;
-                    let oldestTimestamp = null;
-                    let timeoutHandle = null;
-                    let isResolved = false;
-
-                    function finish(error) {
-                        if (isResolved) return;
-                        isResolved = true;
-                        if (timeoutHandle) clearTimeout(timeoutHandle);
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                            if (currentSubId) {
-                                try { socket.send(JSON.stringify(['CLOSE', currentSubId])); } catch (_) {}
-                            }
-                            try { socket.close(); } catch (_) {}
-                        } else if (socket && socket.readyState === WebSocket.CONNECTING) {
-                            socket.onopen = null;
-                            socket.onerror = null;
-                            socket.onmessage = null;
-                            socket.onclose = null;
-                            try { socket.close(); } catch (_) {}
+                    const events=[], seenIds=new Set();
+                    let socket=null, subId=null, round=0, oldest=null, timeout=null, resolved=false;
+                    function finish(err) {
+                        if (resolved) return; resolved=true;
+                        if (timeout) clearTimeout(timeout);
+                        if (socket) {
+                            if (subId && socket.readyState===WebSocket.OPEN) try{socket.send(JSON.stringify(['CLOSE',subId]))}catch(_){}
+                            socket.close();
                         }
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve(events);
-                        }
+                        err ? reject(err) : resolve(events);
                     }
-
                     function resetTimeout() {
-                        if (timeoutHandle) clearTimeout(timeoutHandle);
-                        timeoutHandle = setTimeout(() => {
-                            if (events.length > 0 && paginationRound < MAX_PAGINATION_ROUNDS) {
-                                return;
-                            }
-                            finish(new Error(`Relay timeout: ${relayUrl}`));
+                        if (timeout) clearTimeout(timeout);
+                        timeout = setTimeout(() => {
+                            if (events.length>0 && round<MAX_PAGINATION_ROUNDS) return;
+                            finish(new Error(`Timeout: ${relayUrl}`));
                         }, RELAY_TIMEOUT_MS);
                     }
-
                     function sendReq() {
-                        if (isResolved) return;
-                        paginationRound++;
-                        currentSubId = 'nostr-custom-kind-' + Math.random().toString(36).slice(2, 10) + '-p' + paginationRound;
-                        const filter = { authors: [hexPubkey], limit: PAGE_LIMIT };
-                        if (oldestTimestamp !== null) {
-                            filter.until = oldestTimestamp - 1;
-                        }
-                        try {
-                            socket.send(JSON.stringify(['REQ', currentSubId, filter]));
-                        } catch (e) {
-                            finish(new Error(`Failed to send REQ to ${relayUrl}: ${e.message}`));
-                            return;
-                        }
+                        if (resolved) return;
+                        round++; subId = 'sub-'+Math.random().toString(36).slice(2,10)+'-p'+round;
+                        const filter = { authors:[hexPubkey], limit:PAGE_LIMIT };
+                        if (oldest !== null) filter.until = oldest - 1;
+                        try { socket.send(JSON.stringify(['REQ',subId,filter])); } catch(e) { finish(new Error('Send failed')); return; }
                         resetTimeout();
                     }
-
-                    try {
-                        socket = new WebSocket(relayUrl);
-                    } catch (e) {
-                        finish(new Error(`Cannot connect to ${relayUrl}: ${e.message}`));
-                        return;
-                    }
-
-                    socket.onopen = () => {
-                        if (isResolved) return;
-                        onStatus(relayUrl, 'connected');
-                        sendReq();
-                    };
-
+                    try { socket = new WebSocket(relayUrl); } catch(e) { finish(new Error('Cannot connect')); return; }
+                    socket.onopen = () => { if(resolved) return; onStatus(relayUrl,'connected'); sendReq(); };
                     socket.onmessage = (msg) => {
-                        if (isResolved) return;
-                        resetTimeout();
-                        let parsed;
-                        try { parsed = JSON.parse(msg.data); } catch { return; }
-                        if (!Array.isArray(parsed) || parsed.length < 2) return;
-                        const [type, subId, ...rest] = parsed;
-                        if (type === 'EVENT' && subId === currentSubId && rest.length >= 1) {
-                            const event = rest[0];
-                            if (event && event.id && !seenIds.has(event.id)) {
-                                seenIds.add(event.id);
-                                events.push({ event, relayUrl });
-                                const createdAt = event.created_at || 0;
-                                if (oldestTimestamp === null || createdAt < oldestTimestamp) {
-                                    oldestTimestamp = createdAt;
-                                }
-                            }
+                        if(resolved) return; resetTimeout();
+                        let parsed; try { parsed=JSON.parse(msg.data); } catch{return;}
+                        if(!Array.isArray(parsed)||parsed.length<2) return;
+                        const [type, id, ...rest] = parsed;
+                        if(type==='EVENT' && id===subId && rest[0]) {
+                            const ev = rest[0];
+                            if(ev.id && !seenIds.has(ev.id)) { seenIds.add(ev.id); events.push({event:ev, relayUrl}); if(oldest===null||ev.created_at<oldest) oldest=ev.created_at; }
                         }
-                        if (type === 'EOSE' && subId === currentSubId) {
-                            if (events.length >= PAGE_LIMIT * 0.8 && paginationRound < MAX_PAGINATION_ROUNDS && oldestTimestamp !== null) {
-                                setTimeout(() => { if (!isResolved) sendReq(); }, 200);
-                            } else {
-                                finish(null);
-                            }
-                        }
-                        if (type === 'NOTICE') {
-                            console.warn(`Relay notice from ${relayUrl}:`, rest[0]);
+                        if(type==='EOSE' && id===subId) {
+                            if(events.length >= PAGE_LIMIT*0.8 && round<MAX_PAGINATION_ROUNDS && oldest!==null) setTimeout(() => { if(!resolved) sendReq(); }, 200);
+                            else finish(null);
                         }
                     };
-
-                    socket.onerror = () => {
-                        if (isResolved) return;
-                        onStatus(relayUrl, 'error');
-                    };
-
-                    socket.onclose = () => {
-                        if (isResolved) return;
-                        if (events.length > 0) {
-                            finish(null);
-                        } else {
-                            finish(new Error(`Relay disconnected: ${relayUrl}`));
-                        }
-                    };
-
-                    if (signal) {
-                        signal.addEventListener('abort', () => {
-                            finish(new Error('Scan aborted'));
-                        }, { once: true });
-                    }
-
+                    socket.onerror = () => { onStatus(relayUrl,'error'); };
+                    socket.onclose = () => { if(resolved) return; if(events.length>0) finish(null); else finish(new Error('Disconnected')); };
+                    if(signal) signal.addEventListener('abort', ()=>finish(new Error('Aborted')), {once:true});
                     resetTimeout();
                 });
             }
 
             async function connectRelays(hexPubkey, signal, onRelayStatus, onEventCount) {
-                const mergedMap = new Map();
-                let totalEvents = 0;
-                const fetchPromises = DEFAULT_RELAYS.map(async (relayUrl) => {
+                const merged = new Map(); let total=0;
+                const promises = DEFAULT_RELAYS.map(async url => {
                     try {
-                        onRelayStatus(relayUrl, 'connecting');
-                        const results = await fetchFromRelay(relayUrl, hexPubkey, signal,
-                            (url, status) => onRelayStatus(url, status));
-                        for (const { event, relayUrl: srcRelay } of results) {
-                            if (mergedMap.has(event.id)) {
-                                const existing = mergedMap.get(event.id);
-                                if (!existing.relayUrls.includes(srcRelay)) {
-                                    existing.relayUrls.push(srcRelay);
-                                }
-                            } else {
-                                mergedMap.set(event.id, { event, relayUrls: [srcRelay] });
-                                totalEvents++;
-                            }
+                        onRelayStatus(url,'connecting');
+                        const res = await fetchFromRelay(url, hexPubkey, signal, (u,s)=>onRelayStatus(u,s));
+                        for (const {event, relayUrl} of res) {
+                            if (merged.has(event.id)) {
+                                const ex = merged.get(event.id);
+                                if (!ex.relayUrls.includes(relayUrl)) ex.relayUrls.push(relayUrl);
+                            } else { merged.set(event.id, {event, relayUrls:[relayUrl]}); total++; onEventCount(total); }
                         }
-                        onEventCount(totalEvents);
-                        return { relayUrl, success: true, count: results.length };
-                    } catch (err) {
-                        onRelayStatus(relayUrl, 'failed');
-                        console.warn(`Relay ${relayUrl} failed:`, err.message);
-                        return { relayUrl, success: false, count: 0, error: err.message };
-                    }
+                        return {url, ok:true};
+                    } catch(e) { onRelayStatus(url,'failed'); return {url, ok:false}; }
                 });
-                const results = await Promise.allSettled(fetchPromises);
-                const successfulRelays = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-                if (successfulRelays === 0 && mergedMap.size === 0) {
-                    throw new Error('All relays failed to respond. Check your network connection.');
-                }
-                return mergedMap;
+                const results = await Promise.allSettled(promises);
+                if (merged.size===0 && !results.some(r=>r.value&&r.value.ok)) throw new Error('All relays failed');
+                return merged;
             }
 
-            // ═══════════════════════════════════════════════════════════
-            //  EVENT PROCESSING
-            // ═══════════════════════════════════════════════════════════
             function mergeEvents(eventsMap) {
-                for (const [eventId, data] of eventsMap) {
-                    if (!allEventsMap.has(eventId)) {
-                        allEventsMap.set(eventId, data);
-                    } else {
-                        const existing = allEventsMap.get(eventId);
-                        for (const url of data.relayUrls) {
-                            if (!existing.relayUrls.includes(url)) {
-                                existing.relayUrls.push(url);
-                            }
-                        }
-                    }
+                for (const [id, data] of eventsMap) {
+                    if (!allEventsMap.has(id)) allEventsMap.set(id, data);
+                    else { const ex = allEventsMap.get(id); for (const u of data.relayUrls) if (!ex.relayUrls.includes(u)) ex.relayUrls.push(u); }
                 }
             }
 
             function detectCustomKinds() {
                 const kindMap = new Map();
-                for (const [eventId, data] of allEventsMap) {
-                    const kind = data.event.kind;
-                    if (kind === undefined || kind === null) continue;
-                    if (STANDARD_KINDS.has(kind)) continue;
-                    if (!kindMap.has(kind)) {
-                        kindMap.set(kind, []);
-                    }
-                    kindMap.get(kind).push({
-                        event: data.event,
-                        relayUrls: data.relayUrls || [],
-                    });
+                for (const [, data] of allEventsMap) {
+                    const k = data.event.kind;
+                    if (k===undefined || STANDARD_KINDS.has(k)) continue;
+                    if (!kindMap.has(k)) kindMap.set(k, []);
+                    kindMap.get(k).push({event:data.event, relayUrls:data.relayUrls});
                 }
                 return kindMap;
             }
 
-            function buildSummaries(kindGroups) {
-                const summaries = [];
-                for (const [kind, events] of kindGroups) {
-                    let firstSeen = null;
-                    let latestSeen = null;
-                    for (const { event } of events) {
-                        const ts = event.created_at;
-                        if (ts !== undefined && ts !== null && !isNaN(ts)) {
-                            if (firstSeen === null || ts < firstSeen) firstSeen = ts;
-                            if (latestSeen === null || ts > latestSeen) latestSeen = ts;
-                        }
-                    }
-                    summaries.push({
-                        kind,
-                        count: events.length,
-                        firstSeen,
-                        latestSeen,
-                        events,
-                    });
+            function buildSummaries(groups) {
+                const arr = [];
+                for (const [kind, events] of groups) {
+                    let first=Infinity, latest=-Infinity;
+                    for (const {event} of events) { const t=event.created_at||0; if(t<first)first=t; if(t>latest)latest=t; }
+                    arr.push({kind, count:events.length, firstSeen:first===Infinity?null:first, latestSeen:latest===-Infinity?null:latest, events});
                 }
-                return summaries;
+                return arr;
             }
 
-            // ═══════════════════════════════════════════════════════════
-            //  RENDERING (with null‑safe output)
-            // ═══════════════════════════════════════════════════════════
-            function renderStats() {
-                const totalEvents = allEventsMap.size;
-                let standardCount = 0;
-                let customCount = 0;
-                const standardKindSet = new Set();
-                const customKindSet = new Set();
-
-                for (const [eventId, data] of allEventsMap) {
-                    const kind = data.event.kind;
-                    if (STANDARD_KINDS.has(kind)) {
-                        standardCount++;
-                        standardKindSet.add(kind);
-                    } else {
-                        customCount++;
-                        customKindSet.add(kind);
+            function sortSummaries(arr, col, dir) {
+                const mult = dir==='asc'?1:-1;
+                return [...arr].sort((a,b)=>{
+                    let va,vb;
+                    switch(col){
+                        case 'kind': va=a.kind; vb=b.kind; break;
+                        case 'count': va=a.count; vb=b.count; break;
+                        case 'firstSeen': va=a.firstSeen||0; vb=b.firstSeen||0; break;
+                        case 'latestSeen': va=a.latestSeen||0; vb=b.latestSeen||0; break;
+                        default: va=a.kind; vb=b.kind;
                     }
-                }
-
-                const statsItems = [
-                    { label: 'NPUB', value: currentNpub ?? '—', small: true },
-                    { label: 'Decoded Hex Pubkey', value: currentHexPubkey ?? '—', small: true },
-                    { label: 'Total Events', value: totalEvents },
-                    { label: 'Standard Events', value: standardCount },
-                    { label: 'Custom Events', value: customCount, highlight: true },
-                    { label: 'Unique Standard Kinds', value: standardKindSet.size },
-                    { label: 'Unique Custom Kinds', value: customKindSet.size, highlight: true },
-                ];
-
-                statsGrid.innerHTML = statsItems.map(item => `
-                    <div class="stat-item">
-                        <div class="stat-label">${item.label}</div>
-                        <div class="stat-value${item.highlight ? ' highlight' : ''}${item.small ? ' small' : ''}">
-                            ${item.value}
-                        </div>
-                    </div>
-                `).join('');
-                statsGrid.style.display = 'grid';
-            }
-
-            function sortSummaries(summaries, column, direction) {
-                const multiplier = direction === 'asc' ? 1 : -1;
-                return [...summaries].sort((a, b) => {
-                    let valA, valB;
-                    switch (column) {
-                        case 'kind':
-                            valA = a.kind;
-                            valB = b.kind;
-                            break;
-                        case 'count':
-                            valA = a.count;
-                            valB = b.count;
-                            break;
-                        case 'firstSeen':
-                            valA = a.firstSeen ?? 0;
-                            valB = b.firstSeen ?? 0;
-                            break;
-                        case 'latestSeen':
-                            valA = a.latestSeen ?? 0;
-                            valB = b.latestSeen ?? 0;
-                            break;
-                        default:
-                            valA = a.kind;
-                            valB = b.kind;
-                    }
-                    if (valA < valB) return -1 * multiplier;
-                    if (valA > valB) return 1 * multiplier;
-                    return 0;
+                    return va<vb ? -mult : va>vb ? mult : 0;
                 });
             }
 
-            function renderTable(filterText = '') {
+            function renderTable(filterText='') {
                 let filtered = customKindSummaries;
-                if (filterText && filterText.trim()) {
-                    const searchTerm = filterText.trim().toLowerCase();
-                    filtered = customKindSummaries.filter(s =>
-                        String(s.kind).includes(searchTerm)
-                    );
+                if (filterText.trim()) {
+                    const s = filterText.trim().toLowerCase();
+                    filtered = customKindSummaries.filter(x => String(x.kind).includes(s));
                 }
                 filtered = sortSummaries(filtered, sortColumn, sortDirection);
 
@@ -1109,25 +436,15 @@
                 headers.forEach(th => {
                     const col = th.getAttribute('data-sort');
                     const arrow = th.querySelector('.sort-arrow');
-                    if (col === sortColumn) {
-                        arrow.textContent = sortDirection === 'asc' ? '▲' : '▼';
-                        th.style.color = 'var(--accent)';
-                    } else {
-                        arrow.textContent = '';
-                        th.style.color = '';
+                    if (arrow) {
+                        arrow.textContent = (col === sortColumn) ? (sortDirection==='asc'?'▲':'▼') : '';
                     }
+                    th.style.color = (col === sortColumn) ? 'var(--accent)' : '';
                 });
 
                 if (filtered.length === 0) {
                     resultsBody.innerHTML = '';
                     noResults.style.display = 'block';
-                    if (filterText && filterText.trim() && customKindSummaries.length > 0) {
-                        noResults.querySelector('p').textContent = `No custom kinds matching "${filterText.trim()}".`;
-                    } else if (customKindSummaries.length === 0) {
-                        noResults.querySelector('p').textContent = 'No custom kinds found for this npub. All events use standard kinds.';
-                    } else {
-                        noResults.querySelector('p').textContent = `No custom kinds matching "${filterText.trim()}".`;
-                    }
                 } else {
                     noResults.style.display = 'none';
                     resultsBody.innerHTML = filtered.map(s => `
@@ -1136,376 +453,170 @@
                             <td>${s.count}</td>
                             <td>${formatDate(s.firstSeen)}</td>
                             <td>${formatDate(s.latestSeen)}</td>
-                            <td>
-                                <button class="btn btn-outline btn-xs view-btn" data-kind="${s.kind}">
-                                    👁 View
-                                </button>
-                            </td>
+                            <td><button class="btn btn-outline btn-xs view-btn" data-kind="${s.kind}">👁 View</button></td>
                         </tr>
                     `).join('');
-
                     resultsBody.querySelectorAll('.view-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            const kind = parseInt(btn.getAttribute('data-kind'));
-                            showModal(kind);
-                        });
+                        btn.addEventListener('click', () => showModal(parseInt(btn.dataset.kind)));
                     });
                 }
-
                 tableWrapper.style.display = 'block';
                 toolbar.style.display = 'flex';
             }
 
             function showModal(kind) {
                 const group = customKindGroups.get(kind);
-                if (!group || group.length === 0) return;
-
+                if (!group) return;
                 modalKindBadge.textContent = kind;
-                modalTitle.innerHTML = `Events of Kind <span class="kind-badge">${kind}</span>`;
-
-                modalBody.innerHTML = group.map((item, index) => {
-                    const event = item.event ?? {};
-                    const relayUrls = item.relayUrls || [];
-                    const relayDisplay = relayUrls.length > 0 ?
-                        relayUrls.map(r => (r || '').replace('wss://', '').replace('relay.', '').replace('.com','').replace('.io','').replace('.net','').replace('.social','')).join(', ') :
-                        'unknown';
-                    const jsonStr = JSON.stringify(event, null, 2);
-                    const safeJsonAttr = escapeAttr(jsonStr);
-                    const safeEventId = event.id ?? '—';
-                    const created = formatDateTime(event.created_at);
-                    return `
-                        <div class="event-card">
-                            <div class="event-meta">
-                                <span><span class="label">Event ID:</span> ${escapeHTML(safeEventId)}</span>
-                                <span><span class="label">Created:</span> ${created}</span>
-                                <span><span class="label">Relay:</span> ${escapeHTML(relayDisplay)}</span>
-                                <span><span class="label">#${index + 1}</span></span>
-                            </div>
-                            <pre>${escapeHTML(jsonStr)}</pre>
-                            <div class="btn-row">
-                                <button class="btn btn-outline btn-xs copy-json-btn" data-json="${safeJsonAttr}">
-                                    📋 Copy JSON
-                                </button>
-                                <button class="btn btn-outline btn-xs copy-id-btn" data-id="${safeEventId}">
-                                    🔗 Copy Event ID
-                                </button>
-                            </div>
+                modalBody.innerHTML = group.map((item, idx) => {
+                    const ev = item.event;
+                    const relayStr = (item.relayUrls||[]).map(r=>r.replace('wss://','')).join(', ') || 'unknown';
+                    const json = JSON.stringify(ev, null, 2);
+                    return `<div class="event-card">
+                        <div class="event-meta">
+                            <span><span class="label">ID:</span> ${ev.id||'—'}</span>
+                            <span><span class="label">Created:</span> ${formatDateTime(ev.created_at)}</span>
+                            <span><span class="label">Relay:</span> ${relayStr}</span>
                         </div>
-                    `;
+                        <pre>${escapeHTML(json)}</pre>
+                        <div class="btn-row">
+                            <button class="btn btn-outline btn-xs copy-json-btn" data-json="${escapeAttr(json)}">📋 Copy JSON</button>
+                            <button class="btn btn-outline btn-xs copy-id-btn" data-id="${ev.id||''}">🔗 Copy ID</button>
+                        </div>
+                    </div>`;
                 }).join('');
-
-                modalBody.querySelectorAll('.copy-json-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const json = unescapeAttr(btn.getAttribute('data-json'));
-                        copyToClipboard(json, 'JSON');
-                    });
-                });
-                modalBody.querySelectorAll('.copy-id-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const id = btn.getAttribute('data-id');
-                        copyToClipboard(id, 'Event ID');
-                    });
-                });
-
+                modalBody.querySelectorAll('.copy-json-btn').forEach(b => b.addEventListener('click', ()=> copyToClipboard(unescapeAttr(b.dataset.json),'JSON')));
+                modalBody.querySelectorAll('.copy-id-btn').forEach(b => b.addEventListener('click', ()=> copyToClipboard(b.dataset.id,'Event ID')));
                 modalOverlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             }
+            function hideModal() { modalOverlay.style.display='none'; modalBody.innerHTML=''; document.body.style.overflow=''; }
+            function escapeHTML(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+            function escapeAttr(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+            function unescapeAttr(s) { const ta = document.createElement('textarea'); ta.innerHTML = s; return ta.value; }
 
-            function hideModal() {
-                modalOverlay.style.display = 'none';
-                modalBody.innerHTML = '';
-                document.body.style.overflow = '';
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            //  EXPORT FUNCTIONS
-            // ═══════════════════════════════════════════════════════════
             function exportCSV() {
-                if (customKindSummaries.length === 0) {
-                    showToast('No data to export', 'error');
-                    return;
-                }
-                const header = 'Kind,Count,First Seen,Latest Seen';
-                const rows = customKindSummaries.map(s =>
-                    `${s.kind},${s.count},${formatDate(s.firstSeen)},${formatDate(s.latestSeen)}`
-                );
-                const eventHeader = '\n\nEvent ID,Kind,Created At,Relay';
-                const eventRows = [];
-                for (const summary of customKindSummaries) {
-                    for (const item of summary.events) {
-                        const relayStr = (item.relayUrls || []).join('; ');
-                        eventRows.push(
-                            `${item.event.id ?? ''},${summary.kind},${formatDateTime(item.event.created_at)},"${relayStr}"`
-                        );
-                    }
-                }
-                const fullCSV = [header, ...rows].join('\n') + eventHeader + '\n' + eventRows.join('\n');
-                downloadFile(fullCSV, 'nostr-custom-kinds.csv', 'text/csv');
-                showToast('CSV exported!', 'success');
+                if (!customKindSummaries.length) { showToast('No data','error'); return; }
+                let csv = 'Kind,Count,First Seen,Latest Seen\n' + customKindSummaries.map(s=>`${s.kind},${s.count},${formatDate(s.firstSeen)},${formatDate(s.latestSeen)}`).join('\n');
+                csv += '\n\nEvent ID,Kind,Created At,Relay\n';
+                for (const s of customKindSummaries) for (const {event,relayUrls} of s.events) csv += `${event.id},${s.kind},${formatDateTime(event.created_at)},"${(relayUrls||[]).join('; ')}"\n`;
+                downloadFile(csv,'nostr-custom-kinds.csv','text/csv');
+                showToast('CSV exported','success');
             }
-
             function exportJSON() {
-                if (customKindSummaries.length === 0) {
-                    showToast('No data to export', 'error');
-                    return;
-                }
-                const exportData = {
-                    pubkey: currentHexPubkey,
-                    npub: currentNpub,
-                    exportedAt: new Date().toISOString(),
-                    totalCustomKinds: customKindSummaries.length,
-                    customKinds: customKindSummaries.map(s => ({
-                        kind: s.kind,
-                        count: s.count,
-                        firstSeen: s.firstSeen ? formatDateTime(s.firstSeen) : null,
-                        latestSeen: s.latestSeen ? formatDateTime(s.latestSeen) : null,
-                        events: s.events.map(item => ({
-                            id: item.event.id ?? null,
-                            pubkey: item.event.pubkey ?? null,
-                            created_at: item.event.created_at ?? null,
-                            created_at_formatted: formatDateTime(item.event.created_at),
-                            kind: item.event.kind,
-                            content: item.event.content ?? '',
-                            tags: item.event.tags || [],
-                            sig: item.event.sig ?? null,
-                            relays: item.relayUrls || [],
-                        })),
-                    })),
+                if (!customKindSummaries.length) { showToast('No data','error'); return; }
+                const obj = {
+                    pubkey: currentHexPubkey, npub: currentNpub, exportedAt: new Date().toISOString(),
+                    customKinds: customKindSummaries.map(s=>({
+                        kind:s.kind, count:s.count,
+                        firstSeen: s.firstSeen?formatDateTime(s.firstSeen):null,
+                        latestSeen: s.latestSeen?formatDateTime(s.latestSeen):null,
+                        events: s.events.map(({event,relayUrls})=>({id:event.id, pubkey:event.pubkey, created_at:event.created_at, kind:event.kind, content:event.content, tags:event.tags, sig:event.sig, relays:relayUrls}))
+                    }))
                 };
-                const jsonStr = JSON.stringify(exportData, null, 2);
-                downloadFile(jsonStr, 'nostr-custom-kinds.json', 'application/json');
-                showToast('JSON exported!', 'success');
+                downloadFile(JSON.stringify(obj,null,2),'nostr-custom-kinds.json','application/json');
+                showToast('JSON exported','success');
+            }
+            function downloadFile(content, name, type) {
+                const blob = new Blob([content],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
             }
 
-            function downloadFile(content, filename, mimeType) {
-                const blob = new Blob([content], { type: mimeType });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            //  PROGRESS UI
-            // ═══════════════════════════════════════════════════════════
             let relayStatuses = new Map();
-
-            function updateProgress(relayUrl, status) {
-                relayStatuses.set(relayUrl, status);
-                renderProgress();
-            }
-
+            function updateProgress(url, status) { relayStatuses.set(url,status); renderProgress(); }
             function renderProgress() {
-                const items = DEFAULT_RELAYS.map(url => {
-                    const status = relayStatuses.get(url) || 'pending';
-                    let dotClass = '';
-                    let statusText = 'Pending';
-                    switch (status) {
-                        case 'connecting':
-                            dotClass = 'active';
-                            statusText = 'Connecting...';
-                            break;
-                        case 'connected':
-                            dotClass = 'connected';
-                            statusText = 'Connected';
-                            break;
-                        case 'failed':
-                        case 'error':
-                            dotClass = 'failed';
-                            statusText = 'Failed';
-                            break;
-                    }
-                    const shortName = url.replace('wss://', '').replace('relay.', '');
-                    return `
-                        <span class="progress-item">
-                            <span class="progress-dot ${dotClass}"></span>
-                            ${shortName}: ${statusText}
-                        </span>
-                    `;
+                let html = DEFAULT_RELAYS.map(url => {
+                    const st = relayStatuses.get(url)||'pending'; let dot='', txt='Pending';
+                    if(st==='connecting'){dot='active';txt='Connecting...';} else if(st==='connected'){dot='connected';txt='Connected';} else if(st==='failed'||st==='error'){dot='failed';txt='Failed';}
+                    return `<span class="progress-item"><span class="progress-dot ${dot}"></span>${url.replace('wss://','')}: ${txt}</span>`;
                 }).join('');
-                const connectedCount = [...relayStatuses.values()].filter(s => s === 'connected').length;
-                const totalEvents = allEventsMap.size;
-                progressList.innerHTML = `
-                    ${items}
-                    <span class="progress-item" style="margin-left:8px;font-weight:600;">
-                        | Relays: ${connectedCount}/${DEFAULT_RELAYS.length}
-                    </span>
-                    <span class="progress-item" style="font-weight:600;">
-                        | Events: ${totalEvents}
-                    </span>
-                    ${isScanning ? `<span class="progress-item"><span class="spinner"></span> Scanning...</span>` : ''}
-                `;
+                html += ` | Relays: ${[...relayStatuses.values()].filter(s=>s==='connected').length}/${DEFAULT_RELAYS.length} | Events: ${allEventsMap.size}`;
+                if (isScanning) html += ' <span class="spinner"></span> Scanning...';
+                progressList.innerHTML = html;
                 progressArea.style.display = 'block';
             }
+            function resetProgress() { relayStatuses.clear(); progressList.innerHTML=''; progressArea.style.display='none'; }
 
-            function resetProgress() {
-                relayStatuses.clear();
-                progressList.innerHTML = '';
-                progressArea.style.display = 'none';
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            //  MAIN SCAN LOGIC
-            // ═══════════════════════════════════════════════════════════
             async function runScan() {
                 if (isScanning) return;
-                const rawNpub = npubInput.value.trim();
-                if (!rawNpub) {
-                    showToast('Please enter an npub', 'error');
-                    return;
-                }
-                let hexPubkey;
-                try {
-                    hexPubkey = decodeNpub(rawNpub);
-                } catch (err) {
-                    showToast(`Invalid npub: ${err.message}`, 'error');
-                    return;
-                }
-
+                const raw = npubInput.value.trim();
+                if (!raw) { showToast('Enter npub','error'); return; }
+                let hex;
+                try { hex = decodeNpub(raw); } catch(e) { showToast('Invalid npub: '+e.message,'error'); return; }
                 abortController = new AbortController();
-                isScanning = true;
-                currentHexPubkey = hexPubkey;
-                currentNpub = rawNpub;
-                allEventsMap.clear();
-                customKindGroups.clear();
-                customKindSummaries = [];
-                relayStatuses.clear();
-                sortColumn = 'kind';
-                sortDirection = 'asc';
-
-                scanBtn.disabled = true;
-                scanBtn.innerHTML = '<span class="spinner"></span> Scanning...';
-                resetProgress();
-                progressArea.style.display = 'block';
-                statsGrid.style.display = 'none';
-                toolbar.style.display = 'none';
-                tableWrapper.style.display = 'none';
-                resultsBody.innerHTML = '';
-                noResults.style.display = 'none';
-                searchInput.value = '';
-
-                for (const url of DEFAULT_RELAYS) {
-                    relayStatuses.set(url, 'pending');
-                }
+                isScanning = true; currentHexPubkey = hex; currentNpub = raw;
+                allEventsMap.clear(); customKindGroups.clear(); customKindSummaries=[];
+                relayStatuses.clear(); sortColumn='kind'; sortDirection='asc';
+                scanBtn.disabled=true; scanBtn.innerHTML='<span class="spinner"></span> Scanning...';
+                resetProgress(); statsGrid.style.display='none'; toolbar.style.display='none'; tableWrapper.style.display='none';
+                resultsBody.innerHTML=''; noResults.style.display='none'; searchInput.value='';
+                for (const url of DEFAULT_RELAYS) relayStatuses.set(url,'pending');
                 renderProgress();
-
                 try {
-                    const eventsMap = await connectRelays(
-                        hexPubkey,
-                        abortController.signal,
-                        (relayUrl, status) => updateProgress(relayUrl, status),
-                        () => renderProgress()
-                    );
+                    const eventsMap = await connectRelays(hex, abortController.signal, updateProgress, (count)=>{ renderProgress(); });
                     mergeEvents(eventsMap);
                     customKindGroups = detectCustomKinds();
                     customKindSummaries = buildSummaries(customKindGroups);
                     customKindSummaries = sortSummaries(customKindSummaries, 'kind', 'asc');
-                    renderStats();
-                    renderTable();
-                    if (customKindSummaries.length === 0) {
-                        showToast('Scan complete. No custom kinds found — all events use standard kinds.', 'info');
-                    } else {
-                        showToast(`Found ${customKindSummaries.length} custom kind(s) across ${allEventsMap.size} total events.`, 'success');
-                    }
-                } catch (err) {
-                    if (err.message === 'Scan aborted') {
-                        showToast('Scan cancelled.', 'info');
-                    } else {
-                        showToast(`Error: ${err.message}`, 'error');
-                        console.error('Scan error:', err);
-                    }
-                    if (allEventsMap.size > 0) {
-                        customKindGroups = detectCustomKinds();
-                        customKindSummaries = buildSummaries(customKindGroups);
-                        customKindSummaries = sortSummaries(customKindSummaries, 'kind', 'asc');
-                        renderStats();
-                        renderTable();
-                    }
+                    renderStats(); renderTable();
+                    if(customKindSummaries.length) showToast(`Found ${customKindSummaries.length} custom kind(s)`,'success');
+                    else showToast('No custom kinds found','info');
+                } catch(e) {
+                    if(e.message!=='Aborted') { showToast('Error: '+e.message,'error'); console.error(e); }
+                    if(allEventsMap.size) { customKindGroups=detectCustomKinds(); customKindSummaries=buildSummaries(customKindGroups); renderStats(); renderTable(); }
                 } finally {
-                    isScanning = false;
-                    abortController = null;
-                    scanBtn.disabled = false;
-                    scanBtn.innerHTML = '<span>🔎</span> Scan';
-                    if (allEventsMap.size > 0 || customKindSummaries.length > 0) {
-                        renderProgress();
-                        if (!progressList.innerHTML.includes('Finished')) {
-                            progressList.innerHTML += '<span class="progress-item" style="font-weight:600;color:var(--success);">✔ Finished</span>';
-                        }
-                    }
+                    isScanning=false; abortController=null; scanBtn.disabled=false; scanBtn.innerHTML='<span>🔎</span> Scan';
+                    if (progressList.innerHTML) progressList.innerHTML += '<span class="progress-item" style="color:var(--success);">✔ Finished</span>';
                 }
             }
 
             function clearResults() {
-                if (isScanning && abortController) {
-                    abortController.abort();
-                }
-                isScanning = false;
-                currentHexPubkey = null;
-                currentNpub = null;
-                allEventsMap.clear();
-                customKindGroups.clear();
-                customKindSummaries = [];
-                relayStatuses.clear();
-                sortColumn = 'kind';
-                sortDirection = 'asc';
-                scanBtn.disabled = false;
-                scanBtn.innerHTML = '<span>🔎</span> Scan';
-                resetProgress();
-                statsGrid.style.display = 'none';
-                statsGrid.innerHTML = '';
-                toolbar.style.display = 'none';
-                tableWrapper.style.display = 'none';
-                resultsBody.innerHTML = '';
-                noResults.style.display = 'none';
-                searchInput.value = '';
-                npubInput.value = '';
-                hideModal();
+                if (isScanning && abortController) abortController.abort();
+                isScanning=false; currentHexPubkey=null; currentNpub=null;
+                allEventsMap.clear(); customKindGroups.clear(); customKindSummaries=[];
+                relayStatuses.clear(); sortColumn='kind'; sortDirection='asc';
+                scanBtn.disabled=false; scanBtn.innerHTML='<span>🔎</span> Scan';
+                resetProgress(); statsGrid.style.display='none'; statsGrid.innerHTML='';
+                toolbar.style.display='none'; tableWrapper.style.display='none';
+                resultsBody.innerHTML=''; noResults.style.display='none';
+                searchInput.value=''; npubInput.value=''; hideModal();
             }
 
-            // ═══════════════════════════════════════════════════════════
-            //  EVENT LISTENERS
-            // ═══════════════════════════════════════════════════════════
+            function renderStats() {
+                let total=allEventsMap.size, std=0, cus=0, stdSet=new Set(), cusSet=new Set();
+                for (const [,{event}] of allEventsMap) {
+                    if (STANDARD_KINDS.has(event.kind)) { std++; stdSet.add(event.kind); }
+                    else { cus++; cusSet.add(event.kind); }
+                }
+                statsGrid.innerHTML = [
+                    {label:'NPUB',value:currentNpub,small:true},
+                    {label:'Hex Pubkey',value:currentHexPubkey,small:true},
+                    {label:'Total Events',value:total},
+                    {label:'Standard Events',value:std},
+                    {label:'Custom Events',value:cus,highlight:true},
+                    {label:'Unique Standard Kinds',value:stdSet.size},
+                    {label:'Unique Custom Kinds',value:cusSet.size,highlight:true}
+                ].map(i=>`<div class="stat-item"><div class="stat-label">${i.label}</div><div class="stat-value${i.highlight?' highlight':''}${i.small?' small':''}">${i.value}</div></div>`).join('');
+                statsGrid.style.display='grid';
+            }
+
             scanBtn.addEventListener('click', runScan);
             clearBtn.addEventListener('click', clearResults);
-            npubInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    runScan();
-                }
-            });
-            searchInput.addEventListener('input', () => {
-                renderTable(searchInput.value);
-            });
-            resultsTable.querySelector('thead').addEventListener('click', (e) => {
-                const th = e.target.closest('th[data-sort]');
-                if (!th) return;
-                const column = th.getAttribute('data-sort');
-                if (sortColumn === column) {
-                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortColumn = column;
-                    sortDirection = 'asc';
-                }
+            npubInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); runScan(); } });
+            searchInput.addEventListener('input', () => renderTable(searchInput.value));
+            resultsTable.querySelector('thead').addEventListener('click', e => {
+                const th = e.target.closest('th[data-sort]'); if(!th) return;
+                const col = th.dataset.sort;
+                if(sortColumn===col) sortDirection = sortDirection==='asc'?'desc':'asc';
+                else { sortColumn=col; sortDirection='asc'; }
                 renderTable(searchInput.value);
             });
             modalClose.addEventListener('click', hideModal);
-            modalOverlay.addEventListener('click', (e) => {
-                if (e.target === modalOverlay) hideModal();
-            });
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && modalOverlay.style.display === 'flex') {
-                    hideModal();
-                }
-            });
+            modalOverlay.addEventListener('click', e => { if(e.target===modalOverlay) hideModal(); });
+            document.addEventListener('keydown', e => { if(e.key==='Escape'&&modalOverlay.style.display==='flex') hideModal(); });
             exportCSVBtn.addEventListener('click', exportCSV);
             exportJSONBtn.addEventListener('click', exportJSON);
-
             npubInput.focus();
-            console.log('🔍 Nostr Custom Kind Explorer ready.');
+            console.log('Nostr Custom Kind Explorer ready');
         })();
     </script>
 </body>
