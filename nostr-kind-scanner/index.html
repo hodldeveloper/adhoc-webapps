@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nostr Kind Explorer & Editor</title>
-  <!-- Nostr tools from CDN -->
   <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
   <style>
     :root {
@@ -61,8 +60,6 @@
     <h1>🔍 Nostr Kind Explorer & Editor</h1>
     <p class="subtitle">Discover every event kind, then edit and republish your own events</p>
   </div>
-
-  <!-- Authentication bar -->
   <div class="auth-bar" id="authBar">
     <div class="logged-info" id="loggedInfo" style="display:none;">
       <span>🔑 Logged in as: <strong id="loggedNpubDisplay">npub1...</strong></span>
@@ -73,8 +70,6 @@
       <button class="btn btn-sm btn-outline" id="loginNip07Btn">🦊 Login with NIP-07</button>
     </div>
   </div>
-
-  <!-- Original scan input -->
   <div class="card">
     <div class="input-row">
       <input type="text" id="npubInput" placeholder="Enter npub to scan... (e.g. npub1...)" autocomplete="off" spellcheck="false">
@@ -82,10 +77,8 @@
       <button class="btn btn-outline btn-sm" id="clearBtn">✕ Clear</button>
     </div>
   </div>
-
   <div id="progressArea" class="progress-area hidden"></div>
   <div id="statsGrid" class="summary-panel hidden" style="display:none;"></div>
-
   <div class="toolbar" id="toolbar" style="display:none;">
     <input type="text" id="searchInput" placeholder="Filter by kind/name...">
     <div>
@@ -95,7 +88,6 @@
       <button class="btn btn-sm btn-outline" id="exportJSONBtn">📦 JSON</button>
     </div>
   </div>
-
   <div class="table-wrapper" id="tableWrapper" style="display:none;">
     <table id="resultsTable">
       <thead><tr>
@@ -105,28 +97,20 @@
     </table>
   </div>
 </div>
-
-<!-- Modals -->
 <div id="modalOverlay" class="modal-overlay hidden"><div class="modal" id="modalContent"></div></div>
 <div id="toastContainer"></div>
 
 <script>
 (function() {
-  // ────────────────────────────────────────
-  //  GLOBAL STATE
-  // ────────────────────────────────────────
+  // ── state ──
   const DEFAULT_RELAYS = ['wss://relay.damus.io','wss://nos.lol','wss://relay.primal.net','wss://purplepag.es','wss://relay.snort.social'];
   let currentNpub = null, currentHexPubkey = null;
-  let allEventsMap = new Map();       // eventId -> {event, relayUrls}
-  let kindGroups = new Map();         // kind -> [{event, relayUrls}]
-  let kindSummaries = [];             // {kind, name, category, count, ...}
+  let allEventsMap = new Map(), kindGroups = new Map(), kindSummaries = [];
   let user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
   let publishLog = [];
   let customKindDB = {};
 
-  // ────────────────────────────────────────
-  //  UTILS
-  // ────────────────────────────────────────
+  // ── helpers ──
   function showToast(msg) {
     const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
     document.getElementById('toastContainer').appendChild(t);
@@ -139,9 +123,7 @@
     document.getElementById('modalContent').querySelector('.modal-close')?.addEventListener('click', hideModal);
   }
 
-  // ────────────────────────────────────────
-  //  KIND REFERENCE (built‑in + custom)
-  // ────────────────────────────────────────
+  // ── kind database ──
   const BASE_KINDS = {
     0:{name:"Profile Metadata",nip:"NIP-01",category:"Replaceable",purpose:"User profile"},
     1:{name:"Short Text Note",nip:"NIP-01",category:"Regular",purpose:"Posts"},
@@ -173,19 +155,18 @@
     return cat === 'Replaceable' || cat === 'Addressable';
   }
 
-  // ────────────────────────────────────────
-  //  AUTHENTICATION
-  // ────────────────────────────────────────
+  // ── authentication ──
   async function loginNsec(nsec) {
     try {
       const { type, data } = NostrTools.nip19.decode(nsec);
       if (type !== 'nsec') throw new Error('Not an nsec');
-      const privkey = NostrTools.bytesToHex(data);
+      // data can be hex string or Uint8Array
+      const privkey = typeof data === 'string' ? data : [...data].map(b => b.toString(16).padStart(2,'0')).join('');
       const pubkey = NostrTools.getPublicKey(privkey);
       user = { loggedIn: true, pubkey, privkey, signerType: 'nsec' };
       updateAuthUI();
       showToast('Logged in with nsec');
-    } catch(e) { showToast('Invalid nsec'); }
+    } catch(e) { showToast('Invalid nsec: '+e.message); }
   }
   async function loginNip07() {
     if (!window.nostr) return showToast('No NIP‑07 extension found');
@@ -194,25 +175,24 @@
       user = { loggedIn: true, pubkey, privkey: null, signerType: 'nip07' };
       updateAuthUI();
       showToast('Connected with NIP‑07');
-    } catch(e) { showToast('NIP‑07 error'); }
+    } catch(e) { showToast('NIP‑07 error: '+e.message); }
   }
   function logout() {
     user = { loggedIn: false, pubkey: null, privkey: null, signerType: null };
     updateAuthUI();
-    renderTable(); // update edit buttons
+    renderTable();
     showToast('Logged out');
   }
   function updateAuthUI() {
     document.getElementById('loginButtons').style.display = user.loggedIn ? 'none' : '';
     document.getElementById('loggedInfo').style.display = user.loggedIn ? '' : 'none';
     if (user.loggedIn) {
-      document.getElementById('loggedNpubDisplay').textContent = NostrTools.nip19.npubEncode(user.pubkey).substring(0,12)+'...';
+      const npub = NostrTools.nip19.npubEncode(user.pubkey);
+      document.getElementById('loggedNpubDisplay').textContent = npub.substring(0,12)+'...';
     }
   }
 
-  // ────────────────────────────────────────
-  //  SCANNING (as before, but modular)
-  // ────────────────────────────────────────
+  // ── scanning ──
   async function fetchFromRelay(url, hexPubkey, signal) {
     return new Promise((resolve, reject) => {
       const events=[]; let ws, subId, oldest=null, round=0, done=false;
@@ -251,33 +231,31 @@
   async function performScan() {
     const raw = document.getElementById('npubInput').value.trim();
     if(!raw.startsWith('npub1')) return showToast('Enter a valid npub');
-    const hex = NostrTools.nip19.decode(raw).data;
-    currentHexPubkey = hex; currentNpub = raw;
+    try {
+      const hex = NostrTools.nip19.decode(raw).data;
+      currentHexPubkey = hex; currentNpub = raw;
+    } catch { return showToast('Invalid npub'); }
     allEventsMap.clear(); kindGroups.clear(); kindSummaries=[];
     document.getElementById('progressArea').classList.remove('hidden');
-    document.getElementById('progressArea').textContent = 'Connecting to relays...';
-
+    document.getElementById('progressArea').textContent = 'Connecting...';
     const results = await Promise.allSettled(DEFAULT_RELAYS.map(url =>
-      fetchFromRelay(url, hex).then(evts => ({url, evts})).catch(e => ({url, evts:[]}))
+      fetchFromRelay(url, currentHexPubkey).then(evts => ({url, evts})).catch(e => ({url, evts:[]}))
     ));
     for(const r of results) if(r.status==='fulfilled') for(const {event,relayUrl} of r.value.evts) {
       if(!allEventsMap.has(event.id)) allEventsMap.set(event.id, {event, relayUrls:[relayUrl]});
       else allEventsMap.get(event.id).relayUrls.push(relayUrl);
     }
-    // group by kind
     for(const [id, data] of allEventsMap) {
       const k = data.event.kind;
       if(!kindGroups.has(k)) kindGroups.set(k, []);
       kindGroups.get(k).push(data);
     }
-    // build summaries
     kindSummaries = Array.from(kindGroups.entries()).map(([kind, events]) => {
       const info = getKindInfo(kind);
       const first = Math.min(...events.map(e=>e.event.created_at));
       const latest = Math.max(...events.map(e=>e.event.created_at));
       return { kind, name:info.name, category:info.category, count:events.length, firstSeen:first, latestSeen:latest, ...info };
     }).sort((a,b)=>a.kind-b.kind);
-
     document.getElementById('progressArea').classList.add('hidden');
     renderStats(); renderTable();
     document.getElementById('toolbar').style.display='flex';
@@ -287,13 +265,13 @@
 
   function renderStats() {
     const total = allEventsMap.size;
-    const knownCount = kindSummaries.filter(s=>!s.isUnknown).length;
-    const unknownCount = kindSummaries.filter(s=>s.isUnknown).length;
+    const known = kindSummaries.filter(s=>!s.isUnknown).length;
+    const unknown = kindSummaries.filter(s=>s.isUnknown).length;
     document.getElementById('statsGrid').innerHTML = `
       <div>Total events: <strong>${total}</strong></div>
       <div>Unique kinds: <strong>${kindSummaries.length}</strong></div>
-      <div>Known: <strong style="color:var(--accent)">${knownCount}</strong></div>
-      <div>Unknown: <strong style="color:var(--warning)">${unknownCount}</strong></div>
+      <div>Known: <strong style="color:var(--accent)">${known}</strong></div>
+      <div>Unknown: <strong style="color:var(--warning)">${unknown}</strong></div>
     `;
     document.getElementById('statsGrid').style.display='flex';
   }
@@ -318,15 +296,11 @@
     }).join('');
     document.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', function() {
       const kind = parseInt(this.dataset.kind);
-      const action = this.dataset.action;
-      if(action==='edit') openEditor(kind);
-      else openViewer(kind);
+      if(this.dataset.action==='edit') openEditor(kind); else openViewer(kind);
     }));
   }
 
-  // ────────────────────────────────────────
-  //  VIEWER / EDITOR MODAL
-  // ────────────────────────────────────────
+  // ── viewer / editor ──
   function openViewer(kind) {
     const group = kindGroups.get(kind); if(!group) return;
     const info = getKindInfo(kind);
@@ -343,7 +317,7 @@
 
   function openEditor(kind) {
     const group = kindGroups.get(kind); if(!group) return;
-    const originalEvent = group[0].event; // replaceable/addressable: use first
+    const originalEvent = group[0].event;
     const info = getKindInfo(kind);
     let visualHtml = '';
     if (kind===0) visualHtml = profileEditorHTML(originalEvent);
@@ -368,7 +342,6 @@
         </div>
       </div>`;
     showModal(modalHtml);
-    // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', function() {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
@@ -399,7 +372,6 @@
     return diff || 'No changes';
   }
 
-  // Visual editor fragments
   function profileEditorHTML(ev) {
     const c = JSON.parse(ev.content||'{}');
     return `<div><label>Name</label><input value="${c.name||''}" class="field-name" style="width:100%"></div>
@@ -421,23 +393,18 @@
       </div>`).join('');
   }
 
-  // Signing & Publishing
   async function signAndPublish(kind, originalEvent) {
     if(!user.loggedIn) return showToast('Not logged in');
     let editedEvent;
-    // collect from form
     const contentField = document.querySelector('.content-field');
     if(contentField) {
       editedEvent = { ...originalEvent, content: contentField.value };
     } else {
-      // try JSON editor
       try { editedEvent = JSON.parse(document.getElementById('jsonEditor').value); } catch { return showToast('Invalid JSON'); }
     }
-    // confirm replacement if replaceable
-    if (kind===0 || kind===3 || kind===10002 || kind===10019) {
+    if([0,3,10002,10019].includes(kind)) {
       if(!confirm(`You are about to replace your existing Kind ${kind} event. Continue?`)) return;
     }
-    // sign
     let signed;
     try {
       if(user.signerType==='nip07') {
@@ -446,7 +413,6 @@
         signed = NostrTools.signEvent(editedEvent, user.privkey);
       }
     } catch(e) { showToast('Signing failed: '+e.message); return; }
-    // publish to all relays
     publishLog = [];
     for(const url of DEFAULT_RELAYS) {
       try {
@@ -459,39 +425,30 @@
     hideModal();
   }
 
-  // ────────────────────────────────────────
-  //  KIND MANAGER MODAL
-  // ────────────────────────────────────────
   function openKindManager() {
     showModal(`
       <div class="modal-header"><h3>Kind Reference Manager</h3><button class="btn modal-close">✕</button></div>
       <div class="modal-body">
-        <textarea id="kindDbTextarea" style="width:100%;height:400px;background:var(--bg);color:var(--text);border:1px solid var(--border);">${JSON.stringify(customKindDB,null,2)}</textarea>
+        <textarea id="kindDbTextarea" style="width:100%;height:400px;background:var(--bg);color:var(--text);">${JSON.stringify(customKindDB,null,2)}</textarea>
         <div style="margin-top:12px;">
-          <button class="btn btn-primary" id="saveKindDbBtn">💾 Save to localStorage</button>
-          <button class="btn btn-outline" id="resetKindDbBtn">🔄 Reset to built‑in</button>
+          <button class="btn btn-primary" id="saveKindDbBtn">💾 Save</button>
+          <button class="btn btn-outline" id="resetKindDbBtn">🔄 Reset</button>
         </div>
       </div>`);
     document.getElementById('saveKindDbBtn').addEventListener('click', () => {
-      try { customKindDB = JSON.parse(document.getElementById('kindDbTextarea').value); saveKindDB(); showToast('Saved'); } catch{ showToast('Invalid JSON'); }
+      try { customKindDB = JSON.parse(document.getElementById('kindDbTextarea').value); saveKindDB(); showToast('Saved'); } catch { showToast('Invalid JSON'); }
     });
     document.getElementById('resetKindDbBtn').addEventListener('click', () => {
       customKindDB = {}; saveKindDB(); document.getElementById('kindDbTextarea').value = '{}'; showToast('Reset');
     });
   }
 
-  // ────────────────────────────────────────
-  //  PUBLISHING LOG MODAL
-  // ────────────────────────────────────────
   function openPublishLog() {
-    const list = publishLog.map(l => `<div>${l.url}: ${l.status}</div>`).join('');
-    showModal(`<div class="modal-header"><h3>Publishing Log</h3><button class="btn modal-close">✕</button></div>
-               <div class="modal-body">${list || 'No publishes yet'}</div>`);
+    const list = publishLog.length ? publishLog.map(l => `<div>${l.url}: ${l.status}</div>`).join('') : 'No publishes yet.';
+    showModal(`<div class="modal-header"><h3>Publishing Log</h3><button class="btn modal-close">✕</button></div><div class="modal-body">${list}</div>`);
   }
 
-  // ────────────────────────────────────────
-  //  EVENT LISTENERS
-  // ────────────────────────────────────────
+  // ── event listeners ──
   document.getElementById('scanBtn').addEventListener('click', performScan);
   document.getElementById('clearBtn').addEventListener('click', ()=> location.reload());
   document.getElementById('searchInput').addEventListener('input', e => renderTable(e.target.value));
@@ -513,7 +470,6 @@
     const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nostr_kinds.json'; a.click();
   });
 
-  // Initial
   loadKindDB();
   updateAuthUI();
 })();
