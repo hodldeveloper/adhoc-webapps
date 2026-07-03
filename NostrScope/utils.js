@@ -101,7 +101,7 @@ class EventInvestigator {
     getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
 }
 
-// ── User Profile Investigator (extended with many event kinds) ─────
+// ── User Profile Investigator (extended timeout, robust) ─────
 class UserProfileInvestigator {
     constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
     async investigate(pubkey, hints = [], options = {}) {
@@ -118,19 +118,8 @@ class UserProfileInvestigator {
         const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
         pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
 
-        // All additional attribute events we support – nothing removed
         const extraKinds = [
-            8,      // Badge Award
-            30000,  // Follow Sets
-            30001,  // Bookmark Sets
-            30002,  // Relay Sets
-            30003,  // Bookmark Sets v2
-            30023,  // Long-form Content
-            30024,  // Draft Long-form Content
-            10000,  // Mute List
-            10001,  // Pin List
-            30040,  // Community Definition
-            30041,  // Community Approval
+            8, 30000, 30001, 30002, 30003, 30023, 30024, 10000, 10001, 30040, 30041
         ];
         const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
         pending.add(extraSub);
@@ -146,7 +135,7 @@ class UserProfileInvestigator {
 
         return new Promise((resolve) => {
             this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
-            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, CONFIG.profileInvestigationTimeout);
+            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 15000); // increased to 15s
         }).then(() => { hideLoading(); if (!options.silent) showToast('Profile loaded.', 'success'); });
     }
 }
