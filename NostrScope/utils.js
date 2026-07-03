@@ -1,15 +1,14 @@
-// ── Constants ────────────────────
+// ── Constants (moved to config.js) ──
+// The following constants are now accessed via CONFIG.relays, CONFIG.earlyStopThreshold, etc.
+// We keep local references for convenience but they are initialised from CONFIG.
+
 const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 const BECH32_ALPHABET_MAP = {};
 for (let i = 0; i < BECH32_ALPHABET.length; i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
 const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
 const HEX_CHARS = '0123456789abcdef';
-const DEFAULT_RELAYS = [
-    'wss://relay.damus.io', 'wss://relay.nostr.band', 'wss://nos.lol',
-    'wss://relay.primal.net', 'wss://purplepag.es', 'wss://relay.nostr.net',
-    'wss://bostr.fount.org', 'wss://relay.plebstr.com', 'wss://offchain.pub',
-    'wss://relay.snort.social'
-];
+
+// These constants are still defined here for backward compatibility, but we'll prefer CONFIG.
 const KNOWN_KINDS = {
     0: 'Profile Metadata', 1: 'Text Note', 2: 'Recommend Relay', 3: 'Follow List',
     4: 'Encrypted DM', 5: 'Deletion Request', 6: 'Repost', 7: 'Reaction',
@@ -25,7 +24,8 @@ const KNOWN_KINDS = {
 
 // ── State ─────────────────────────
 var allEvents = [], originalEvent = null, eventMap = new Map(), relayStats = new Map();
-var activeRelays = [...DEFAULT_RELAYS], investigationHexId = null;
+var activeRelays = [...CONFIG.relays];   // start with configured relays
+var investigationHexId = null;
 var threadCollapsed = new Set(), sortOrder = 'oldest-first';
 var relayManager = null, investigator = null, userProfileData = null;
 var currentUser = null;
@@ -67,18 +67,18 @@ function showError(msg) { if (errorMsg) { errorMsg.textContent = msg; errorMsg.c
 function hideError() { if (errorMsg) { errorMsg.textContent = ''; errorMsg.classList.remove('visible'); } }
 
 // ── Relay Manager ──────────────────
-class RelayManager { constructor(urls) { this.relayUrls = urls; this.connections = new Map(); this.subscriptions = new Map(); this.subIdCounter = 0; } getNextSubId() { return 'sub_' + ++this.subIdCounter; } async connectAll(ms = 8000) { await Promise.allSettled(this.relayUrls.map(u => this.connect(u, ms))); } async connect(url, ms = 8000) { if (this.connections.has(url)) { const ex = this.connections.get(url); if (ex.ws && ex.ws.readyState === WebSocket.OPEN) return ex.ws; } relayStats.set(url, { status: 'connecting', events: 0, errors: 0, responseTime: null, startTime: Date.now() }); return new Promise((res, rej) => { try { const ws = new WebSocket(url); const to = setTimeout(() => { ws.close(); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('timeout')); }, ms); ws.onopen = () => { clearTimeout(to); relayStats.set(url, { status: 'connected', events: 0, errors: 0, responseTime: Date.now() - (relayStats.get(url)?.startTime || Date.now()) }); this.connections.set(url, { ws, pendingSubs: new Set() }); res(ws); }; ws.onerror = () => { clearTimeout(to); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('error')); }; ws.onclose = () => { const cur = relayStats.get(url) || {}; if (cur.status === 'connecting') relayStats.set(url, { ...cur, status: 'failed', errors: 1 }); else if (cur.status === 'connected') relayStats.set(url, { ...cur, status: 'disconnected' }); this.connections.delete(url); }; ws.onmessage = m => this.handleMessage(url, m); } catch (e) { relayStats.set(url, { status: 'failed', events: 0, errors: 1, responseTime: null, startTime: Date.now() }); rej(e); } }); } handleMessage(url, msg) { try { const d = JSON.parse(msg.data); if (d[0] === 'EVENT' && d[1] && d[2]) { const s = relayStats.get(url) || { events: 0 }; s.events++; relayStats.set(url, s); if (this.onEvent) this.onEvent(d[2], url, d[1]); } if (d[0] === 'EOSE' && d[1] && this.onEOSE) this.onEOSE(d[1], url); if (d[0] === 'NOTICE') { const s = relayStats.get(url) || { errors: 0 }; s.errors++; relayStats.set(url, s); } } catch (e) {} } subscribe(filters, url = null) { const subId = this.getNextSubId(), msg = JSON.stringify(['REQ', subId, ...filters]); const targets = url ? [url] : this.relayUrls, pending = new Set(); for (const u of targets) { const c = this.connections.get(u); if (c && c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(msg); c.pendingSubs.add(subId); pending.add(u); } } this.subscriptions.set(subId, { filters, pendingSubs: pending, createdAt: Date.now() }); return subId; } closeSubscription(subId) { for (const [u, c] of this.connections) { if (c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(JSON.stringify(['CLOSE', subId])); c.pendingSubs.delete(subId); } } this.subscriptions.delete(subId); } closeAll() { for (const s of this.subscriptions.keys()) this.closeSubscription(s); for (const [u, c] of this.connections) if (c.ws) c.ws.close(); this.connections.clear(); this.subscriptions.clear(); } reconnect(url) { const c = this.connections.get(url); if (c && c.ws) try { c.ws.close(); } catch (e) {} this.connections.delete(url); return this.connect(url); } publish(event) { const msg = JSON.stringify(['EVENT', event]); for (const [url, conn] of this.connections) { if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg); } } }
+class RelayManager { constructor(urls) { this.relayUrls = urls; this.connections = new Map(); this.subscriptions = new Map(); this.subIdCounter = 0; } getNextSubId() { return 'sub_' + ++this.subIdCounter; } async connectAll(ms = CONFIG.relayConnectTimeout) { await Promise.allSettled(this.relayUrls.map(u => this.connect(u, ms))); } async connect(url, ms = CONFIG.relayConnectTimeout) { if (this.connections.has(url)) { const ex = this.connections.get(url); if (ex.ws && ex.ws.readyState === WebSocket.OPEN) return ex.ws; } relayStats.set(url, { status: 'connecting', events: 0, errors: 0, responseTime: null, startTime: Date.now() }); return new Promise((res, rej) => { try { const ws = new WebSocket(url); const to = setTimeout(() => { ws.close(); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('timeout')); }, ms); ws.onopen = () => { clearTimeout(to); relayStats.set(url, { status: 'connected', events: 0, errors: 0, responseTime: Date.now() - (relayStats.get(url)?.startTime || Date.now()) }); this.connections.set(url, { ws, pendingSubs: new Set() }); res(ws); }; ws.onerror = () => { clearTimeout(to); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('error')); }; ws.onclose = () => { const cur = relayStats.get(url) || {}; if (cur.status === 'connecting') relayStats.set(url, { ...cur, status: 'failed', errors: 1 }); else if (cur.status === 'connected') relayStats.set(url, { ...cur, status: 'disconnected' }); this.connections.delete(url); }; ws.onmessage = m => this.handleMessage(url, m); } catch (e) { relayStats.set(url, { status: 'failed', events: 0, errors: 1, responseTime: null, startTime: Date.now() }); rej(e); } }); } handleMessage(url, msg) { try { const d = JSON.parse(msg.data); if (d[0] === 'EVENT' && d[1] && d[2]) { const s = relayStats.get(url) || { events: 0 }; s.events++; relayStats.set(url, s); if (this.onEvent) this.onEvent(d[2], url, d[1]); } if (d[0] === 'EOSE' && d[1] && this.onEOSE) this.onEOSE(d[1], url); if (d[0] === 'NOTICE') { const s = relayStats.get(url) || { errors: 0 }; s.errors++; relayStats.set(url, s); } } catch (e) {} } subscribe(filters, url = null) { const subId = this.getNextSubId(), msg = JSON.stringify(['REQ', subId, ...filters]); const targets = url ? [url] : this.relayUrls, pending = new Set(); for (const u of targets) { const c = this.connections.get(u); if (c && c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(msg); c.pendingSubs.add(subId); pending.add(u); } } this.subscriptions.set(subId, { filters, pendingSubs: pending, createdAt: Date.now() }); return subId; } closeSubscription(subId) { for (const [u, c] of this.connections) { if (c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(JSON.stringify(['CLOSE', subId])); c.pendingSubs.delete(subId); } } this.subscriptions.delete(subId); } closeAll() { for (const s of this.subscriptions.keys()) this.closeSubscription(s); for (const [u, c] of this.connections) if (c.ws) c.ws.close(); this.connections.clear(); this.subscriptions.clear(); } reconnect(url) { const c = this.connections.get(url); if (c && c.ws) try { c.ws.close(); } catch (e) {} this.connections.delete(url); return this.connect(url); } publish(event) { const msg = JSON.stringify(['EVENT', event]); for (const [url, conn] of this.connections) { if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg); } } }
 
-// ── Event Investigator (optimized) ──
+// ── Event Investigator (uses CONFIG) ──
 class EventInvestigator {
-    constructor(rm) { this.rm = rm; this.events = []; this.eventMap = new Map(); this.originalEvent = null; this.hexId = null; this.pendingSubs = new Set(); this.allDone = false; this.onUpdate = null; this.onComplete = null; this.investigationDepth = 0; this.maxDepth = 4; this.earlyStopThreshold = 10; this.originalFound = false; }
+    constructor(rm) { this.rm = rm; this.events = []; this.eventMap = new Map(); this.originalEvent = null; this.hexId = null; this.pendingSubs = new Set(); this.allDone = false; this.onUpdate = null; this.onComplete = null; this.investigationDepth = 0; this.maxDepth = CONFIG.maxDepth; this.earlyStopThreshold = CONFIG.earlyStopThreshold; this.originalFound = false; }
     async investigate(hexId, hints = []) {
         this.hexId = hexId; this.events = []; this.eventMap.clear(); this.originalEvent = null; this.pendingSubs.clear(); this.allDone = false; this.investigationDepth = 0; this.originalFound = false;
         const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
         for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
         this.rm.onEvent = (ev, url, sub) => { this.addEvent(ev); if (this.onUpdate) this.onUpdate(this); if (this.originalFound && this.events.length >= this.earlyStopThreshold + 1) { this.stopEarly(); } };
         this.rm.onEOSE = (subId, url) => { const sub = this.rm.subscriptions.get(subId); if (sub) { sub.pendingSubs.delete(url); if (sub.pendingSubs.size === 0) { this.pendingSubs.delete(subId); this.rm.closeSubscription(subId); if (this.pendingSubs.size === 0) this.onAllEOSE(); } } };
-        showLoading('Connecting to relays...'); await this.rm.connectAll(8000);
+        showLoading('Connecting to relays...'); await this.rm.connectAll(CONFIG.relayConnectTimeout);
         const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
         if (connected === 0) { hideLoading(); showToast('No relays connected.', 'error'); if (this.onComplete) this.onComplete(this); return; }
         showLoading(`Fetching event from ${connected} relays...`);
@@ -89,7 +89,7 @@ class EventInvestigator {
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [9735], '#e': [hexId], limit: 100 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [9734], '#e': [hexId], limit: 100 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [5], '#e': [hexId], limit: 50 }]));
-        setTimeout(() => { if (this.pendingSubs.size > 0) { this.stopEarly(); } }, 8000);
+        setTimeout(() => { if (this.pendingSubs.size > 0) { this.stopEarly(); } }, CONFIG.investigationSafetyTimeout);
     }
     addEvent(ev) { if (this.eventMap.has(ev.id)) return; this.eventMap.set(ev.id, ev); this.events.push(ev); if (ev.id === this.hexId && !this.originalEvent) { this.originalEvent = ev; this.originalFound = true; } if (this.investigationDepth < this.maxDepth && ev.kind === 1) { const targets = this.extractReplyTargets(ev); for (const rid of targets) { if (!this.eventMap.has(rid) && rid !== this.hexId) { this.pendingSubs.add(this.rm.subscribe([{ ids: [rid] }])); this.pendingSubs.add(this.rm.subscribe([{ '#e': [rid], limit: 100 }])); this.investigationDepth++; } } } }
     extractReplyTargets(ev) { const t = []; if (ev.tags) for (const tag of ev.tags) if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) t.push(tag[1]); return t; }
@@ -106,13 +106,13 @@ class EventInvestigator {
     getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
 }
 
-// ── User Profile Investigator (extended with many event kinds) ─────
+// ── User Profile Investigator (uses CONFIG timeouts) ─────
 class UserProfileInvestigator {
     constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
     async investigate(pubkey, hints = [], options = {}) {
         const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
         for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-        showLoading('Connecting to relays...'); await this.rm.connectAll(10000);
+        showLoading('Connecting to relays...'); await this.rm.connectAll(CONFIG.relayConnectTimeout);
         const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
         if (connected === 0) { hideLoading(); if (!options.silent) showToast('No relays connected.', 'error'); return; }
         showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
@@ -123,19 +123,8 @@ class UserProfileInvestigator {
         const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
         pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
 
-        // Fetch a broad range of additional user attribute events
         const extraKinds = [
-            8,      // Badge Award
-            30000,  // Follow Sets
-            30001,  // Bookmark Sets
-            30002,  // Relay Sets
-            30003,  // Bookmark Sets v2
-            30023,  // Long-form Content
-            30024,  // Draft Long-form Content
-            10000,  // Mute List
-            10001,  // Pin List
-            30040,  // Community Definition
-            30041,  // Community Approval
+            8, 30000, 30001, 30002, 30003, 30023, 30024, 10000, 10001, 30040, 30041
         ];
         const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
         pending.add(extraSub);
@@ -151,7 +140,7 @@ class UserProfileInvestigator {
 
         return new Promise((resolve) => {
             this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
-            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000);
+            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, CONFIG.profileInvestigationTimeout);
         }).then(() => { hideLoading(); if (!options.silent) showToast('Profile loaded.', 'success'); });
     }
 }
