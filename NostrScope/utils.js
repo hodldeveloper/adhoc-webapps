@@ -1,14 +1,9 @@
-// ── Constants (moved to config.js) ──
-// The following constants are now accessed via CONFIG.relays, CONFIG.earlyStopThreshold, etc.
-// We keep local references for convenience but they are initialised from CONFIG.
-
+// ── Constants ────────────────────
 const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 const BECH32_ALPHABET_MAP = {};
 for (let i = 0; i < BECH32_ALPHABET.length; i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
 const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
 const HEX_CHARS = '0123456789abcdef';
-
-// These constants are still defined here for backward compatibility, but we'll prefer CONFIG.
 const KNOWN_KINDS = {
     0: 'Profile Metadata', 1: 'Text Note', 2: 'Recommend Relay', 3: 'Follow List',
     4: 'Encrypted DM', 5: 'Deletion Request', 6: 'Repost', 7: 'Reaction',
@@ -24,7 +19,7 @@ const KNOWN_KINDS = {
 
 // ── State ─────────────────────────
 var allEvents = [], originalEvent = null, eventMap = new Map(), relayStats = new Map();
-var activeRelays = [...CONFIG.relays];   // start with configured relays
+var activeRelays = [...CONFIG.relays];
 var investigationHexId = null;
 var threadCollapsed = new Set(), sortOrder = 'oldest-first';
 var relayManager = null, investigator = null, userProfileData = null;
@@ -106,7 +101,7 @@ class EventInvestigator {
     getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
 }
 
-// ── User Profile Investigator (uses CONFIG timeouts) ─────
+// ── User Profile Investigator (extended with many event kinds) ─────
 class UserProfileInvestigator {
     constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
     async investigate(pubkey, hints = [], options = {}) {
@@ -123,8 +118,19 @@ class UserProfileInvestigator {
         const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
         pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
 
+        // All additional attribute events we support – nothing removed
         const extraKinds = [
-            8, 30000, 30001, 30002, 30003, 30023, 30024, 10000, 10001, 30040, 30041
+            8,      // Badge Award
+            30000,  // Follow Sets
+            30001,  // Bookmark Sets
+            30002,  // Relay Sets
+            30003,  // Bookmark Sets v2
+            30023,  // Long-form Content
+            30024,  // Draft Long-form Content
+            10000,  // Mute List
+            10001,  // Pin List
+            30040,  // Community Definition
+            30041,  // Community Approval
         ];
         const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
         pending.add(extraSub);
