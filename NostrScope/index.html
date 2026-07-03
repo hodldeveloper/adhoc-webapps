@@ -4,68 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>NostrScope</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='50%25' y='56%25' font-size='34' text-anchor='middle' fill='%23facc15'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/nostr-tools@2.23.9/lib/nostr.bundle.js"></script>
 </head>
 <body>
     <div class="app-shell">
-        <!-- Home Screen -->
-        <div class="home-screen active" id="homeScreen">
-            <div class="home-header">
-                <div class="home-user-area">
-                    <span id="homeUserStatus" class="user-badge">Not logged in</span>
-                    <button id="homeLoginBtn" class="btn btn-sm btn-outline">🔑 Login</button>
-                    <button id="homeLogoutBtn" class="btn btn-sm btn-outline" style="display:none;">Logout</button>
-                    <button id="homeAccountBtn" class="btn btn-sm btn-secondary" style="display:none;">👤 My Account</button>
+        <!-- Feed Screen (main) -->
+        <div class="screen feed-screen active" id="feedScreen">
+            <div class="feed-header">
+                <div class="feed-brand">
+                    <div class="feed-brand-icon">🔍</div>
+                    <div class="feed-brand-text">
+                        <div class="feed-brand-title">Nostr<span>Scope</span></div>
+                        <div class="feed-brand-subtitle">BCH Feed</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button id="feedLoginBtn" class="btn btn-sm btn-outline" onclick="window.showLoginModal && window.showLoginModal()">🔑 Login</button>
+                    <button id="feedAccountBtn" class="btn btn-sm btn-outline" style="display:none;">👤</button>
+                    <button class="btn btn-icon" id="refreshFeedBtn">🔄</button>
                 </div>
             </div>
+            <div class="feed-content" id="feedContent"></div>
+        </div>
+
+        <!-- Search Screen -->
+        <div class="screen search-screen" id="searchScreen">
             <div class="home-logo-area">
                 <div class="home-icon">🔍</div>
                 <div class="home-title">Nostr<span>Scope</span></div>
                 <div class="home-subtitle">Explore any Nostr event or user</div>
             </div>
-            <div class="home-search-box">
-                <input type="text" class="search-input" id="homeSearchInput" placeholder="event / npub / note / URL" autocomplete="off">
-                <button class="btn btn-primary" id="homeAnalyzeBtn">Analyze</button>
-                <button class="btn btn-sm btn-outline" id="homeClearBtn" style="padding:6px 10px;">✕</button>
-            </div>
-            <div class="home-hint">
-                <span>Try: note1... · npub1... · nevent1...</span>
+            <div class="search-box">
+                <input type="text" class="search-input" id="searchInput" placeholder="event / npub / note / URL" autocomplete="off">
+                <button class="btn btn-primary" id="analyzeBtn">Analyze</button>
             </div>
             <div class="error-msg" id="errorMsg"></div>
+            <div class="home-hint">Try: note1... · npub1... · nevent1...</div>
         </div>
 
-        <!-- Results Screen -->
-        <div class="results-screen" id="resultsScreen">
-            <div class="results-header">
-                <span class="back-btn" id="resultsBackBtn">←</span>
-                <span class="results-title">NostrScope</span>
-                <div class="header-actions">
-                    <button id="resultsLoginBtn" class="btn btn-sm btn-outline">🔑</button>
-                    <button id="resultsAccountBtn" class="btn btn-sm btn-outline" style="display:none;">👤</button>
-                </div>
+        <!-- Profile Screen -->
+        <div class="screen profile-screen" id="profileScreen">
+            <div class="profile-content" id="profileContent"></div>
+        </div>
+
+        <!-- Analysis Screen (detail) -->
+        <div class="screen analysis-screen" id="analysisScreen">
+            <div class="analysis-header">
+                <span class="back-btn" id="analysisBackBtn">← Back</span>
+                <span class="analysis-title">Post Detail</span>
             </div>
-            <div class="tab-content" id="tabContent">
-                <div class="tab-panel active" id="panel-thread"></div>
-                <div class="tab-panel" id="panel-timeline"></div>
-                <div class="tab-panel" id="panel-stats"></div>
-                <div class="tab-panel" id="panel-json"></div>
-                <div class="tab-panel" id="panel-relays"></div>
-                <div class="tab-panel" id="panel-export"></div>
-                <div class="tab-panel" id="panel-bch"></div>
-                <div class="tab-panel" id="panel-profile"></div>
+            <div class="analysis-content" id="analysisContent">
+                <div id="panel-thread"></div>
+                <div id="panel-timeline"></div>
+                <div id="panel-stats"></div>
+                <div id="panel-json"></div>
+                <div id="panel-relays"></div>
+                <div id="panel-bch"></div>
+                <div id="panel-profile"></div>
             </div>
-            <div class="bottom-nav">
-                <button class="nav-btn active" data-tab="thread">🌳</button>
-                <button class="nav-btn" data-tab="timeline">⏱</button>
-                <button class="nav-btn" data-tab="stats">📊</button>
-                <button class="nav-btn" data-tab="json">{}</button>
-                <button class="nav-btn" data-tab="relays">🔗</button>
-                <button class="nav-btn" data-tab="bch">💸</button>
-            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <button class="nav-btn active" data-screen="feed">📰</button>
+            <button class="nav-btn" data-screen="search">🔍</button>
+            <button class="nav-btn" data-screen="profile">👤</button>
         </div>
     </div>
 
+    <!-- Loading overlay, toasts, modals -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
         <div class="loading-text" id="loadingText">Connecting...</div>
@@ -73,10 +82,12 @@
     <div class="toast-container" id="toastContainer"></div>
     <div id="modalContainer"></div>
 
-    <!-- Scripts in order -->
+    <!-- Scripts -->
     <script src="config.js"></script>
     <script src="utils.js"></script>
+    <script src="nav.js"></script>
     <script src="scripts.js"></script>
     <script src="boost.js"></script>
+    <script src="feed.js"></script>
 </body>
 </html>

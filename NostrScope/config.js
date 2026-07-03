@@ -11,10 +11,11 @@ const CONFIG = {
         'wss://relay.ditto.pub',
         'wss://relay.bchnostr.com'
     ],
-    earlyStopThreshold: 10,          // stop event investigation after this many events
-    maxDepth: 4,                     // max thread depth
+    earlyStopThreshold: 10,
+    maxDepth: 4,
     relayConnectTimeout: 8000,
-    profileInvestigationTimeout: 10000,
+    relayRetryCooldownMs: 30000,
+    profileInvestigationTimeout: 15000,
     quickProfileTimeout: 3000,
     investigationSafetyTimeout: 8000
 };

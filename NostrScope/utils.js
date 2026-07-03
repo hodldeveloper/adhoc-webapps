@@ -1,28 +1,58 @@
 // ── Constants ────────────────────
-const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+const BECH32_ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 const BECH32_ALPHABET_MAP = {};
-for (let i = 0; i < BECH32_ALPHABET.length; i++) BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
-const BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
-const HEX_CHARS = '0123456789abcdef';
+for (let i = 0; i < BECH32_ALPHABET.length; i++)
+  BECH32_ALPHABET_MAP[BECH32_ALPHABET[i]] = i;
+const BECH32_GENERATOR = [
+  0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3,
+];
+const HEX_CHARS = "0123456789abcdef";
 const KNOWN_KINDS = {
-    0: 'Profile Metadata', 1: 'Text Note', 2: 'Recommend Relay', 3: 'Follow List',
-    4: 'Encrypted DM', 5: 'Deletion Request', 6: 'Repost', 7: 'Reaction',
-    8: 'Badge Award', 16: 'Generic Repost', 40: 'Channel Creation',
-    41: 'Channel Metadata', 42: 'Channel Message', 43: 'Channel Hide Message',
-    44: 'Channel Mute User', 1984: 'Report', 3000: 'Follow Sets',
-    3001: 'Bookmark Sets', 3002: 'Relay Sets', 3003: 'Bookmark Sets v2',
-    9734: 'Zap Receipt', 9735: 'Zap Event', 10000: 'Mute List',
-    10001: 'Pin List', 10002: 'Relay List Metadata', 13194: 'Wallet Info',
-    22242: 'Auth Request', 23194: 'Wallet Request', 23195: 'Wallet Response',
-    27235: 'BCH Tip'
+  0: "Profile Metadata",
+  1: "Text Note",
+  2: "Recommend Relay",
+  3: "Follow List",
+  4: "Encrypted DM",
+  5: "Deletion Request",
+  6: "Repost",
+  7: "Reaction",
+  8: "Badge Award",
+  16: "Generic Repost",
+  40: "Channel Creation",
+  41: "Channel Metadata",
+  42: "Channel Message",
+  43: "Channel Hide Message",
+  44: "Channel Mute User",
+  1984: "Report",
+  3000: "Follow Sets",
+  3001: "Bookmark Sets",
+  3002: "Relay Sets",
+  3003: "Bookmark Sets v2",
+  9734: "Zap Receipt",
+  9735: "Zap Event",
+  10000: "Mute List",
+  10001: "Pin List",
+  10002: "Relay List Metadata",
+  13194: "Wallet Info",
+  22242: "Auth Request",
+  23194: "Wallet Request",
+  23195: "Wallet Response",
+  27235: "BCH Tip",
 };
 
 // ── State ─────────────────────────
-var allEvents = [], originalEvent = null, eventMap = new Map(), relayStats = new Map();
+var allEvents = [],
+  originalEvent = null,
+  eventMap = new Map(),
+  relayStats = new Map();
 var activeRelays = [...CONFIG.relays];
+var relayCooldowns = new Map();
 var investigationHexId = null;
-var threadCollapsed = new Set(), sortOrder = 'oldest-first';
-var relayManager = null, investigator = null, userProfileData = null;
+var threadCollapsed = new Set(),
+  sortOrder = "oldest-first";
+var relayManager = null,
+  investigator = null,
+  userProfileData = null;
 var currentUser = null;
 var scannedPubkey = null;
 
@@ -34,140 +64,946 @@ var homeLoginBtn, homeLogoutBtn, homeUserStatus, homeAccountBtn;
 var bottomNav;
 
 // ── Bech32 & Utilities ────────────
-function bech32Polymod(values) { let chk = 1; for (let i = 0; i < values.length; i++) { const top = chk >> 25; chk = ((chk & 0x1ffffff) << 5) ^ values[i]; for (let j = 0; j < 5; j++) if ((top >> j) & 1) chk ^= BECH32_GENERATOR[j]; } return chk; }
-function bech32HRPExpand(hrp) { const r = []; for (let i = 0; i < hrp.length; i++) r.push(hrp.charCodeAt(i) >> 5); r.push(0); for (let i = 0; i < hrp.length; i++) r.push(hrp.charCodeAt(i) & 31); return r; }
-function bech32Decode(str) { const sep = str.lastIndexOf('1'); if (sep < 1 || sep + 7 > str.length) return null; const hrp = str.substring(0, sep), data = str.substring(sep + 1), vals = []; for (let i = 0; i < data.length; i++) { if (!(data[i] in BECH32_ALPHABET_MAP)) return null; vals.push(BECH32_ALPHABET_MAP[data[i]]); } const comb = bech32HRPExpand(hrp).concat(vals); if (bech32Polymod(comb) !== 1) return null; const payload = vals.slice(0, -6), bytes = []; let bits = 0, accum = 0; for (let i = 0; i < payload.length; i++) { accum = (accum << 5) | payload[i]; bits += 5; while (bits >= 8) { bits -= 8; bytes.push((accum >> bits) & 0xff); } } if (bits >= 5 || accum & ((1 << bits) - 1)) return null; return { hrp, bytes }; }
-function bech32Encode(hrp, data) { const combined = bech32HRPExpand(hrp).concat(data); const polymod = bech32Polymod(combined) ^ 1; const checksum = []; for (let i = 0; i < 6; i++) checksum.push((polymod >> (5 * (5 - i))) & 31); return hrp + '1' + data.map(v => BECH32_ALPHABET[v]).join('') + checksum.map(v => BECH32_ALPHABET[v]).join(''); }
-function hexToBytes(hex) { const bytes = []; for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substring(i, i + 2), 16)); return bytes; }
-function bytesToHex(bytes) { let h = ''; for (let i = 0; i < bytes.length; i++) { h += HEX_CHARS[(bytes[i] >> 4) & 0xf]; h += HEX_CHARS[bytes[i] & 0xf]; } return h; }
-function isValidHex64(s) { return /^[0-9a-fA-F]{64}$/.test(s); }
-function npubFromHex(pubkeyHex) { const data = [0]; for (const b of hexToBytes(pubkeyHex)) data.push(b); return bech32Encode('npub', data); }
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
-function syntaxHighlight(json) { return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => { let c = 'json-number'; if (/^"/.test(m)) c = /:$/.test(m) ? 'json-key' : 'json-string'; else if (/true|false/.test(m)) c = 'json-boolean'; else if (/null/.test(m)) c = 'json-null'; return `<span class="${c}">${m}</span>`; }); }
-function downloadFile(content, filename, mime) { const b = new Blob([content], { type: mime }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+function bech32Polymod(values) {
+  let chk = 1;
+  for (let i = 0; i < values.length; i++) {
+    const top = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ values[i];
+    for (let j = 0; j < 5; j++) if ((top >> j) & 1) chk ^= BECH32_GENERATOR[j];
+  }
+  return chk;
+}
+function bech32HRPExpand(hrp) {
+  const r = [];
+  for (let i = 0; i < hrp.length; i++) r.push(hrp.charCodeAt(i) >> 5);
+  r.push(0);
+  for (let i = 0; i < hrp.length; i++) r.push(hrp.charCodeAt(i) & 31);
+  return r;
+}
+function bech32Decode(str) {
+  const sep = str.lastIndexOf("1");
+  if (sep < 1 || sep + 7 > str.length) return null;
+  const hrp = str.substring(0, sep),
+    data = str.substring(sep + 1),
+    vals = [];
+  for (let i = 0; i < data.length; i++) {
+    if (!(data[i] in BECH32_ALPHABET_MAP)) return null;
+    vals.push(BECH32_ALPHABET_MAP[data[i]]);
+  }
+  const comb = bech32HRPExpand(hrp).concat(vals);
+  if (bech32Polymod(comb) !== 1) return null;
+  const payload = vals.slice(0, -6),
+    bytes = [];
+  let bits = 0,
+    accum = 0;
+  for (let i = 0; i < payload.length; i++) {
+    accum = (accum << 5) | payload[i];
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      bytes.push((accum >> bits) & 0xff);
+    }
+  }
+  if (bits >= 5 || accum & ((1 << bits) - 1)) return null;
+  return { hrp, bytes };
+}
+function bech32Encode(hrp, data) {
+  const combined = bech32HRPExpand(hrp).concat(data);
+  const polymod = bech32Polymod(combined) ^ 1;
+  const checksum = [];
+  for (let i = 0; i < 6; i++) checksum.push((polymod >> (5 * (5 - i))) & 31);
+  return (
+    hrp +
+    "1" +
+    data.map((v) => BECH32_ALPHABET[v]).join("") +
+    checksum.map((v) => BECH32_ALPHABET[v]).join("")
+  );
+}
+function hexToBytes(hex) {
+  const bytes = [];
+  for (let i = 0; i < hex.length; i += 2)
+    bytes.push(parseInt(hex.substring(i, i + 2), 16));
+  return bytes;
+}
+function bytesToHex(bytes) {
+  let h = "";
+  for (let i = 0; i < bytes.length; i++) {
+    h += HEX_CHARS[(bytes[i] >> 4) & 0xf];
+    h += HEX_CHARS[bytes[i] & 0xf];
+  }
+  return h;
+}
+function ensureHexKey(key) {
+  // If key is already a valid 64-char hex string, return it.
+  if (typeof key === "string" && /^[0-9a-fA-F]{64}$/.test(key)) return key;
+  // If key is an array of bytes (e.g., from legacy storage), convert to hex.
+  if (Array.isArray(key) && key.length === 32) {
+    return bytesToHex(key);
+  }
+  // If key is an array-like string (comma separated numbers), parse and convert.
+  if (typeof key === "string" && key.includes(",")) {
+    const nums = key.split(",").map(Number);
+    if (
+      nums.length === 32 &&
+      nums.every((n) => !isNaN(n) && n >= 0 && n < 256)
+    ) {
+      return bytesToHex(nums);
+    }
+  }
+  return null; // Invalid
+}
+function getPrivateKeyVariants(privateKeyHex) {
+  const hex = ensureHexKey(privateKeyHex);
+  if (!hex) return [];
+  const bytes = Uint8Array.from(hexToBytes(hex));
+  return [hex, bytes, Array.from(bytes)];
+}
+function derivePublicKeyFromPrivateKey(privateKeyHex) {
+  const variants = getPrivateKeyVariants(privateKeyHex);
+  if (!variants.length || typeof NostrTools === "undefined") return null;
+  for (const v of variants) {
+    try {
+      const pub = NostrTools.getPublicKey(v);
+      if (isValidHex64(pub)) return pub.toLowerCase();
+    } catch (e) {}
+  }
+  return null;
+}
+function isValidHex64(s) {
+  return /^[0-9a-fA-F]{64}$/.test(s);
+}
+function npubFromHex(pubkeyHex) {
+  const data = [0];
+  for (const b of hexToBytes(pubkeyHex)) data.push(b);
+  return bech32Encode("npub", data);
+}
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+function syntaxHighlight(json) {
+  return json
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(
+      /("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      (m) => {
+        let c = "json-number";
+        if (/^"/.test(m)) c = /:$/.test(m) ? "json-key" : "json-string";
+        else if (/true|false/.test(m)) c = "json-boolean";
+        else if (/null/.test(m)) c = "json-null";
+        return `<span class="${c}">${m}</span>`;
+      },
+    );
+}
+function downloadFile(content, filename, mime) {
+  const b = new Blob([content], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function getRelayRetryCooldownMs() {
+  return CONFIG.relayRetryCooldownMs || 30000;
+}
+
+function markRelayCooldown(url) {
+  relayCooldowns.set(url, Date.now() + getRelayRetryCooldownMs());
+}
+
+function clearRelayCooldown(url) {
+  relayCooldowns.delete(url);
+}
+
+function isRelayInCooldown(url) {
+  const until = relayCooldowns.get(url);
+  if (!until) return false;
+  if (Date.now() >= until) {
+    relayCooldowns.delete(url);
+    return false;
+  }
+  return true;
+}
+
+window.isRelayInCooldown = isRelayInCooldown;
 
 // ── Input Parser ──────────────────
-function parseInput(input) { const t = input.trim(); if (!t) return { error: 'Please enter an event or user identifier.' }; if (isValidHex64(t)) return { hexId: t.toLowerCase(), source: 'hex' }; if (t.startsWith('note1')) { const h = decodeNote1(t); if (h) return { hexId: h, source: 'note1' }; return { error: 'Invalid note1 identifier.' }; } if (t.startsWith('nevent1')) { const r = decodeNevent1(t); if (r && r.eventId) return { hexId: r.eventId, source: 'nevent1', relayHints: r.relayHints || [] }; return { error: 'Invalid nevent1 identifier.' }; } if (t.startsWith('npub1')) { const pubkey = decodeNpub(t); if (pubkey) return { pubkey, source: 'npub' }; return { error: 'Invalid npub identifier.' }; } if (t.startsWith('nprofile1')) { const r = decodeNprofile(t); if (r && r.pubkey) return { pubkey: r.pubkey, source: 'nprofile', relayHints: r.relayHints || [] }; return { error: 'Invalid nprofile identifier.' }; } const nostrUri = t.match(/^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nprofile1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i); if (nostrUri) return parseInput(nostrUri[1]); let m; m = t.match(/https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i); if (m) return parseInput(m[1]); m = t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i); if (m) return parseInput(m[1]); return { error: 'Unable to parse input.' }; }
-function decodeNote1(s) { const d = bech32Decode(s); if (!d || d.hrp !== 'note' || d.bytes.length !== 32) return null; return bytesToHex(d.bytes); }
-function decodeNpub(s) { const d = bech32Decode(s); if (!d || d.hrp !== 'npub' || d.bytes.length !== 32) return null; return bytesToHex(d.bytes); }
-function decodeNprofile(s) { const d = bech32Decode(s); if (!d || d.hrp !== 'nprofile' || d.bytes.length < 32) return null; const pubkey = bytesToHex(d.bytes.slice(0, 32)); const tlvs = []; let idx = 32; while (idx < d.bytes.length) { if (idx + 2 > d.bytes.length) break; const t = d.bytes[idx], l = d.bytes[idx + 1]; idx += 2; if (idx + l > d.bytes.length) break; tlvs.push({ type: t, value: d.bytes.slice(idx, idx + l) }); idx += l; } const hints = tlvs.filter(t => t.type === 1 || t.type === 2).map(t => new TextDecoder().decode(new Uint8Array(t.value))); return { pubkey, relayHints: hints }; }
-function decodeNevent1(s) { const d = bech32Decode(s); if (!d || d.hrp !== 'nevent' || d.bytes.length < 32) return null; const eid = bytesToHex(d.bytes.slice(0, 32)); const tlvs = []; let idx = 32; while (idx < d.bytes.length) { if (idx + 2 > d.bytes.length) break; const t = d.bytes[idx], l = d.bytes[idx + 1]; idx += 2; if (idx + l > d.bytes.length) break; tlvs.push({ type: t, value: d.bytes.slice(idx, idx + l) }); idx += l; } const hints = tlvs.filter(t => t.type === 1 || t.type === 2).map(t => new TextDecoder().decode(new Uint8Array(t.value))); return { eventId: eid, relayHints: hints }; }
+function parseInput(input) {
+  const t = input.trim();
+  if (!t) return { error: "Please enter an event or user identifier." };
+  if (isValidHex64(t)) return { hexId: t.toLowerCase(), source: "hex" };
+  if (t.startsWith("note1")) {
+    const h = decodeNote1(t);
+    if (h) return { hexId: h, source: "note1" };
+    return { error: "Invalid note1 identifier." };
+  }
+  if (t.startsWith("nevent1")) {
+    const r = decodeNevent1(t);
+    if (r && r.eventId)
+      return {
+        hexId: r.eventId,
+        source: "nevent1",
+        relayHints: r.relayHints || [],
+      };
+    return { error: "Invalid nevent1 identifier." };
+  }
+  if (t.startsWith("npub1")) {
+    const pubkey = decodeNpub(t);
+    if (pubkey) return { pubkey, source: "npub" };
+    return { error: "Invalid npub identifier." };
+  }
+  if (t.startsWith("nprofile1")) {
+    const r = decodeNprofile(t);
+    if (r && r.pubkey)
+      return {
+        pubkey: r.pubkey,
+        source: "nprofile",
+        relayHints: r.relayHints || [],
+      };
+    return { error: "Invalid nprofile identifier." };
+  }
+  const nostrUri = t.match(
+    /^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nprofile1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i,
+  );
+  if (nostrUri) return parseInput(nostrUri[1]);
+  let m;
+  m = t.match(
+    /https?:\/\/njump\.me\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/coracle\.social\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/iris\.to\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/damus\.io\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(
+    /https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i,
+  );
+  if (m) return parseInput(m[1]);
+  m = t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i);
+  if (m) return parseInput(m[1]);
+  return { error: "Unable to parse input." };
+}
+function decodeNote1(s) {
+  const d = bech32Decode(s);
+  if (!d || d.hrp !== "note" || d.bytes.length !== 32) return null;
+  return bytesToHex(d.bytes);
+}
+function decodeNpub(s) {
+  const d = bech32Decode(s);
+  if (!d || d.hrp !== "npub" || d.bytes.length !== 32) return null;
+  return bytesToHex(d.bytes);
+}
+function decodeNprofile(s) {
+  const d = bech32Decode(s);
+  if (!d || d.hrp !== "nprofile" || d.bytes.length < 32) return null;
+  const pubkey = bytesToHex(d.bytes.slice(0, 32));
+  const tlvs = [];
+  let idx = 32;
+  while (idx < d.bytes.length) {
+    if (idx + 2 > d.bytes.length) break;
+    const t = d.bytes[idx],
+      l = d.bytes[idx + 1];
+    idx += 2;
+    if (idx + l > d.bytes.length) break;
+    tlvs.push({ type: t, value: d.bytes.slice(idx, idx + l) });
+    idx += l;
+  }
+  const hints = tlvs
+    .filter((t) => t.type === 1 || t.type === 2)
+    .map((t) => new TextDecoder().decode(new Uint8Array(t.value)));
+  return { pubkey, relayHints: hints };
+}
+function decodeNevent1(s) {
+  const d = bech32Decode(s);
+  if (!d || d.hrp !== "nevent" || d.bytes.length < 32) return null;
+  const eid = bytesToHex(d.bytes.slice(0, 32));
+  const tlvs = [];
+  let idx = 32;
+  while (idx < d.bytes.length) {
+    if (idx + 2 > d.bytes.length) break;
+    const t = d.bytes[idx],
+      l = d.bytes[idx + 1];
+    idx += 2;
+    if (idx + l > d.bytes.length) break;
+    tlvs.push({ type: t, value: d.bytes.slice(idx, idx + l) });
+    idx += l;
+  }
+  const hints = tlvs
+    .filter((t) => t.type === 1 || t.type === 2)
+    .map((t) => new TextDecoder().decode(new Uint8Array(t.value)));
+  return { eventId: eid, relayHints: hints };
+}
 
 // ── Toast / Loading ────────────────
-function showToast(msg, type = 'info') { if (!toastContainer) return; const t = document.createElement('div'); t.className = `toast toast-${type}`; t.textContent = msg; toastContainer.appendChild(t); setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500); }
+function showToast(msg, type = "info") {
+  if (!toastContainer) return;
+  const t = document.createElement("div");
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  toastContainer.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = "0";
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
 window.showToast = showToast;
-function showLoading(text) { if (loadingText) loadingText.textContent = text; if (loadingOverlay) loadingOverlay.classList.add('active'); }
-function hideLoading() { if (loadingOverlay) loadingOverlay.classList.remove('active'); }
-function showError(msg) { if (errorMsg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); } }
-function hideError() { if (errorMsg) { errorMsg.textContent = ''; errorMsg.classList.remove('visible'); } }
+function showLoading(text) {
+  if (loadingText) loadingText.textContent = text;
+  if (loadingOverlay) loadingOverlay.classList.add("active");
+}
+function hideLoading() {
+  if (loadingOverlay) loadingOverlay.classList.remove("active");
+}
+function showError(msg) {
+  if (errorMsg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add("visible");
+  }
+}
+function hideError() {
+  if (errorMsg) {
+    errorMsg.textContent = "";
+    errorMsg.classList.remove("visible");
+  }
+}
 
 // ── Relay Manager ──────────────────
-class RelayManager { constructor(urls) { this.relayUrls = urls; this.connections = new Map(); this.subscriptions = new Map(); this.subIdCounter = 0; } getNextSubId() { return 'sub_' + ++this.subIdCounter; } async connectAll(ms = CONFIG.relayConnectTimeout) { await Promise.allSettled(this.relayUrls.map(u => this.connect(u, ms))); } async connect(url, ms = CONFIG.relayConnectTimeout) { if (this.connections.has(url)) { const ex = this.connections.get(url); if (ex.ws && ex.ws.readyState === WebSocket.OPEN) return ex.ws; } relayStats.set(url, { status: 'connecting', events: 0, errors: 0, responseTime: null, startTime: Date.now() }); return new Promise((res, rej) => { try { const ws = new WebSocket(url); const to = setTimeout(() => { ws.close(); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('timeout')); }, ms); ws.onopen = () => { clearTimeout(to); relayStats.set(url, { status: 'connected', events: 0, errors: 0, responseTime: Date.now() - (relayStats.get(url)?.startTime || Date.now()) }); this.connections.set(url, { ws, pendingSubs: new Set() }); res(ws); }; ws.onerror = () => { clearTimeout(to); relayStats.set(url, { status: 'failed', errors: 1 }); rej(new Error('error')); }; ws.onclose = () => { const cur = relayStats.get(url) || {}; if (cur.status === 'connecting') relayStats.set(url, { ...cur, status: 'failed', errors: 1 }); else if (cur.status === 'connected') relayStats.set(url, { ...cur, status: 'disconnected' }); this.connections.delete(url); }; ws.onmessage = m => this.handleMessage(url, m); } catch (e) { relayStats.set(url, { status: 'failed', events: 0, errors: 1, responseTime: null, startTime: Date.now() }); rej(e); } }); } handleMessage(url, msg) { try { const d = JSON.parse(msg.data); if (d[0] === 'EVENT' && d[1] && d[2]) { const s = relayStats.get(url) || { events: 0 }; s.events++; relayStats.set(url, s); if (this.onEvent) this.onEvent(d[2], url, d[1]); } if (d[0] === 'EOSE' && d[1] && this.onEOSE) this.onEOSE(d[1], url); if (d[0] === 'NOTICE') { const s = relayStats.get(url) || { errors: 0 }; s.errors++; relayStats.set(url, s); } } catch (e) {} } subscribe(filters, url = null) { const subId = this.getNextSubId(), msg = JSON.stringify(['REQ', subId, ...filters]); const targets = url ? [url] : this.relayUrls, pending = new Set(); for (const u of targets) { const c = this.connections.get(u); if (c && c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(msg); c.pendingSubs.add(subId); pending.add(u); } } this.subscriptions.set(subId, { filters, pendingSubs: pending, createdAt: Date.now() }); return subId; } closeSubscription(subId) { for (const [u, c] of this.connections) { if (c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.send(JSON.stringify(['CLOSE', subId])); c.pendingSubs.delete(subId); } } this.subscriptions.delete(subId); } closeAll() { for (const s of this.subscriptions.keys()) this.closeSubscription(s); for (const [u, c] of this.connections) if (c.ws) c.ws.close(); this.connections.clear(); this.subscriptions.clear(); } reconnect(url) { const c = this.connections.get(url); if (c && c.ws) try { c.ws.close(); } catch (e) {} this.connections.delete(url); return this.connect(url); } publish(event) { const msg = JSON.stringify(['EVENT', event]); for (const [url, conn] of this.connections) { if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg); } } }
+class RelayManager {
+  constructor(urls) {
+    this.relayUrls = urls;
+    this.connections = new Map();
+    this.subscriptions = new Map();
+    this.subIdCounter = 0;
+  }
+  getNextSubId() {
+    return "sub_" + ++this.subIdCounter;
+  }
+  async connectAll(ms = CONFIG.relayConnectTimeout) {
+    await Promise.allSettled(this.relayUrls.map((u) => this.connect(u, ms)));
+  }
+  async connect(url, ms = CONFIG.relayConnectTimeout) {
+    if (this.connections.has(url)) {
+      const ex = this.connections.get(url);
+      if (ex.ws && ex.ws.readyState === WebSocket.OPEN) return ex.ws;
+    }
+    if (isRelayInCooldown(url)) {
+      relayStats.set(url, {
+        status: "failed",
+        events: 0,
+        errors: 1,
+        responseTime: null,
+        startTime: Date.now(),
+      });
+      throw new Error("cooldown");
+    }
+    relayStats.set(url, {
+      status: "connecting",
+      events: 0,
+      errors: 0,
+      responseTime: null,
+      startTime: Date.now(),
+    });
+    return new Promise((res, rej) => {
+      try {
+        const ws = new WebSocket(url);
+        let settled = false;
+        const fail = (reason) => {
+          if (settled) return;
+          settled = true;
+          markRelayCooldown(url);
+          relayStats.set(url, { status: "failed", errors: 1 });
+          rej(new Error(reason));
+        };
+        const to = setTimeout(() => {
+          if (ws.readyState === WebSocket.CONNECTING) {
+            ws.close();
+          }
+          fail("timeout");
+        }, ms);
+        ws.onopen = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(to);
+          clearRelayCooldown(url);
+          relayStats.set(url, {
+            status: "connected",
+            events: 0,
+            errors: 0,
+            responseTime:
+              Date.now() - (relayStats.get(url)?.startTime || Date.now()),
+          });
+          this.connections.set(url, { ws, pendingSubs: new Set() });
+          res(ws);
+        };
+        ws.onerror = () => {
+          clearTimeout(to);
+          fail("error");
+        };
+        ws.onclose = () => {
+          if (!settled) {
+            clearTimeout(to);
+            fail("closed");
+            return;
+          }
+          const cur = relayStats.get(url) || {};
+          if (cur.status === "connecting")
+            relayStats.set(url, { ...cur, status: "failed", errors: 1 });
+          else if (cur.status === "connected")
+            relayStats.set(url, { ...cur, status: "disconnected" });
+          this.connections.delete(url);
+        };
+        ws.onmessage = (m) => this.handleMessage(url, m);
+      } catch (e) {
+        relayStats.set(url, {
+          status: "failed",
+          events: 0,
+          errors: 1,
+          responseTime: null,
+          startTime: Date.now(),
+        });
+        rej(e);
+      }
+    });
+  }
+  handleMessage(url, msg) {
+    try {
+      const d = JSON.parse(msg.data);
+      if (d[0] === "EVENT" && d[1] && d[2]) {
+        const s = relayStats.get(url) || { events: 0 };
+        s.events++;
+        relayStats.set(url, s);
+        if (this.onEvent) this.onEvent(d[2], url, d[1]);
+      }
+      if (d[0] === "EOSE" && d[1] && this.onEOSE) this.onEOSE(d[1], url);
+      if (d[0] === "NOTICE") {
+        const s = relayStats.get(url) || { errors: 0 };
+        s.errors++;
+        relayStats.set(url, s);
+      }
+    } catch (e) {}
+  }
+  subscribe(filters, url = null) {
+    const subId = this.getNextSubId(),
+      msg = JSON.stringify(["REQ", subId, ...filters]);
+    const targets = url ? [url] : this.relayUrls,
+      pending = new Set();
+    for (const u of targets) {
+      const c = this.connections.get(u);
+      if (c && c.ws && c.ws.readyState === WebSocket.OPEN) {
+        c.ws.send(msg);
+        c.pendingSubs.add(subId);
+        pending.add(u);
+      }
+    }
+    this.subscriptions.set(subId, {
+      filters,
+      pendingSubs: pending,
+      createdAt: Date.now(),
+    });
+    return subId;
+  }
+  closeSubscription(subId) {
+    for (const [u, c] of this.connections) {
+      if (c.ws && c.ws.readyState === WebSocket.OPEN) {
+        c.ws.send(JSON.stringify(["CLOSE", subId]));
+        c.pendingSubs.delete(subId);
+      }
+    }
+    this.subscriptions.delete(subId);
+  }
+  closeAll() {
+    for (const s of this.subscriptions.keys()) this.closeSubscription(s);
+    for (const [u, c] of this.connections) if (c.ws) c.ws.close();
+    this.connections.clear();
+    this.subscriptions.clear();
+  }
+  reconnect(url) {
+    const c = this.connections.get(url);
+    if (c && c.ws)
+      try {
+        c.ws.close();
+      } catch (e) {}
+    this.connections.delete(url);
+    return this.connect(url);
+  }
+  publish(event) {
+    const msg = JSON.stringify(["EVENT", event]);
+    for (const [url, conn] of this.connections) {
+      if (conn.ws && conn.ws.readyState === WebSocket.OPEN) conn.ws.send(msg);
+    }
+  }
+}
 
 // ── Event Investigator (uses CONFIG) ──
 class EventInvestigator {
-    constructor(rm) { this.rm = rm; this.events = []; this.eventMap = new Map(); this.originalEvent = null; this.hexId = null; this.pendingSubs = new Set(); this.allDone = false; this.onUpdate = null; this.onComplete = null; this.investigationDepth = 0; this.maxDepth = CONFIG.maxDepth; this.earlyStopThreshold = CONFIG.earlyStopThreshold; this.originalFound = false; }
-    async investigate(hexId, hints = []) {
-        this.hexId = hexId; this.events = []; this.eventMap.clear(); this.originalEvent = null; this.pendingSubs.clear(); this.allDone = false; this.investigationDepth = 0; this.originalFound = false;
-        const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
-        for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-        this.rm.onEvent = (ev, url, sub) => { this.addEvent(ev); if (this.onUpdate) this.onUpdate(this); if (this.originalFound && this.events.length >= this.earlyStopThreshold + 1) { this.stopEarly(); } };
-        this.rm.onEOSE = (subId, url) => { const sub = this.rm.subscriptions.get(subId); if (sub) { sub.pendingSubs.delete(url); if (sub.pendingSubs.size === 0) { this.pendingSubs.delete(subId); this.rm.closeSubscription(subId); if (this.pendingSubs.size === 0) this.onAllEOSE(); } } };
-        showLoading('Connecting to relays...'); await this.rm.connectAll(CONFIG.relayConnectTimeout);
-        const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-        if (connected === 0) { hideLoading(); showToast('No relays connected.', 'error'); if (this.onComplete) this.onComplete(this); return; }
-        showLoading(`Fetching event from ${connected} relays...`);
-        this.pendingSubs.add(this.rm.subscribe([{ ids: [hexId] }]));
-        this.pendingSubs.add(this.rm.subscribe([{ '#e': [hexId], limit: 200 }]));
-        this.pendingSubs.add(this.rm.subscribe([{ kinds: [6], '#e': [hexId], limit: 100 }]));
-        this.pendingSubs.add(this.rm.subscribe([{ kinds: [7], '#e': [hexId], limit: 200 }]));
-        this.pendingSubs.add(this.rm.subscribe([{ kinds: [9735], '#e': [hexId], limit: 100 }]));
-        this.pendingSubs.add(this.rm.subscribe([{ kinds: [9734], '#e': [hexId], limit: 100 }]));
-        this.pendingSubs.add(this.rm.subscribe([{ kinds: [5], '#e': [hexId], limit: 50 }]));
-        setTimeout(() => { if (this.pendingSubs.size > 0) { this.stopEarly(); } }, CONFIG.investigationSafetyTimeout);
-    }
-    addEvent(ev) { if (this.eventMap.has(ev.id)) return; this.eventMap.set(ev.id, ev); this.events.push(ev); if (ev.id === this.hexId && !this.originalEvent) { this.originalEvent = ev; this.originalFound = true; } if (this.investigationDepth < this.maxDepth && ev.kind === 1) { const targets = this.extractReplyTargets(ev); for (const rid of targets) { if (!this.eventMap.has(rid) && rid !== this.hexId) { this.pendingSubs.add(this.rm.subscribe([{ ids: [rid] }])); this.pendingSubs.add(this.rm.subscribe([{ '#e': [rid], limit: 100 }])); this.investigationDepth++; } } } }
-    extractReplyTargets(ev) { const t = []; if (ev.tags) for (const tag of ev.tags) if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) t.push(tag[1]); return t; }
-    stopEarly() { if (this.allDone) return; for (const sid of this.pendingSubs) { this.rm.closeSubscription(sid); } this.pendingSubs.clear(); this.onAllEOSE(); }
-    onAllEOSE() { if (this.allDone) return; this.allDone = true; hideLoading(); const msg = this.originalEvent ? `Investigation complete: ${this.events.length} events found.` : (this.events.length > 0 ? `Original not found, but ${this.events.length} related events.` : 'No events found.'); showToast(msg, this.originalEvent ? 'success' : 'info'); if (this.onComplete) this.onComplete(this); }
-    getThreadTree() { if (!this.hexId) return null; const root = this.eventMap.get(this.hexId) || this.originalEvent; if (!root && this.events.length === 0) return null; const children = new Map(); for (const e of this.events) { if (e.id === this.hexId) continue; const pids = this.getParentIds(e); for (const pid of pids) { if (!children.has(pid)) children.set(pid, []); if (!children.get(pid).find(x => x.id === e.id)) children.get(pid).push(e); } } for (const [pid, c] of children) c.sort((a, b) => (a.created_at || 0) - (b.created_at || 0)); return { rootId: this.hexId, rootEvent: root, childrenMap: children }; }
-    getParentIds(ev) { const ids = []; if (ev.tags) { const eTags = ev.tags.filter(t => t[0] === 'e' && t[1] && isValidHex64(t[1])); if (eTags.length > 0) { const reply = eTags.find(t => t[3] === 'reply'), root = eTags.find(t => t[3] === 'root'); if (reply) ids.push(reply[1]); else if (eTags.length === 1) ids.push(eTags[0][1]); else if (eTags.length >= 2) ids.push(eTags[eTags.length - 1][1]); if (root && root[1] !== ids[0]) ids.push(root[1]); } } if (ids.length === 0 && this.hexId && ev.content && ev.content.includes(this.hexId)) ids.push(this.hexId); return [...new Set(ids)]; }
-    getEventsByKind(k) { return this.events.filter(e => e.kind === k); }
-    getUnknownEvents() { return this.events.filter(e => !KNOWN_KINDS[e.kind]); }
-    getUniqueAuthors() { return new Set(this.events.map(e => e.pubkey)).size; }
-    getMediaCounts() { let im = 0, vi = 0, at = 0; for (const e of this.events) { if (e.tags) for (const t of e.tags) if (t[0] === 'imeta') { const u = t.find(x => x.startsWith('url ')); if (u) { const url = u.split(' ')[1] || ''; if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) im++; else if (/\.(mp4|mov|webm|avi)/i.test(url)) vi++; else at++; } } if (e.content) { const m = e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi); if (m) im += m.length; const v = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi); if (v) vi += v.length; } } return { images: im, videos: vi, attachments: at }; }
-    getHashtags() { const s = new Set(); for (const e of this.events) { if (e.tags) for (const t of e.tags) if (t[0] === 't' && t[1]) s.add(t[1].toLowerCase()); if (e.content) { const m = e.content.match(/#(\w+)/g); if (m) m.forEach(x => s.add(x.slice(1).toLowerCase())); } } return s.size; }
-    getLinks() { let c = 0; for (const e of this.events) { if (e.content) { const m = e.content.match(/https?:\/\/[^\s]+/g); if (m) c += m.length; } } return c; }
-    getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
-}
-
-// ── User Profile Investigator (extended timeout, robust) ─────
-class UserProfileInvestigator {
-    constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
-    async investigate(pubkey, hints = [], options = {}) {
-        const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
-        for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-        showLoading('Connecting to relays...'); await this.rm.connectAll(CONFIG.relayConnectTimeout);
-        const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-        if (connected === 0) { hideLoading(); if (!options.silent) showToast('No relays connected.', 'error'); return; }
-        showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
-        this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = [];
-        const pending = new Set();
-        const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
-        const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
-        const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
-        pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
-
-        const extraKinds = [
-            8, 30000, 30001, 30002, 30003, 30023, 30024, 10000, 10001, 30040, 30041
-        ];
-        const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
-        pending.add(extraSub);
-
-        this.rm.onEvent = (ev) => {
-            if (ev.pubkey === pubkey) {
-                if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; }
-                else if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
-                else if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
-                else if (extraKinds.includes(ev.kind)) { this.otherEvents.push(ev); }
-            }
-        };
-
-        return new Promise((resolve) => {
-            this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
-            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 15000); // increased to 15s
-        }).then(() => { hideLoading(); if (!options.silent) showToast('Profile loaded.', 'success'); });
-    }
-}
-
-// ── Login Persistence ──────────────
-function saveLogin(privateKey) {
-    localStorage.setItem('nostrscope_privkey', privateKey);
-    localStorage.setItem('nostrscope_loggedIn', 'true');
-    console.log('🔑 Private key saved to localStorage.');
-}
-function loadLogin() {
-    const saved = localStorage.getItem('nostrscope_privkey');
-    if (saved && typeof NostrTools !== 'undefined') {
-        try {
-            const privateKey = saved;
-            const publicKey = NostrTools.getPublicKey(privateKey);
-            currentUser = { privateKey, publicKey };
-            console.log('🔓 Session restored from localStorage.');
-            return true;
-        } catch (e) {
-            console.error('Error restoring session:', e);
-            localStorage.removeItem('nostrscope_privkey');
-            localStorage.removeItem('nostrscope_loggedIn');
+  constructor(rm) {
+    this.rm = rm;
+    this.events = [];
+    this.eventMap = new Map();
+    this.originalEvent = null;
+    this.hexId = null;
+    this.pendingSubs = new Set();
+    this.allDone = false;
+    this.onUpdate = null;
+    this.onComplete = null;
+    this.investigationDepth = 0;
+    this.maxDepth = CONFIG.maxDepth;
+    this.earlyStopThreshold = CONFIG.earlyStopThreshold;
+    this.originalFound = false;
+  }
+  async investigate(hexId, hints = []) {
+    this.hexId = hexId;
+    this.events = [];
+    this.eventMap.clear();
+    this.originalEvent = null;
+    this.pendingSubs.clear();
+    this.allDone = false;
+    this.investigationDepth = 0;
+    this.originalFound = false;
+    const allRelays = [...new Set([...activeRelays, ...hints])];
+    this.rm.relayUrls = allRelays;
+    this.rm.connections.clear();
+    this.rm.subscriptions.clear();
+    relayStats.clear();
+    for (const u of allRelays)
+      relayStats.set(u, {
+        status: "pending",
+        events: 0,
+        errors: 0,
+        responseTime: null,
+        startTime: Date.now(),
+      });
+    this.rm.onEvent = (ev, url, sub) => {
+      this.addEvent(ev);
+      if (this.onUpdate) this.onUpdate(this);
+      if (
+        this.originalFound &&
+        this.events.length >= this.earlyStopThreshold + 1
+      ) {
+        this.stopEarly();
+      }
+    };
+    this.rm.onEOSE = (subId, url) => {
+      const sub = this.rm.subscriptions.get(subId);
+      if (sub) {
+        sub.pendingSubs.delete(url);
+        if (sub.pendingSubs.size === 0) {
+          this.pendingSubs.delete(subId);
+          this.rm.closeSubscription(subId);
+          if (this.pendingSubs.size === 0) this.onAllEOSE();
         }
+      }
+    };
+    showLoading("Connecting to relays...");
+    await this.rm.connectAll(CONFIG.relayConnectTimeout);
+    const connected = [...relayStats.values()].filter(
+      (s) => s.status === "connected",
+    ).length;
+    if (connected === 0) {
+      hideLoading();
+      showToast("No relays connected.", "error");
+      if (this.onComplete) this.onComplete(this);
+      return;
     }
-    return false;
+    showLoading(`Fetching event from ${connected} relays...`);
+    this.pendingSubs.add(this.rm.subscribe([{ ids: [hexId] }]));
+    this.pendingSubs.add(this.rm.subscribe([{ "#e": [hexId], limit: 200 }]));
+    this.pendingSubs.add(
+      this.rm.subscribe([{ kinds: [6], "#e": [hexId], limit: 100 }]),
+    );
+    this.pendingSubs.add(
+      this.rm.subscribe([{ kinds: [7], "#e": [hexId], limit: 200 }]),
+    );
+    this.pendingSubs.add(
+      this.rm.subscribe([{ kinds: [9735], "#e": [hexId], limit: 100 }]),
+    );
+    this.pendingSubs.add(
+      this.rm.subscribe([{ kinds: [9734], "#e": [hexId], limit: 100 }]),
+    );
+    this.pendingSubs.add(
+      this.rm.subscribe([{ kinds: [5], "#e": [hexId], limit: 50 }]),
+    );
+    setTimeout(() => {
+      if (this.pendingSubs.size > 0) {
+        this.stopEarly();
+      }
+    }, CONFIG.investigationSafetyTimeout);
+  }
+  addEvent(ev) {
+    if (this.eventMap.has(ev.id)) return;
+    this.eventMap.set(ev.id, ev);
+    this.events.push(ev);
+    if (ev.id === this.hexId && !this.originalEvent) {
+      this.originalEvent = ev;
+      this.originalFound = true;
+    }
+    if (this.investigationDepth < this.maxDepth && ev.kind === 1) {
+      const targets = this.extractReplyTargets(ev);
+      for (const rid of targets) {
+        if (!this.eventMap.has(rid) && rid !== this.hexId) {
+          this.pendingSubs.add(this.rm.subscribe([{ ids: [rid] }]));
+          this.pendingSubs.add(
+            this.rm.subscribe([{ "#e": [rid], limit: 100 }]),
+          );
+          this.investigationDepth++;
+        }
+      }
+    }
+  }
+  extractReplyTargets(ev) {
+    const t = [];
+    if (ev.tags)
+      for (const tag of ev.tags)
+        if (tag[0] === "e" && tag[1] && isValidHex64(tag[1])) t.push(tag[1]);
+    return t;
+  }
+  stopEarly() {
+    if (this.allDone) return;
+    for (const sid of this.pendingSubs) {
+      this.rm.closeSubscription(sid);
+    }
+    this.pendingSubs.clear();
+    this.onAllEOSE();
+  }
+  onAllEOSE() {
+    if (this.allDone) return;
+    this.allDone = true;
+    hideLoading();
+    const msg = this.originalEvent
+      ? `Investigation complete: ${this.events.length} events found.`
+      : this.events.length > 0
+        ? `Original not found, but ${this.events.length} related events.`
+        : "No events found.";
+    showToast(msg, this.originalEvent ? "success" : "info");
+    if (this.onComplete) this.onComplete(this);
+  }
+  getThreadTree() {
+    if (!this.hexId) return null;
+    const root = this.eventMap.get(this.hexId) || this.originalEvent;
+    if (!root && this.events.length === 0) return null;
+    const children = new Map();
+    for (const e of this.events) {
+      if (e.id === this.hexId) continue;
+      const pids = this.getParentIds(e);
+      for (const pid of pids) {
+        if (!children.has(pid)) children.set(pid, []);
+        if (!children.get(pid).find((x) => x.id === e.id))
+          children.get(pid).push(e);
+      }
+    }
+    for (const [pid, c] of children)
+      c.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+    return { rootId: this.hexId, rootEvent: root, childrenMap: children };
+  }
+  getParentIds(ev) {
+    const ids = [];
+    if (ev.tags) {
+      const eTags = ev.tags.filter(
+        (t) => t[0] === "e" && t[1] && isValidHex64(t[1]),
+      );
+      if (eTags.length > 0) {
+        const reply = eTags.find((t) => t[3] === "reply"),
+          root = eTags.find((t) => t[3] === "root");
+        if (reply) ids.push(reply[1]);
+        else if (eTags.length === 1) ids.push(eTags[0][1]);
+        else if (eTags.length >= 2) ids.push(eTags[eTags.length - 1][1]);
+        if (root && root[1] !== ids[0]) ids.push(root[1]);
+      }
+    }
+    if (
+      ids.length === 0 &&
+      this.hexId &&
+      ev.content &&
+      ev.content.includes(this.hexId)
+    )
+      ids.push(this.hexId);
+    return [...new Set(ids)];
+  }
+  getEventsByKind(k) {
+    return this.events.filter((e) => e.kind === k);
+  }
+  getUnknownEvents() {
+    return this.events.filter((e) => !KNOWN_KINDS[e.kind]);
+  }
+  getUniqueAuthors() {
+    return new Set(this.events.map((e) => e.pubkey)).size;
+  }
+  getMediaCounts() {
+    let im = 0,
+      vi = 0,
+      at = 0;
+    for (const e of this.events) {
+      if (e.tags)
+        for (const t of e.tags)
+          if (t[0] === "imeta") {
+            const u = t.find((x) => x.startsWith("url "));
+            if (u) {
+              const url = u.split(" ")[1] || "";
+              if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) im++;
+              else if (/\.(mp4|mov|webm|avi)/i.test(url)) vi++;
+              else at++;
+            }
+          }
+      if (e.content) {
+        const m = e.content.match(
+          /https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi,
+        );
+        if (m) im += m.length;
+        const v = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi);
+        if (v) vi += v.length;
+      }
+    }
+    return { images: im, videos: vi, attachments: at };
+  }
+  getHashtags() {
+    const s = new Set();
+    for (const e of this.events) {
+      if (e.tags)
+        for (const t of e.tags)
+          if (t[0] === "t" && t[1]) s.add(t[1].toLowerCase());
+      if (e.content) {
+        const m = e.content.match(/#(\w+)/g);
+        if (m) m.forEach((x) => s.add(x.slice(1).toLowerCase()));
+      }
+    }
+    return s.size;
+  }
+  getLinks() {
+    let c = 0;
+    for (const e of this.events) {
+      if (e.content) {
+        const m = e.content.match(/https?:\/\/[^\s]+/g);
+        if (m) c += m.length;
+      }
+    }
+    return c;
+  }
+  getBchPaymentEvents() {
+    const res = [];
+    for (const e of this.events) {
+      if (e.kind === 9735) res.push({ ...e, paymentType: "zap" });
+      else if (e.kind === 9734) res.push({ ...e, paymentType: "zap_receipt" });
+      else if (e.kind === 27235) res.push({ ...e, paymentType: "bch_tip" });
+      else if (
+        e.tags &&
+        e.tags.some(
+          (t) => t[0] === "cashtoken" || t[0] === "bch" || t[0] === "txid",
+        )
+      )
+        res.push({ ...e, paymentType: "bch_payment" });
+      else if (
+        e.content &&
+        /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) &&
+        /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)
+      )
+        res.push({ ...e, paymentType: "possible_bch" });
+    }
+    return res;
+  }
 }
+
+// ── User Profile Investigator (extended) ─────
+class UserProfileInvestigator {
+  constructor(relayManager) {
+    this.rm = relayManager;
+    this.profile = null;
+    this.follows = [];
+    this.relays = [];
+    this.profileEvent = null;
+    this.otherEvents = [];
+  }
+  async investigate(pubkey, hints = [], options = {}) {
+    const allRelays = [...new Set([...activeRelays, ...hints])];
+    this.rm.relayUrls = allRelays;
+    this.rm.connections.clear();
+    this.rm.subscriptions.clear();
+    relayStats.clear();
+    for (const u of allRelays)
+      relayStats.set(u, {
+        status: "pending",
+        events: 0,
+        errors: 0,
+        responseTime: null,
+        startTime: Date.now(),
+      });
+    showLoading("Connecting to relays...");
+    await this.rm.connectAll(CONFIG.relayConnectTimeout);
+    const connected = [...relayStats.values()].filter(
+      (s) => s.status === "connected",
+    ).length;
+    if (connected === 0) {
+      hideLoading();
+      if (!options.silent) showToast("No relays connected.", "error");
+      return;
+    }
+    showLoading(
+      `Fetching profile for ${npubFromHex(pubkey).substring(0, 12)}...`,
+    );
+    this.profile = null;
+    this.follows = [];
+    this.relays = [];
+    this.profileEvent = null;
+    this.otherEvents = [];
+    const pending = new Set();
+    const profileSub = this.rm.subscribe([
+      { kinds: [0], authors: [pubkey], limit: 1 },
+    ]);
+    const followsSub = this.rm.subscribe([
+      { kinds: [3], authors: [pubkey], limit: 1 },
+    ]);
+    const relaySub = this.rm.subscribe([
+      { kinds: [10002], authors: [pubkey], limit: 1 },
+    ]);
+    pending.add(profileSub);
+    pending.add(followsSub);
+    pending.add(relaySub);
+
+    const extraKinds = [
+      8, 30000, 30001, 30002, 30003, 30023, 30024, 10000, 10001, 30040, 30041,
+    ];
+    const extraSub = this.rm.subscribe([
+      { kinds: extraKinds, authors: [pubkey], limit: 50 },
+    ]);
+    pending.add(extraSub);
+
+    this.rm.onEvent = (ev) => {
+      if (ev.pubkey === pubkey) {
+        if (ev.kind === 0) {
+          try {
+            this.profile = JSON.parse(ev.content || "{}");
+          } catch (e) {
+            this.profile = {};
+          }
+          this.profileEvent = ev;
+        } else if (ev.kind === 3)
+          this.follows = ev.tags.filter((t) => t[0] === "p").map((t) => t[1]);
+        else if (ev.kind === 10002)
+          this.relays = ev.tags.filter((t) => t[0] === "r").map((t) => t[1]);
+        else if (extraKinds.includes(ev.kind)) {
+          this.otherEvents.push(ev);
+        }
+      }
+    };
+
+    return new Promise((resolve) => {
+      this.rm.onEOSE = (subId) => {
+        pending.delete(subId);
+        if (pending.size === 0) {
+          this.rm.onEvent = null;
+          this.rm.onEOSE = null;
+          resolve();
+        }
+      };
+      setTimeout(() => {
+        for (const sid of pending) this.rm.closeSubscription(sid);
+        pending.clear();
+        this.rm.onEvent = null;
+        this.rm.onEOSE = null;
+        resolve();
+      }, CONFIG.profileInvestigationTimeout);
+    }).then(() => {
+      hideLoading();
+      if (!options.silent) showToast("Profile loaded.", "success");
+    });
+  }
+}
+
+// ── Login Persistence (improved) ──
+function saveLogin(privateKey) {
+  // Always store as clean hex string
+  const hexKey =
+    typeof privateKey === "string" ? privateKey : bytesToHex(privateKey);
+  localStorage.setItem("nostrscope_privkey", hexKey);
+  localStorage.setItem("nostrscope_loggedIn", "true");
+  console.log("🔑 Private key saved to localStorage.");
+}
+
+function loadLogin() {
+  const saved = localStorage.getItem("nostrscope_privkey");
+  if (saved && typeof NostrTools !== "undefined") {
+    try {
+      const privateKey = ensureHexKey(saved);
+      if (!privateKey) throw new Error("Invalid stored key");
+      const publicKey = derivePublicKeyFromPrivateKey(privateKey);
+      if (!publicKey) throw new Error("Invalid stored key");
+      currentUser = { privateKey, publicKey };
+      console.log("🔓 Session restored from localStorage.");
+      return true;
+    } catch (e) {
+      console.error("Error restoring session:", e);
+      localStorage.removeItem("nostrscope_privkey");
+      localStorage.removeItem("nostrscope_loggedIn");
+    }
+  }
+  return false;
+}
+
 function clearLogin() {
-    localStorage.removeItem('nostrscope_privkey');
-    localStorage.removeItem('nostrscope_loggedIn');
-    console.log('🗑️ Login data cleared.');
+  localStorage.removeItem("nostrscope_privkey");
+  localStorage.removeItem("nostrscope_loggedIn");
+  localStorage.removeItem("nostrscope_profile");
+  console.log("🗑️ Login data cleared.");
+}
+
+// ── Profile caching ──
+function saveCachedProfile(profile) {
+  if (profile) {
+    localStorage.setItem("nostrscope_profile", JSON.stringify(profile));
+  }
+}
+
+function loadCachedProfile() {
+  const saved = localStorage.getItem("nostrscope_profile");
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {}
+  }
+  return null;
 }
 
 // ── Helper: media extraction ─────────
-function renderMediaFromContent(content) { if (!content) return { text: '', media: '' }; const urlRegex = /(https?:\/\/[^\s]+)/g; let html = escapeHtml(content); let mediaHtml = ''; let match; while ((match = urlRegex.exec(content)) !== null) { const url = match[0]; if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) { mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onerror="this.style.display='none'">`; } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) { mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;"><source src="${url}" type="video/mp4"></video>`; } } html = html.replace(urlRegex, (u) => { if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u)) return ''; return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`; }); return { text: html, media: mediaHtml }; }
+function renderMediaFromContent(content) {
+  if (!content) return { text: "", media: "" };
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  let html = escapeHtml(content);
+  let mediaHtml = "";
+  let match;
+  while ((match = urlRegex.exec(content)) !== null) {
+    const url = match[0];
+    if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
+      mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onerror="this.style.display='none'">`;
+    } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
+      mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;"><source src="${url}" type="video/mp4"></video>`;
+    }
+  }
+  html = html.replace(urlRegex, (u) => {
+    if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u))
+      return "";
+    return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`;
+  });
+  return { text: html, media: mediaHtml };
+}
