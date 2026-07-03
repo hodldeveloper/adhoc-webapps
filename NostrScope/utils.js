@@ -71,287 +71,81 @@ class RelayManager { constructor(urls) { this.relayUrls = urls; this.connections
 
 // ── Event Investigator (optimized) ──
 class EventInvestigator {
-    constructor(rm) {
-        this.rm = rm;
-        this.events = [];
-        this.eventMap = new Map();
-        this.originalEvent = null;
-        this.hexId = null;
-        this.pendingSubs = new Set();
-        this.allDone = false;
-        this.onUpdate = null;
-        this.onComplete = null;
-        this.investigationDepth = 0;
-        this.maxDepth = 4;
-        this.earlyStopThreshold = 20;   // stop after collecting this many related events
-        this.originalFound = false;
-    }
-
+    constructor(rm) { this.rm = rm; this.events = []; this.eventMap = new Map(); this.originalEvent = null; this.hexId = null; this.pendingSubs = new Set(); this.allDone = false; this.onUpdate = null; this.onComplete = null; this.investigationDepth = 0; this.maxDepth = 4; this.earlyStopThreshold = 10; this.originalFound = false; }
     async investigate(hexId, hints = []) {
-        this.hexId = hexId;
-        this.events = [];
-        this.eventMap.clear();
-        this.originalEvent = null;
-        this.pendingSubs.clear();
-        this.allDone = false;
-        this.investigationDepth = 0;
-        this.originalFound = false;
-
-        const allRelays = [...new Set([...activeRelays, ...hints])];
-        this.rm.relayUrls = allRelays;
-        this.rm.connections.clear();
-        this.rm.subscriptions.clear();
-        relayStats.clear();
+        this.hexId = hexId; this.events = []; this.eventMap.clear(); this.originalEvent = null; this.pendingSubs.clear(); this.allDone = false; this.investigationDepth = 0; this.originalFound = false;
+        const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
         for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-
-        this.rm.onEvent = (ev, url, sub) => {
-            this.addEvent(ev);
-            if (this.onUpdate) this.onUpdate(this);
-
-            // Speed check: if we have the original and enough related events, stop early
-            if (this.originalFound && this.events.length >= this.earlyStopThreshold + 1) { // +1 for the original itself
-                this.stopEarly();
-            }
-        };
-
-        this.rm.onEOSE = (subId, url) => {
-            const sub = this.rm.subscriptions.get(subId);
-            if (sub) {
-                sub.pendingSubs.delete(url);
-                if (sub.pendingSubs.size === 0) {
-                    this.pendingSubs.delete(subId);
-                    this.rm.closeSubscription(subId);
-                    if (this.pendingSubs.size === 0) this.onAllEOSE();
-                }
-            }
-        };
-
-        showLoading('Connecting to relays...');
-        await this.rm.connectAll(8000);
+        this.rm.onEvent = (ev, url, sub) => { this.addEvent(ev); if (this.onUpdate) this.onUpdate(this); if (this.originalFound && this.events.length >= this.earlyStopThreshold + 1) { this.stopEarly(); } };
+        this.rm.onEOSE = (subId, url) => { const sub = this.rm.subscriptions.get(subId); if (sub) { sub.pendingSubs.delete(url); if (sub.pendingSubs.size === 0) { this.pendingSubs.delete(subId); this.rm.closeSubscription(subId); if (this.pendingSubs.size === 0) this.onAllEOSE(); } } };
+        showLoading('Connecting to relays...'); await this.rm.connectAll(8000);
         const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-        if (connected === 0) {
-            hideLoading();
-            showToast('No relays connected.', 'error');
-            if (this.onComplete) this.onComplete(this);
-            return;
-        }
+        if (connected === 0) { hideLoading(); showToast('No relays connected.', 'error'); if (this.onComplete) this.onComplete(this); return; }
         showLoading(`Fetching event from ${connected} relays...`);
-
-        // Subscribe to the original event first
-        const subOriginal = this.rm.subscribe([{ ids: [hexId] }]);
-        this.pendingSubs.add(subOriginal);
-
-        // Subscribe to related events
+        this.pendingSubs.add(this.rm.subscribe([{ ids: [hexId] }]));
         this.pendingSubs.add(this.rm.subscribe([{ '#e': [hexId], limit: 200 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [6], '#e': [hexId], limit: 100 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [7], '#e': [hexId], limit: 200 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [9735], '#e': [hexId], limit: 100 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [9734], '#e': [hexId], limit: 100 }]));
         this.pendingSubs.add(this.rm.subscribe([{ kinds: [5], '#e': [hexId], limit: 50 }]));
-
-        // Safety timeout: if still not finished after 8 seconds, force stop
-        setTimeout(() => {
-            if (this.pendingSubs.size > 0) {
-                this.stopEarly();
-            }
-        }, 8000);
+        setTimeout(() => { if (this.pendingSubs.size > 0) { this.stopEarly(); } }, 8000);
     }
-
-    addEvent(ev) {
-        if (this.eventMap.has(ev.id)) return;
-        this.eventMap.set(ev.id, ev);
-        this.events.push(ev);
-        if (ev.id === this.hexId && !this.originalEvent) {
-            this.originalEvent = ev;
-            this.originalFound = true;
-        }
-        if (this.investigationDepth < this.maxDepth && ev.kind === 1) {
-            const targets = this.extractReplyTargets(ev);
-            for (const rid of targets) {
-                if (!this.eventMap.has(rid) && rid !== this.hexId) {
-                    this.pendingSubs.add(this.rm.subscribe([{ ids: [rid] }]));
-                    this.pendingSubs.add(this.rm.subscribe([{ '#e': [rid], limit: 100 }]));
-                    this.investigationDepth++;
-                }
-            }
-        }
-    }
-
-    extractReplyTargets(ev) {
-        const t = [];
-        if (ev.tags) for (const tag of ev.tags) if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) t.push(tag[1]);
-        return t;
-    }
-
-    stopEarly() {
-        if (this.allDone) return;
-        // Close all remaining subscriptions
-        for (const sid of this.pendingSubs) {
-            this.rm.closeSubscription(sid);
-        }
-        this.pendingSubs.clear();
-        this.onAllEOSE();
-    }
-
-    onAllEOSE() {
-        if (this.allDone) return;
-        this.allDone = true;
-        hideLoading();
-        const msg = this.originalEvent
-            ? `Investigation complete: ${this.events.length} events found.`
-            : (this.events.length > 0
-                ? `Original not found, but ${this.events.length} related events.`
-                : 'No events found.');
-        showToast(msg, this.originalEvent ? 'success' : 'info');
-        if (this.onComplete) this.onComplete(this);
-    }
-
-    getThreadTree() {
-        if (!this.hexId) return null;
-        const root = this.eventMap.get(this.hexId) || this.originalEvent;
-        if (!root && this.events.length === 0) return null;
-        const children = new Map();
-        for (const e of this.events) {
-            if (e.id === this.hexId) continue;
-            const pids = this.getParentIds(e);
-            for (const pid of pids) {
-                if (!children.has(pid)) children.set(pid, []);
-                if (!children.get(pid).find(x => x.id === e.id)) children.get(pid).push(e);
-            }
-        }
-        for (const [pid, c] of children) c.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
-        return { rootId: this.hexId, rootEvent: root, childrenMap: children };
-    }
-
-    getParentIds(ev) {
-        const ids = [];
-        if (ev.tags) {
-            const eTags = ev.tags.filter(t => t[0] === 'e' && t[1] && isValidHex64(t[1]));
-            if (eTags.length > 0) {
-                const reply = eTags.find(t => t[3] === 'reply'), root = eTags.find(t => t[3] === 'root');
-                if (reply) ids.push(reply[1]);
-                else if (eTags.length === 1) ids.push(eTags[0][1]);
-                else if (eTags.length >= 2) ids.push(eTags[eTags.length - 1][1]);
-                if (root && root[1] !== ids[0]) ids.push(root[1]);
-            }
-        }
-        if (ids.length === 0 && this.hexId && ev.content && ev.content.includes(this.hexId)) ids.push(this.hexId);
-        return [...new Set(ids)];
-    }
-
+    addEvent(ev) { if (this.eventMap.has(ev.id)) return; this.eventMap.set(ev.id, ev); this.events.push(ev); if (ev.id === this.hexId && !this.originalEvent) { this.originalEvent = ev; this.originalFound = true; } if (this.investigationDepth < this.maxDepth && ev.kind === 1) { const targets = this.extractReplyTargets(ev); for (const rid of targets) { if (!this.eventMap.has(rid) && rid !== this.hexId) { this.pendingSubs.add(this.rm.subscribe([{ ids: [rid] }])); this.pendingSubs.add(this.rm.subscribe([{ '#e': [rid], limit: 100 }])); this.investigationDepth++; } } } }
+    extractReplyTargets(ev) { const t = []; if (ev.tags) for (const tag of ev.tags) if (tag[0] === 'e' && tag[1] && isValidHex64(tag[1])) t.push(tag[1]); return t; }
+    stopEarly() { if (this.allDone) return; for (const sid of this.pendingSubs) { this.rm.closeSubscription(sid); } this.pendingSubs.clear(); this.onAllEOSE(); }
+    onAllEOSE() { if (this.allDone) return; this.allDone = true; hideLoading(); const msg = this.originalEvent ? `Investigation complete: ${this.events.length} events found.` : (this.events.length > 0 ? `Original not found, but ${this.events.length} related events.` : 'No events found.'); showToast(msg, this.originalEvent ? 'success' : 'info'); if (this.onComplete) this.onComplete(this); }
+    getThreadTree() { if (!this.hexId) return null; const root = this.eventMap.get(this.hexId) || this.originalEvent; if (!root && this.events.length === 0) return null; const children = new Map(); for (const e of this.events) { if (e.id === this.hexId) continue; const pids = this.getParentIds(e); for (const pid of pids) { if (!children.has(pid)) children.set(pid, []); if (!children.get(pid).find(x => x.id === e.id)) children.get(pid).push(e); } } for (const [pid, c] of children) c.sort((a, b) => (a.created_at || 0) - (b.created_at || 0)); return { rootId: this.hexId, rootEvent: root, childrenMap: children }; }
+    getParentIds(ev) { const ids = []; if (ev.tags) { const eTags = ev.tags.filter(t => t[0] === 'e' && t[1] && isValidHex64(t[1])); if (eTags.length > 0) { const reply = eTags.find(t => t[3] === 'reply'), root = eTags.find(t => t[3] === 'root'); if (reply) ids.push(reply[1]); else if (eTags.length === 1) ids.push(eTags[0][1]); else if (eTags.length >= 2) ids.push(eTags[eTags.length - 1][1]); if (root && root[1] !== ids[0]) ids.push(root[1]); } } if (ids.length === 0 && this.hexId && ev.content && ev.content.includes(this.hexId)) ids.push(this.hexId); return [...new Set(ids)]; }
     getEventsByKind(k) { return this.events.filter(e => e.kind === k); }
     getUnknownEvents() { return this.events.filter(e => !KNOWN_KINDS[e.kind]); }
     getUniqueAuthors() { return new Set(this.events.map(e => e.pubkey)).size; }
-    getMediaCounts() {
-        let im = 0, vi = 0, at = 0;
-        for (const e of this.events) {
-            if (e.tags) for (const t of e.tags) if (t[0] === 'imeta') {
-                const u = t.find(x => x.startsWith('url '));
-                if (u) { const url = u.split(' ')[1] || ''; if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) im++; else if (/\.(mp4|mov|webm|avi)/i.test(url)) vi++; else at++; }
-            }
-            if (e.content) {
-                const m = e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi); if (m) im += m.length;
-                const v = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi); if (v) vi += v.length;
-            }
-        }
-        return { images: im, videos: vi, attachments: at };
-    }
+    getMediaCounts() { let im = 0, vi = 0, at = 0; for (const e of this.events) { if (e.tags) for (const t of e.tags) if (t[0] === 'imeta') { const u = t.find(x => x.startsWith('url ')); if (u) { const url = u.split(' ')[1] || ''; if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url)) im++; else if (/\.(mp4|mov|webm|avi)/i.test(url)) vi++; else at++; } } if (e.content) { const m = e.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi); if (m) im += m.length; const v = e.content.match(/https?:\/\/[^\s]+\.(mp4|mov|webm|avi)/gi); if (v) vi += v.length; } } return { images: im, videos: vi, attachments: at }; }
     getHashtags() { const s = new Set(); for (const e of this.events) { if (e.tags) for (const t of e.tags) if (t[0] === 't' && t[1]) s.add(t[1].toLowerCase()); if (e.content) { const m = e.content.match(/#(\w+)/g); if (m) m.forEach(x => s.add(x.slice(1).toLowerCase())); } } return s.size; }
     getLinks() { let c = 0; for (const e of this.events) { if (e.content) { const m = e.content.match(/https?:\/\/[^\s]+/g); if (m) c += m.length; } } return c; }
     getBchPaymentEvents() { const res = []; for (const e of this.events) { if (e.kind === 9735) res.push({ ...e, paymentType: 'zap' }); else if (e.kind === 9734) res.push({ ...e, paymentType: 'zap_receipt' }); else if (e.kind === 27235) res.push({ ...e, paymentType: 'bch_tip' }); else if (e.tags && e.tags.some(t => t[0] === 'cashtoken' || t[0] === 'bch' || t[0] === 'txid')) res.push({ ...e, paymentType: 'bch_payment' }); else if (e.content && /\b(bch|bitcoincash|cashtoken)\b/i.test(e.content) && /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/.test(e.content)) res.push({ ...e, paymentType: 'possible_bch' }); } return res; }
 }
 
-// ── User Profile Investigator ─────
 // ── User Profile Investigator (extended) ─────
 class UserProfileInvestigator {
-    constructor(relayManager) {
-        this.rm = relayManager;
-        this.profile = null;
-        this.follows = [];
-        this.relays = [];
-        this.profileEvent = null;
-        this.otherEvents = [];   // other event kinds for the user
-    }
-
+    constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = []; }
     async investigate(pubkey, hints = [], options = {}) {
-        const allRelays = [...new Set([...activeRelays, ...hints])];
-        this.rm.relayUrls = allRelays;
-        this.rm.connections.clear();
-        this.rm.subscriptions.clear();
-        relayStats.clear();
+        const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear();
         for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() });
-
-        showLoading('Connecting to relays...');
-        await this.rm.connectAll(10000);
+        showLoading('Connecting to relays...'); await this.rm.connectAll(10000);
         const connected = [...relayStats.values()].filter(s => s.status === 'connected').length;
-        if (connected === 0) {
-            hideLoading();
-            if (!options.silent) showToast('No relays connected.', 'error');
-            return;
-        }
+        if (connected === 0) { hideLoading(); if (!options.silent) showToast('No relays connected.', 'error'); return; }
         showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`);
-
-        this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null;
-        this.otherEvents = [];
-
+        this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; this.otherEvents = [];
         const pending = new Set();
         const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
         const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]);
         const relaySub  = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]);
         pending.add(profileSub); pending.add(followsSub); pending.add(relaySub);
-
-        // Subscribe to additional user attribute events (badges, lists, etc.)
         const extraKinds = options.extraKinds || [8, 30000, 30001, 30023, 10000, 10001];
         const extraSub = this.rm.subscribe([{ kinds: extraKinds, authors: [pubkey], limit: 50 }]);
         pending.add(extraSub);
-
         this.rm.onEvent = (ev) => {
             if (ev.pubkey === pubkey) {
-                if (ev.kind === 0) {
-                    try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; }
-                    this.profileEvent = ev;
-                }
+                if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; }
                 else if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]);
                 else if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]);
-                else if (extraKinds.includes(ev.kind)) {
-                    // Store other events
-                    this.otherEvents.push(ev);
-                }
+                else if (extraKinds.includes(ev.kind)) { this.otherEvents.push(ev); }
             }
         };
-
         return new Promise((resolve) => {
-            this.rm.onEOSE = (subId) => {
-                pending.delete(subId);
-                if (pending.size === 0) {
-                    this.rm.onEvent = null;
-                    this.rm.onEOSE = null;
-                    resolve();
-                }
-            };
-            setTimeout(() => {
-                for (const sid of pending) this.rm.closeSubscription(sid);
-                pending.clear();
-                this.rm.onEvent = null;
-                this.rm.onEOSE = null;
-                resolve();
-            }, 10000);
-        }).then(() => {
-            hideLoading();
-            if (!options.silent) {
-                showToast('Profile loaded.', 'success');
-            }
-        });
+            this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } };
+            setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000);
+        }).then(() => { hideLoading(); if (!options.silent) showToast('Profile loaded.', 'success'); });
     }
 }
-// ── Login Persistence ──────────────
-// ── Login Persistence ──────────────
+
+// ── Login Persistence (visible in localStorage) ──
 function saveLogin(privateKey) {
     localStorage.setItem('nostrscope_privkey', privateKey);
-    localStorage.setItem('nostrscope_loggedIn', 'true');   // helper flag to verify
+    localStorage.setItem('nostrscope_loggedIn', 'true');
     console.log('🔑 Private key saved to localStorage.');
 }
-
 function loadLogin() {
     const saved = localStorage.getItem('nostrscope_privkey');
     if (saved && typeof NostrTools !== 'undefined') {
@@ -369,7 +163,6 @@ function loadLogin() {
     }
     return false;
 }
-
 function clearLogin() {
     localStorage.removeItem('nostrscope_privkey');
     localStorage.removeItem('nostrscope_loggedIn');
