@@ -82,7 +82,6 @@
                 })
             );
         });
-        // Don't await them all – they update as they complete
     }
 
     // ── UI Updates ─────────────────────
@@ -185,7 +184,39 @@
         });
     }
 
-    function logout() { currentUser = null; clearLogin(); updateUserUI(); showToast('Logged out.', 'info'); }
+    function logout() {
+        currentUser = null;
+        clearLogin();
+        clearSavedInvestigation();
+        updateUserUI();
+        showToast('Logged out.', 'info');
+    }
+
+    // ── Investigation state persistence ──
+    function saveInvestigationState(type, identifier) {
+        localStorage.setItem('nostrscope_investigation', JSON.stringify({ type, identifier }));
+    }
+
+    function clearSavedInvestigation() {
+        localStorage.removeItem('nostrscope_investigation');
+    }
+
+    function loadSavedInvestigation() {
+        const saved = localStorage.getItem('nostrscope_investigation');
+        if (saved) {
+            try {
+                const { type, identifier } = JSON.parse(saved);
+                if (type === 'event' && identifier) {
+                    // Auto-run analysis after a short delay to let everything settle
+                    setTimeout(() => runAnalysis(identifier), 500);
+                } else if (type === 'profile' && identifier) {
+                    setTimeout(() => runAnalysis(identifier), 500);
+                }
+                // Clear after auto-running to prevent infinite loop on refresh
+                clearSavedInvestigation();
+            } catch (e) {}
+        }
+    }
 
     // ── Thread View ────────────────────
     function buildThreadCards(eventId, childrenMap, depth, visited) {
@@ -218,7 +249,6 @@
         html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
         html += '</div></div>';
         p.innerHTML = html;
-        // Start resolving author names asynchronously
         resolveAuthorNames(p);
     }
 
@@ -236,7 +266,7 @@
             let borderClass = 'reply-post';
             if (isOrig) borderClass = 'original-post';
             else if (e.kind === 6) borderClass = 'repost-post';
-            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div><span class="event-author author-name" data-pubkey="${e.pubkey || ''}" style="display:none;">${escapeHtml(e.pubkey?.substring(0,8) + '...')}</span></div>`; // hidden author span for name resolution
+            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div><span class="event-author author-name" data-pubkey="${e.pubkey || ''}" style="display:none;">${escapeHtml(e.pubkey?.substring(0,8) + '...')}</span></div>`;
         });
         html += '</div></div>';
         p.innerHTML = html;
@@ -336,6 +366,7 @@
         renderProfileTab(userProfileData, pubkey);
         resultsScreen.classList.add('active');
         homeScreen.classList.remove('active');
+        saveInvestigationState('profile', pubkey);
     }
 
     // ── Event JSON Modal ───────────────
@@ -427,7 +458,10 @@
         hideError();
         const parsed = parseInput(input);
         if (parsed.error) { showError(parsed.error); showToast(parsed.error, 'error'); return; }
-        if (parsed.pubkey) { await investigateUser(parsed.pubkey, parsed.relayHints || []); return; }
+        if (parsed.pubkey) {
+            await investigateUser(parsed.pubkey, parsed.relayHints || []);
+            return;
+        }
         investigationHexId = parsed.hexId;
         window._investigationHexId = investigationHexId;
         allEvents = []; originalEvent = null; eventMap.clear(); threadCollapsed.clear(); sortOrder = 'oldest-first'; relayStats.clear();
@@ -435,8 +469,16 @@
         relayManager = new RelayManager(allUrls);
         window._relayManager = relayManager;
         investigator = new EventInvestigator(relayManager);
-        investigator.onUpdate = inv => debouncedRender(inv);   // debounce updates
-        investigator.onComplete = inv => { debouncedRender(inv); hideLoading(); resultsScreen.classList.add('active'); homeScreen.classList.remove('active'); switchTab('thread'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+        investigator.onUpdate = inv => debouncedRender(inv);
+        investigator.onComplete = inv => {
+            debouncedRender(inv);
+            hideLoading();
+            resultsScreen.classList.add('active');
+            homeScreen.classList.remove('active');
+            switchTab('thread');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            saveInvestigationState('event', investigationHexId);
+        };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
     }
 
@@ -451,11 +493,20 @@
     // ── Init after DOM ready ───────────
     function initApp() {
         if (typeof NostrTools !== 'undefined') {
-            if (loadLogin()) updateUserUI();
+            if (loadLogin()) {
+                updateUserUI();
+                // Show a welcome back toast only if the login was actually restored
+                if (currentUser) {
+                    const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
+                    showToast('Welcome back, ' + npub, 'info');
+                }
+            }
         } else {
             setTimeout(initApp, 200);
             return;
         }
+
+        // Bind event listeners
         homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
         homeClearBtn?.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = ''); hideError(); });
         homeSearchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
@@ -471,8 +522,13 @@
                 if (btn) switchTab(btn.dataset.tab);
             });
         }
+
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — names, no freeze, fast.');
+
+        // Auto‑restore the last investigation if any
+        loadSavedInvestigation();
+
+        console.log('🔍 NostrScope ready — session persistent & auto‑resume.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
