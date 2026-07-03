@@ -19,6 +19,72 @@
     homeAccountBtn = document.getElementById('homeAccountBtn');
     bottomNav = document.querySelector('.bottom-nav');
 
+    // ── Profile cache & quick fetch ────
+    const profileCache = new Map();
+    const pendingFetches = new Map();
+
+    function quickFetchProfile(pubkey) {
+        if (profileCache.has(pubkey)) return Promise.resolve(profileCache.get(pubkey));
+        if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
+
+        const promise = new Promise((resolve) => {
+            const relays = activeRelays.slice(0, 3); // first 3 relays for speed
+            const rm = new RelayManager(relays);
+            let resolved = false;
+
+            rm.connectAll(4000).then(() => {
+                const subId = rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
+                const timeout = setTimeout(() => {
+                    if (!resolved) { resolved = true; rm.closeAll(); resolve(null); }
+                }, 3000);
+
+                rm.onEvent = (ev) => {
+                    if (ev.pubkey === pubkey && ev.kind === 0) {
+                        clearTimeout(timeout);
+                        if (!resolved) {
+                            resolved = true;
+                            rm.closeAll();
+                            try {
+                                const p = JSON.parse(ev.content);
+                                resolve(p.name || p.display_name || null);
+                            } catch (e) { resolve(null); }
+                        }
+                    }
+                };
+                rm.onEOSE = () => {
+                    if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve(null); }
+                };
+            }).catch(() => {
+                if (!resolved) { resolved = true; resolve(null); }
+            });
+        });
+
+        pendingFetches.set(pubkey, promise);
+        promise.then(name => {
+            profileCache.set(pubkey, name);
+            pendingFetches.delete(pubkey);
+        });
+        return promise;
+    }
+
+    // ── Resolve author names in a container (throttled) ──
+    function resolveAuthorNames(container) {
+        const elements = container.querySelectorAll('.author-name:not(.resolved)');
+        const fetches = [];
+        elements.forEach(el => {
+            const pubkey = el.dataset.pubkey;
+            if (!pubkey) return;
+            fetches.push(
+                quickFetchProfile(pubkey).then(name => {
+                    if (name) el.textContent = name;
+                    else el.textContent = pubkey.substring(0, 10) + '...';
+                    el.classList.add('resolved');
+                })
+            );
+        });
+        // Don't await them all – they update as they complete
+    }
+
     // ── UI Updates ─────────────────────
     function updateUserUI() {
         if (currentUser) {
@@ -137,7 +203,7 @@
         const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
         const contentId = 'c-' + event.id;
         const isLong = (event.content || '').length > 250;
-        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author">${authorShort}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}</div></div></div>`;
+        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}</div></div></div>`;
         let html = cardHtml;
         const children = childrenMap.get(eventId) || [];
         if (children.length > 0) { html += `<div class="tree-branch">`; for (const child of children) { html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited)); } html += `</div>`; }
@@ -152,6 +218,8 @@
         html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
         html += '</div></div>';
         p.innerHTML = html;
+        // Start resolving author names asynchronously
+        resolveAuthorNames(p);
     }
 
     // ── Timeline ────────────────────────
@@ -168,10 +236,11 @@
             let borderClass = 'reply-post';
             if (isOrig) borderClass = 'original-post';
             else if (e.kind === 6) borderClass = 'repost-post';
-            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div></div>`;
+            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div><span class="event-author author-name" data-pubkey="${e.pubkey || ''}" style="display:none;">${escapeHtml(e.pubkey?.substring(0,8) + '...')}</span></div>`; // hidden author span for name resolution
         });
         html += '</div></div>';
         p.innerHTML = html;
+        resolveAuthorNames(p);
     }
 
     // ── Statistics ──────────────────────
@@ -304,7 +373,7 @@
         if (investigator && tabName === 'export') renderExport();
     }
 
-    // ── Helper: inject a newly boosted event into the current investigation ──
+    // ── Helper: inject a newly boosted event ──
     window.injectBoostedEvent = function(event) {
         if (!investigator || !investigator.eventMap) return;
         if (!eventMap.has(event.id)) {
@@ -342,7 +411,16 @@
     window._exportHTML = exportHTML;
     window.runAnalysis = runAnalysis;
 
-    // ── Main analysis flow ────────────
+    // ── Main analysis flow (with debounce) ──
+    let pendingRender = null;
+    function debouncedRender(inv) {
+        if (pendingRender) clearTimeout(pendingRender);
+        pendingRender = setTimeout(() => {
+            renderAll(inv);
+            pendingRender = null;
+        }, 100);
+    }
+
     async function runAnalysis(inputValue) {
         const input = inputValue || homeSearchInput.value.trim();
         if (!input) { showError('Please enter an event or user identifier.'); return; }
@@ -357,8 +435,8 @@
         relayManager = new RelayManager(allUrls);
         window._relayManager = relayManager;
         investigator = new EventInvestigator(relayManager);
-        investigator.onUpdate = inv => renderAll(inv);
-        investigator.onComplete = inv => { renderAll(inv); hideLoading(); resultsScreen.classList.add('active'); homeScreen.classList.remove('active'); switchTab('thread'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+        investigator.onUpdate = inv => debouncedRender(inv);   // debounce updates
+        investigator.onComplete = inv => { debouncedRender(inv); hideLoading(); resultsScreen.classList.add('active'); homeScreen.classList.remove('active'); switchTab('thread'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
     }
 
@@ -394,7 +472,7 @@
             });
         }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — boost injection active.');
+        console.log('🔍 NostrScope ready — names, no freeze, fast.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
