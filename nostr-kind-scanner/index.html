@@ -125,7 +125,7 @@
     <div class="container">
         <div class="header">
             <h1>🔍 Nostr Kind Explorer</h1>
-            <p class="subtitle">Discover every event kind published by any npub — with a built‑in reference database</p>
+            <p class="subtitle">Discover <strong>every</strong> event kind published by any npub — including standard, replaceable, ephemeral, and addressable types.</p>
         </div>
         <div class="card">
             <div class="input-row">
@@ -530,11 +530,12 @@
                 try{
                     const eventsMap=await connectRelays(hex,abortController.signal,updateProgress,(cnt)=>{renderProgress();});
                     for(const[id,data]of eventsMap)allEventsMap.set(id,data);
+                    // Discover ALL event kinds — no filtering
                     kindGroups=detectAllKinds();
                     kindSummaries=buildSummaries(kindGroups);
                     kindSummaries=sortSummaries(kindSummaries,'kind','asc');
                     renderSummary();renderTable();
-                    showToast(`Found ${kindSummaries.length} unique kind(s)`,'success');
+                    showToast(`Found ${kindSummaries.length} unique kind(s) — including standard & custom`,'success');
                 }catch(e){
                     if(e.message!=='Aborted'){showToast('Error: '+e.message,'error');console.error(e);}
                     if(allEventsMap.size){kindGroups=detectAllKinds();kindSummaries=buildSummaries(kindGroups);renderSummary();renderTable();}
@@ -568,7 +569,7 @@
             exportCSVBtn.addEventListener('click',exportCSV);
             exportJSONBtn.addEventListener('click',exportJSON);
             npubInput.focus();
-            console.log('✅ Nostr Kind Explorer ready — all event kinds will be discovered.');
+            console.log('✅ Nostr Kind Explorer ready — discovering ALL event kinds, including kind 0.');
             console.log(`   Reference database: ${Object.keys(KIND_REFERENCE).length} known kinds.`);
         })();
     </script>
