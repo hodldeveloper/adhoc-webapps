@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Custom Kind Explorer</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #1c2333;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text2: #8b949e;
+            --accent: #58a6ff;
+            --accent2: #1f6feb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --purple: #a371f7;
+            --radius: 8px;
+            --radius-sm: 5px;
+            --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ── Header ─────────────────────── */
+        .header {
+            text-align: center;
+            padding: 10px 0 0 0;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            color: var(--text2);
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+
+        /* ── Input Card ────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+        }
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .input-row input {
+            flex: 1;
+            min-width: 280px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border var(--transition), box-shadow var(--transition);
+        }
+        .input-row input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.12);
+        }
+        .input-row input::placeholder {
+            color: var(--text2);
+            opacity: 0.6;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 11px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+            font-family: var(--font-sans);
+            letter-spacing: 0.2px;
+        }
+        .btn-primary {
+            background: var(--accent2);
+            color: #fff;
+            border-color: var(--accent2);
+        }
+        .btn-primary:hover {
+            background: #388bfd;
+            border-color: #388bfd;
+            box-shadow: 0 4px 14px rgba(31, 111, 235, 0.35);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-outline:hover {
+            background: var(--surface2);
+            border-color: #5a6575;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            border-radius: 4px;
+        }
+
+        /* ── Progress ──────────────────── */
+        .progress-area {
+            min-height: 20px;
+        }
+        .progress-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-size: 0.85rem;
+            color: var(--text2);
+        }
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .progress-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+            flex-shrink: 0;
+            transition: background var(--transition);
+        }
+        .progress-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
+        }
+        .progress-dot.failed {
+            background: var(--error);
+        }
+        .progress-dot.active {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── Stats ─────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .stat-item {
+            background: var(--surface2);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text2);
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text);
+            word-break: break-all;
+        }
+        .stat-value.highlight {
+            color: var(--purple);
+        }
+        .stat-value.small {
+            font-size: 0.8rem;
+        }
+
+        /* ── Search & Export ──────────── */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .toolbar .search-input {
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            width: 200px;
+            outline: none;
+            transition: border var(--transition);
+        }
+        .toolbar .search-input:focus {
+            border-color: var(--accent);
+        }
+        .toolbar .btn-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* ── Table ─────────────────────── */
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            min-width: 600px;
+        }
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        thead th {
+            background: var(--surface2);
+            color: var(--text2);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 12px 14px;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: color var(--transition);
+        }
+        thead th:hover {
+            color: var(--accent);
+        }
+        thead th .sort-arrow {
+            margin-left: 4px;
+            font-size: 0.7rem;
+        }
+        tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+        tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.015);
+        }
+        tbody tr:hover {
+            background: rgba(88, 166, 255, 0.06);
+        }
+        .kind-badge {
+            display: inline-block;
+            background: var(--accent2);
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.78rem;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text2);
+            font-size: 1rem;
+        }
+        .no-results .icon {
+            font-size: 2.5rem;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        /* ── Modal ─────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all var(--transition);
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: var(--text);
+            background: var(--surface2);
+        }
+        .modal-body {
+            overflow-y: auto;
+            padding: 16px 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .event-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .event-card .event-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-size: 0.78rem;
+            color: var(--text2);
+            font-family: var(--font-mono);
+        }
+        .event-card .event-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .event-card .event-meta .label {
+            color: var(--text2);
+            font-weight: 500;
+            font-family: var(--font-sans);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .event-card pre {
+            background: #0a0d12;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            line-height: 1.5;
+            color: #c9d1d9;
+            max-height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .event-card .btn-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* ── Toast ─────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            z-index: 200;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s forwards;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+        }
+
+        /* ── Responsive ───────────────── */
+        @media (max-width: 600px) {
+            .input-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-row input {
+                min-width: auto;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .toolbar .search-input {
+                width: 100%;
+            }
+            table {
+                font-size: 0.75rem;
+            }
+            thead th,
+            tbody td {
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔍 Nostr Custom Kind Explorer</h1>
+            <p class="subtitle">Discover non-standard event kinds published by any npub</p>
+        </div>
+
+        <!-- Input Card -->
+        <div class="card">
+            <div class="input-row">
+                <input
+                type="text"
+                id="npubInput"
+                placeholder="Enter npub... (e.g. npub1...)"
+                autocomplete="off"
+                spellcheck="false"
+                >
+                <button class="btn btn-primary" id="scanBtn" title="Scan relays for custom kinds">
+                    <span>🔎</span> Scan
+                </button>
+                <button class="btn btn-outline btn-sm" id="clearBtn" title="Clear all results">✕ Clear</button>
+            </div>
+        </div>
+
+        <!-- Progress Area -->
+        <div class="progress-area" id="progressArea" style="display:none;">
+            <div class="progress-list" id="progressList"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid" style="display:none;"></div>
+
+        <!-- Toolbar -->
+        <div class="toolbar" id="toolbar" style="display:none;">
+            <input type="text" class="search-input" id="searchInput" placeholder="Filter by kind...">
+            <div class="btn-group">
+                <button class="btn btn-outline btn-sm" id="exportCSVBtn">📄 Export CSV</button>
+                <button class="btn btn-outline btn-sm" id="exportJSONBtn">📦 Export JSON</button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrapper" id="tableWrapper" style="display:none;">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th data-sort="kind">Kind <span class="sort-arrow">▼</span></th>
+                        <th data-sort="count">Count</th>
+                        <th data-sort="firstSeen">First Seen</th>
+                        <th data-sort="latestSeen">Latest Seen</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+            <div class="no-results" id="noResults" style="display:none;">
+                <span class="icon">📭</span>
+                <p>No custom kinds found for this npub.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Overlay (hidden by default) -->
+    <div class="modal-overlay" id="modalOverlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Events of Kind <span class="kind-badge" id="modalKindBadge"></span></h3>
+                <button class="modal-close" id="modalClose">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer"></div>
+
+    <script>
+        (function() {
+            // ═══════════════════════════════════════════════════════════
+            //  CONSTANTS
+            // ═══════════════════════════════════════════════════════════
+
+            /** Default Nostr relays to query */
+            const DEFAULT_RELAYS = [
+                'wss://relay.damus.io',
+                'wss://nos.lol',
+                'wss://relay.primal.net',
+                'wss://purplepag.es',
+                'wss://relay.snort.social',
+            ];
+
+            /** Standard Nostr event kinds (not considered custom) */
+            const STANDARD_KINDS = new Set([
+                0, 1, 3, 5, 6, 7, 8, 14, 16, 20, 21, 40, 41, 42, 43, 44,
+                9734, 9735, 10002, 10019, 30023,
+            ]);
+
+            /** Timeout for relay operations in ms */
+            const RELAY_TIMEOUT_MS = 10000;
+
+            /** Maximum events per pagination request */
+            const PAGE_LIMIT = 500;
+
+            /** Maximum pagination rounds per relay */
+            const MAX_PAGINATION_ROUNDS = 3;
+
+            /** Bech32 character set */
+            const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+
+            // ═══════════════════════════════════════════════════════════
+            //  DOM REFERENCES
+            // ═══════════════════════════════════════════════════════════
+            const npubInput = document.getElementById('npubInput');
+            const scanBtn = document.getElementById('scanBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const progressArea = document.getElementById('progressArea');
+            const progressList = document.getElementById('progressList');
+            const statsGrid = document.getElementById('statsGrid');
+            const toolbar = document.getElementById('toolbar');
+            const searchInput = document.getElementById('searchInput');
+            const tableWrapper = document.getElementById('tableWrapper');
+            const resultsBody = document.getElementById('resultsBody');
+            const noResults = document.getElementById('noResults');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalKindBadge = document.getElementById('modalKindBadge');
+            const modalBody = document.getElementById('modalBody');
+            const modalClose = document.getElementById('modalClose');
+            const toastContainer = document.getElementById('toastContainer');
+            const exportCSVBtn = document.getElementById('exportCSVBtn');
+            const exportJSONBtn = document.getElementById('exportJSONBtn');
+            const resultsTable = document.getElementById('resultsTable');
+
+            // ═══════════════════════════════════════════════════════════
+            //  APPLICATION STATE
+            // ═══════════════════════════════════════════════════════════
+
+            /** @type {string|null} Current decoded hex pubkey */
+            let currentHexPubkey = null;
+
+            /** @type {string|null} Current npub */
+            let currentNpub = null;
+
+            /** @type {Map<string, object>} Merged events keyed by event ID */
+            let allEventsMap = new Map();
+
+            /** @type {Map<number, object[]>} Events grouped by custom kind */
+            let customKindGroups = new Map();
+
+            /** @type {Array} Sorted array of custom kind summary objects */
+            let customKindSummaries = [];
+
+            /** @type {boolean} Is a scan currently in progress */
+            let isScanning = false;
+
+            /** @type {AbortController|null} For cancelling an in-progress scan */
+            let abortController = null;
+
+            /** Current sort column and direction */
+            let sortColumn = 'kind';
+            let sortDirection = 'asc'; // 'asc' or 'desc'
+
+            // ═══════════════════════════════════════════════════════════
+            //  BECH32 DECODER (for npub → hex pubkey conversion)
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Decode a bech32-encoded string into its HRP and data words.
+             * Implements the bech32 checksum verification per BIP173.
+             * @param {string} bech32Str - The bech32 string to decode
+             * @returns {{hrp: string, data: number[]}} Decoded HRP and 5-bit data words
+             * @throws {Error} If the string is invalid or checksum fails
+             */
+            function bech32Decode(bech32Str) {
+                // Basic validation: must be lowercase, reasonable length
+                if (!bech32Str || bech32Str !== bech32Str.toLowerCase()) {
+                    throw new Error('Bech32 string must be all lowercase');
+                }
+                if (bech32Str.length < 8 || bech32Str.length > 90) {
+                    throw new Error('Bech32 string length out of range');
+                }
+
+                // Find the separator
+                const sepIndex = bech32Str.lastIndexOf('1');
+                if (sepIndex < 1 || sepIndex + 7 > bech32Str.length) {
+                    throw new Error('Invalid bech32 format: missing or misplaced separator');
+                }
+
+                const hrp = bech32Str.slice(0, sepIndex);
+                const dataPart = bech32Str.slice(sepIndex + 1);
+
+                // Validate HRP characters
+                if (!/^[a-z]+$/.test(hrp)) {
+                    throw new Error('HRP must contain only lowercase letters');
+                }
+                if (hrp.length < 1 || hrp.length > 83) {
+                    throw new Error('HRP length out of range');
+                }
+
+                // Convert data part characters to 5-bit values
+                const dataValues = [];
+                for (let i = 0; i < dataPart.length; i++) {
+                    const ch = dataPart[i];
+                    const val = BECH32_ALPHABET.indexOf(ch);
+                    if (val === -1) {
+                        throw new Error(`Invalid bech32 character: '${ch}'`);
+                    }
+                    dataValues.push(val);
+                }
+
+                // Verify checksum (last 6 values)
+                if (!bech32VerifyChecksum(hrp, dataValues)) {
+                    throw new Error('Bech32 checksum verification failed');
+                }
+
+                // Strip checksum (last 6 values) to get the payload
+                const payload = dataValues.slice(0, -6);
+
+                return { hrp, data: payload };
+            }
+
+            /**
+             * Compute the bech32 checksum for a given HRP and data.
+             * @param {string} hrp - Human-readable part
+             * @param {number[]} data - 5-bit data words (including checksum placeholder)
+             * @returns {number} The polymod checksum value
+             */
+            function bech32Polymod(values) {
+                const GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+                let chk = 1;
+                for (let i = 0; i < values.length; i++) {
+                    const top = chk >> 25;
+                    chk = ((chk & 0x1ffffff) << 5) ^ values[i];
+                    for (let j = 0; j < 5; j++) {
+                        if ((top >> j) & 1) {
+                            chk ^= GENERATOR[j];
+                        }
+                    }
+                }
+                return chk;
+            }
+
+            /**
+             * Expand the HRP for bech32 checksum computation.
+             * @param {string} hrp - Human-readable part
+             * @returns {number[]} Expanded values
+             */
+            function bech32HrpExpand(hrp) {
+                const result = [];
+                for (let i = 0; i < hrp.length; i++) {
+                    result.push(hrp.charCodeAt(i) >> 5);
+                }
+                result.push(0);
+                for (let i = 0; i < hrp.length; i++) {
+                    result.push(hrp.charCodeAt(i) & 31);
+                }
+                return result;
+            }
+
+            /**
+             * Verify the bech32 checksum.
+             * @param {string} hrp - Human-readable part
+             * @param {number[]} data - 5-bit data words INCLUDING the 6 checksum words
+             * @returns {boolean} True if checksum is valid
+             */
+            function bech32VerifyChecksum(hrp, data) {
+                const expanded = bech32HrpExpand(hrp);
+                const combined = expanded.concat(data);
+                return bech32Polymod(combined) === 1;
+            }
+
+            /**
+             * Convert 5-bit data words to 8-bit bytes.
+             * @param {number[]} data5bit - Array of 5-bit values
+             * @param {number} expectedBytes - Expected number of output bytes (for validation)
+             * @returns {number[]} Array of 8-bit bytes
+             */
+            function convert5to8Bits(data5bit, expectedBytes) {
+                // Concatenate all 5-bit values into a bit stream
+                let bitBuffer = 0;
+                let bitCount = 0;
+                const result = [];
+
+                for (const value5 of data5bit) {
+                    bitBuffer = (bitBuffer << 5) | value5;
+                    bitCount += 5;
+                    while (bitCount >= 8) {
+                        bitCount -= 8;
+                        const byte = (bitBuffer >> bitCount) & 0xff;
+                        result.push(byte);
+                    }
+                }
+
+                // Validate output length
+                if (expectedBytes !== null && result.length !== expectedBytes) {
+                    throw new Error(
+                        `Unexpected decoded byte count: got ${result.length}, expected ${expectedBytes}`
+                    );
+                }
+
+                return result;
+            }
+
+            /**
+             * Decode a Nostr npub into a hexadecimal public key.
+             * npub uses bech32 with HRP "npub" and 32 bytes of pubkey data.
+             * @param {string} npub - The npub string to decode
+             * @returns {string} Hexadecimal public key (64 hex chars)
+             * @throws {Error} If the npub is invalid
+             */
+            function decodeNpub(npub) {
+                const trimmed = npub.trim();
+                if (!trimmed.startsWith('npub1')) {
+                    throw new Error('Invalid npub: must start with "npub1"');
+                }
+
+                const decoded = bech32Decode(trimmed);
+
+                if (decoded.hrp !== 'npub') {
+                    throw new Error(`Unexpected HRP: "${decoded.hrp}", expected "npub"`);
+                }
+
+                // Convert 5-bit words to 8-bit bytes (expect 32 bytes for pubkey)
+                const bytes = convert5to8Bits(decoded.data, 32);
+
+                // Convert bytes to hex string
+                const hexPubkey = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                if (hexPubkey.length !== 64) {
+                    throw new Error(`Decoded pubkey has incorrect length: ${hexPubkey.length} hex chars`);
+                }
+
+                return hexPubkey;
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  UTILITY FUNCTIONS
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Format a Unix timestamp (seconds) into a readable date string.
+             * @param {number} ts - Unix timestamp in seconds
+             * @returns {string} Formatted date (YYYY-MM-DD)
+             */
+            function formatDate(ts) {
+                if (!ts || isNaN(ts)) return '—';
+                const d = new Date(ts * 1000);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+
+            /**
+             * Format a Unix timestamp into a full ISO-like datetime string.
+             * @param {number} ts - Unix timestamp in seconds
+             * @returns {string} Formatted datetime
+             */
+            function formatDateTime(ts) {
+                if (!ts || isNaN(ts)) return '—';
+                const d = new Date(ts * 1000);
+                return d.toISOString().replace('T', ' ').slice(0, 19);
+            }
+
+            /**
+             * Show a brief toast notification.
+             * @param {string} message - Message to display
+             * @param {string} [type='info'] - Type: 'info', 'error', 'success'
+             */
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+                if (type === 'error') toast.style.borderColor = 'var(--error)';
+                if (type === 'success') toast.style.borderColor = 'var(--success)';
+                toastContainer.appendChild(toast);
+                // Auto-remove after animation completes
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 2200);
+            }
+
+            /**
+             * Copy text to clipboard and show a brief toast.
+             * @param {string} text - Text to copy
+             * @param {string} [label='Text'] - Label for the toast message
+             */
+            async function copyToClipboard(text, label = 'Text') {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showToast(`${label} copied!`, 'success');
+                } catch {
+                    // Fallback for older browsers
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showToast(`${label} copied!`, 'success');
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  RELAY CONNECTION & EVENT FETCHING
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Connect to a single relay and fetch all events for the given pubkey.
+             * Handles pagination using `until` filters.
+             * Returns a promise that resolves with an array of {event, relayUrl} objects.
+             * @param {string} relayUrl - WebSocket URL of the relay
+             * @param {string} hexPubkey - Hex-encoded public key
+             * @param {AbortSignal} signal - Abort signal for cancellation
+             * @param {function} onStatus - Callback for status updates: (relayUrl, status)
+             * @returns {Promise<Array<{event: object, relayUrl: string}>>}
+             */
+            function fetchFromRelay(relayUrl, hexPubkey, signal, onStatus) {
+                return new Promise((resolve, reject) => {
+                    const events = [];
+                    const seenIds = new Set(); // Deduplicate within this relay's results
+                    let socket = null;
+                    let currentSubId = null;
+                    let paginationRound = 0;
+                    let oldestTimestamp = null;
+                    let timeoutHandle = null;
+                    let isResolved = false;
+
+                    /**
+                     * Clean up resources and resolve/reject the promise.
+                     */
+                    function finish(error) {
+                        if (isResolved) return;
+                        isResolved = true;
+                        if (timeoutHandle) clearTimeout(timeoutHandle);
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            // Send CLOSE for active subscription
+                            if (currentSubId) {
+                                try { socket.send(JSON.stringify(['CLOSE', currentSubId])); } catch (_) {}
+                            }
+                            try { socket.close(); } catch (_) {}
+                        } else if (socket && socket.readyState === WebSocket.CONNECTING) {
+                            socket.onopen = null;
+                            socket.onerror = null;
+                            socket.onmessage = null;
+                            socket.onclose = null;
+                            try { socket.close(); } catch (_) {}
+                        }
+                        if (error) {
+                            reject(error);
+                        } else {
+                            resolve(events);
+                        }
+                    }
+
+                    /** Reset the timeout watchdog */
+                    function resetTimeout() {
+                        if (timeoutHandle) clearTimeout(timeoutHandle);
+                        timeoutHandle = setTimeout(() => {
+                            // If we have events and are between pagination rounds, continue
+                            if (events.length > 0 && paginationRound < MAX_PAGINATION_ROUNDS) {
+                                // Don't timeout; we got some data and may paginate
+                                return;
+                            }
+                            finish(new Error(`Relay timeout: ${relayUrl}`));
+                        }, RELAY_TIMEOUT_MS);
+                    }
+
+                    /** Send a REQ for the current pagination round */
+                    function sendReq() {
+                        if (isResolved) return;
+                        paginationRound++;
+                        currentSubId = 'nostr-custom-kind-' + Math.random().toString(36).slice(2, 10) +
+                            '-p' + paginationRound;
+                        const filter = {
+                            authors: [hexPubkey],
+                            limit: PAGE_LIMIT,
+                        };
+                        if (oldestTimestamp !== null) {
+                            filter.until = oldestTimestamp - 1; // Get events strictly older
+                        }
+                        try {
+                            socket.send(JSON.stringify(['REQ', currentSubId, filter]));
+                        } catch (e) {
+                            finish(new Error(`Failed to send REQ to ${relayUrl}: ${e.message}`));
+                            return;
+                        }
+                        resetTimeout();
+                    }
+
+                    // Create WebSocket connection
+                    try {
+                        socket = new WebSocket(relayUrl);
+                    } catch (e) {
+                        finish(new Error(`Cannot connect to ${relayUrl}: ${e.message}`));
+                        return;
+                    }
+
+                    socket.onopen = () => {
+                        if (isResolved) return;
+                        onStatus(relayUrl, 'connected');
+                        sendReq();
+                    };
+
+                    socket.onmessage = (msg) => {
+                        if (isResolved) return;
+                        resetTimeout();
+                        let parsed;
+                        try {
+                            parsed = JSON.parse(msg.data);
+                        } catch {
+                            return; // Ignore unparseable messages
+                        }
+                        if (!Array.isArray(parsed) || parsed.length < 2) return;
+
+                        const [type, subId, ...rest] = parsed;
+
+                        // Handle EVENT message
+                        if (type === 'EVENT' && subId === currentSubId && rest.length >= 1) {
+                            const event = rest[0];
+                            if (event && event.id && !seenIds.has(event.id)) {
+                                seenIds.add(event.id);
+                                events.push({ event, relayUrl });
+                                // Track oldest timestamp for pagination
+                                const createdAt = event.created_at || 0;
+                                if (oldestTimestamp === null || createdAt < oldestTimestamp) {
+                                    oldestTimestamp = createdAt;
+                                }
+                            }
+                        }
+
+                        // Handle EOSE (End of Stored Events)
+                        if (type === 'EOSE' && subId === currentSubId) {
+                            // If we received a full page, paginate further
+                            if (events.length >= PAGE_LIMIT * 0.8 && paginationRound < MAX_PAGINATION_ROUNDS &&
+                                oldestTimestamp !== null) {
+                                // Small delay before next pagination request
+                                setTimeout(() => {
+                                    if (!isResolved) sendReq();
+                                }, 200);
+                            } else {
+                                // No more pages or reached limit
+                                finish(null);
+                            }
+                        }
+
+                        // Handle NOTICE (relay may send warnings)
+                        if (type === 'NOTICE') {
+                            console.warn(`Relay notice from ${relayUrl}:`, rest[0]);
+                        }
+                    };
+
+                    socket.onerror = () => {
+                        if (isResolved) return;
+                        onStatus(relayUrl, 'error');
+                        // Don't finish immediately; some errors are transient
+                        // The timeout will handle eventual failure
+                    };
+
+                    socket.onclose = () => {
+                        if (isResolved) return;
+                        // If we have events, resolve with what we got
+                        if (events.length > 0) {
+                            finish(null);
+                        } else {
+                            finish(new Error(`Relay disconnected: ${relayUrl}`));
+                        }
+                    };
+
+                    // Listen for abort signal
+                    if (signal) {
+                        signal.addEventListener('abort', () => {
+                            finish(new Error('Scan aborted'));
+                        }, { once: true });
+                    }
+
+                    // Initial timeout
+                    resetTimeout();
+                });
+            }
+
+            /**
+             * Connect to all relays and merge events from all sources.
+             * @param {string} hexPubkey - Hex-encoded public key
+             * @param {AbortSignal} signal - Abort signal for cancellation
+             * @param {function} onRelayStatus - Callback: (relayUrl, status)
+             * @param {function} onEventCount - Callback: (totalCount)
+             * @returns {Promise<Map<string, object>>} Map of eventId → {event, relayUrls[]}
+             */
+            async function connectRelays(hexPubkey, signal, onRelayStatus, onEventCount) {
+                const mergedMap = new Map(); // eventId → {event, relayUrls:[]}
+                let totalEvents = 0;
+
+                // Launch all relay fetches in parallel
+                const fetchPromises = DEFAULT_RELAYS.map(async (relayUrl) => {
+                    try {
+                        onRelayStatus(relayUrl, 'connecting');
+                        const results = await fetchFromRelay(relayUrl, hexPubkey, signal,
+                            (url, status) => onRelayStatus(url, status));
+                        // Merge results into the global map
+                        for (const { event, relayUrl: srcRelay } of results) {
+                            if (mergedMap.has(event.id)) {
+                                const existing = mergedMap.get(event.id);
+                                if (!existing.relayUrls.includes(srcRelay)) {
+                                    existing.relayUrls.push(srcRelay);
+                                }
+                            } else {
+                                mergedMap.set(event.id, {
+                                    event,
+                                    relayUrls: [srcRelay],
+                                });
+                                totalEvents++;
+                            }
+                        }
+                        onEventCount(totalEvents);
+                        return { relayUrl, success: true, count: results.length };
+                    } catch (err) {
+                        onRelayStatus(relayUrl, 'failed');
+                        console.warn(`Relay ${relayUrl} failed:`, err.message);
+                        return { relayUrl, success: false, count: 0, error: err.message };
+                    }
+                });
+
+                // Wait for all relays (or timeout)
+                const results = await Promise.allSettled(fetchPromises);
+
+                // Count successful relays
+                const successfulRelays = results.filter(
+                    r => r.status === 'fulfilled' && r.value.success
+                ).length;
+
+                if (successfulRelays === 0 && mergedMap.size === 0) {
+                    throw new Error('All relays failed to respond. Check your network connection.');
+                }
+
+                return mergedMap;
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  EVENT PROCESSING
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Merge events from a Map into the global state.
+             * @param {Map<string, object>} eventsMap - Map of eventId → {event, relayUrls[]}
+             */
+            function mergeEvents(eventsMap) {
+                for (const [eventId, data] of eventsMap) {
+                    if (!allEventsMap.has(eventId)) {
+                        allEventsMap.set(eventId, data);
+                    } else {
+                        // Merge relay URLs
+                        const existing = allEventsMap.get(eventId);
+                        for (const url of data.relayUrls) {
+                            if (!existing.relayUrls.includes(url)) {
+                                existing.relayUrls.push(url);
+                            }
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Detect custom kinds from the global events map.
+             * Groups events by kind and identifies non-standard kinds.
+             * @returns {Map<number, object[]>} Map of customKind → array of event objects
+             */
+            function detectCustomKinds() {
+                const kindMap = new Map(); // kind → array of {event, relayUrls}
+
+                for (const [eventId, data] of allEventsMap) {
+                    const kind = data.event.kind;
+                    if (kind === undefined || kind === null) continue;
+
+                    // Only collect custom (non-standard) kinds
+                    if (STANDARD_KINDS.has(kind)) continue;
+
+                    if (!kindMap.has(kind)) {
+                        kindMap.set(kind, []);
+                    }
+                    kindMap.get(kind).push({
+                        event: data.event,
+                        relayUrls: data.relayUrls,
+                    });
+                }
+
+                return kindMap;
+            }
+
+            /**
+             * Build summary objects for each custom kind.
+             * @param {Map<number, object[]>} kindGroups - Events grouped by kind
+             * @returns {Array<{kind: number, count: number, firstSeen: number, latestSeen: number, events: object[]}>}
+             */
+            function buildSummaries(kindGroups) {
+                const summaries = [];
+                for (const [kind, events] of kindGroups) {
+                    let firstSeen = Infinity;
+                    let latestSeen = -Infinity;
+                    for (const { event } of events) {
+                        const ts = event.created_at || 0;
+                        if (ts < firstSeen) firstSeen = ts;
+                        if (ts > latestSeen) latestSeen = ts;
+                    }
+                    summaries.push({
+                        kind,
+                        count: events.length,
+                        firstSeen: firstSeen === Infinity ? null : firstSeen,
+                        latestSeen: latestSeen === -Infinity ? null : latestSeen,
+                        events,
+                    });
+                }
+                return summaries;
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  RENDERING
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Render the statistics section.
+             */
+            function renderStats() {
+                const totalEvents = allEventsMap.size;
+                let standardCount = 0;
+                let customCount = 0;
+                const standardKindSet = new Set();
+                const customKindSet = new Set();
+
+                for (const [eventId, data] of allEventsMap) {
+                    const kind = data.event.kind;
+                    if (STANDARD_KINDS.has(kind)) {
+                        standardCount++;
+                        standardKindSet.add(kind);
+                    } else {
+                        customCount++;
+                        customKindSet.add(kind);
+                    }
+                }
+
+                const statsItems = [
+                    { label: 'NPUB', value: currentNpub || '—', small: true },
+                    { label: 'Decoded Hex Pubkey', value: currentHexPubkey || '—', small: true },
+                    { label: 'Total Events', value: totalEvents },
+                    { label: 'Standard Events', value: standardCount },
+                    { label: 'Custom Events', value: customCount, highlight: true },
+                    { label: 'Unique Standard Kinds', value: standardKindSet.size },
+                    { label: 'Unique Custom Kinds', value: customKindSet.size, highlight: true },
+                ];
+
+                statsGrid.innerHTML = statsItems.map(item => `
+                    <div class="stat-item">
+                        <div class="stat-label">${item.label}</div>
+                        <div class="stat-value${item.highlight ? ' highlight' : ''}${item.small ? ' small' : ''}">
+                            ${item.value}
+                        </div>
+                    </div>
+                `).join('');
+                statsGrid.style.display = 'grid';
+            }
+
+            /**
+             * Sort the custom kind summaries.
+             * @param {Array} summaries - Array of summary objects
+             * @param {string} column - Column to sort by
+             * @param {string} direction - 'asc' or 'desc'
+             * @returns {Array} Sorted array
+             */
+            function sortSummaries(summaries, column, direction) {
+                const multiplier = direction === 'asc' ? 1 : -1;
+                return [...summaries].sort((a, b) => {
+                    let valA, valB;
+                    switch (column) {
+                        case 'kind':
+                            valA = a.kind;
+                            valB = b.kind;
+                            break;
+                        case 'count':
+                            valA = a.count;
+                            valB = b.count;
+                            break;
+                        case 'firstSeen':
+                            valA = a.firstSeen || 0;
+                            valB = b.firstSeen || 0;
+                            break;
+                        case 'latestSeen':
+                            valA = a.latestSeen || 0;
+                            valB = b.latestSeen || 0;
+                            break;
+                        default:
+                            valA = a.kind;
+                            valB = b.kind;
+                    }
+                    if (valA < valB) return -1 * multiplier;
+                    if (valA > valB) return 1 * multiplier;
+                    return 0;
+                });
+            }
+
+            /**
+             * Render the results table.
+             * @param {string} [filterText=''] - Optional text to filter by kind number
+             */
+            function renderTable(filterText = '') {
+                // Apply search filter
+                let filtered = customKindSummaries;
+                if (filterText.trim()) {
+                    const searchTerm = filterText.trim().toLowerCase();
+                    filtered = customKindSummaries.filter(s =>
+                        String(s.kind).includes(searchTerm)
+                    );
+                }
+
+                // Apply sort
+                filtered = sortSummaries(filtered, sortColumn, sortDirection);
+
+                // Update table header sort arrows
+                const headers = resultsTable.querySelectorAll('thead th[data-sort]');
+                headers.forEach(th => {
+                    const col = th.getAttribute('data-sort');
+                    const arrow = th.querySelector('.sort-arrow');
+                    if (col === sortColumn) {
+                        arrow.textContent = sortDirection === 'asc' ? '▲' : '▼';
+                        th.style.color = 'var(--accent)';
+                    } else {
+                        arrow.textContent = '';
+                        th.style.color = '';
+                    }
+                });
+
+                if (filtered.length === 0) {
+                    resultsBody.innerHTML = '';
+                    noResults.style.display = 'block';
+                    if (filterText.trim() && customKindSummaries.length > 0) {
+                        noResults.querySelector('p').textContent =
+                            `No custom kinds matching "${filterText.trim()}".`;
+                    } else if (customKindSummaries.length === 0) {
+                        noResults.querySelector('p').textContent =
+                            'No custom kinds found for this npub. All events use standard kinds.';
+                    } else {
+                        noResults.querySelector('p').textContent =
+                            `No custom kinds matching "${filterText.trim()}".`;
+                    }
+                } else {
+                    noResults.style.display = 'none';
+                    resultsBody.innerHTML = filtered.map(s => `
+                        <tr>
+                            <td><span class="kind-badge">${s.kind}</span></td>
+                            <td>${s.count}</td>
+                            <td>${formatDate(s.firstSeen)}</td>
+                            <td>${formatDate(s.latestSeen)}</td>
+                            <td>
+                                <button class="btn btn-outline btn-xs view-btn" data-kind="${s.kind}">
+                                    👁 View
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Attach event listeners to View buttons
+                    resultsBody.querySelectorAll('.view-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const kind = parseInt(btn.getAttribute('data-kind'));
+                            showModal(kind);
+                        });
+                    });
+                }
+
+                tableWrapper.style.display = 'block';
+                toolbar.style.display = 'flex';
+            }
+
+            /**
+             * Show the modal dialog with events of a specific kind.
+             * @param {number} kind - The event kind to display
+             */
+            function showModal(kind) {
+                const group = customKindGroups.get(kind);
+                if (!group || group.length === 0) return;
+
+                modalKindBadge.textContent = kind;
+                modalTitle.innerHTML = `Events of Kind <span class="kind-badge">${kind}</span>`;
+
+                modalBody.innerHTML = group.map((item, index) => {
+                    const event = item.event;
+                    const relayUrls = item.relayUrls || [];
+                    const relayDisplay = relayUrls.length > 0 ?
+                        relayUrls.map(r => {
+                            // Extract short relay name
+                            const short = r.replace('wss://', '').replace('relay.', '').replace('.com', '')
+                                .replace('.io', '').replace('.net', '').replace('.social', '');
+                            return short;
+                        }).join(', ') :
+                        'unknown';
+                    const jsonStr = JSON.stringify(event, null, 2);
+                    return `
+                        <div class="event-card">
+                            <div class="event-meta">
+                                <span><span class="label">Event ID:</span> ${event.id || '—'}</span>
+                                <span><span class="label">Created:</span> ${formatDateTime(event.created_at)}</span>
+                                <span><span class="label">Relay:</span> ${relayDisplay}</span>
+                                <span><span class="label">#${index + 1}</span></span>
+                            </div>
+                            <pre>${escapeHTML(jsonStr)}</pre>
+                            <div class="btn-row">
+                                <button class="btn btn-outline btn-xs copy-json-btn" data-json="${escapeAttr(jsonStr)}">
+                                    📋 Copy JSON
+                                </button>
+                                <button class="btn btn-outline btn-xs copy-id-btn" data-id="${event.id || ''}">
+                                    🔗 Copy Event ID
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Attach copy button listeners
+                modalBody.querySelectorAll('.copy-json-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const json = btn.getAttribute('data-json');
+                        copyToClipboard(unescapeAttr(json), 'JSON');
+                    });
+                });
+                modalBody.querySelectorAll('.copy-id-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.getAttribute('data-id');
+                        copyToClipboard(id, 'Event ID');
+                    });
+                });
+
+                modalOverlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            /**
+             * Hide the modal dialog.
+             */
+            function hideModal() {
+                modalOverlay.style.display = 'none';
+                modalBody.innerHTML = '';
+                document.body.style.overflow = '';
+            }
+
+            /**
+             * Escape HTML special characters for safe display.
+             * @param {string} str - String to escape
+             * @returns {string} Escaped string
+             */
+            function escapeHTML(str) {
+                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+                return str.replace(/[&<>"']/g, ch => map[ch]);
+            }
+
+            /**
+             * Escape a string for safe use in an HTML attribute.
+             * @param {string} str - String to escape
+             * @returns {string} Escaped string
+             */
+            function escapeAttr(str) {
+                return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            /**
+             * Unescape an attribute value back to its original form.
+             * @param {string} str - Escaped string
+             * @returns {string} Unescaped string
+             */
+            function unescapeAttr(str) {
+                const ta = document.createElement('textarea');
+                ta.innerHTML = str;
+                return ta.value;
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  EXPORT FUNCTIONS
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Export results as CSV and trigger download.
+             */
+            function exportCSV() {
+                if (customKindSummaries.length === 0) {
+                    showToast('No data to export', 'error');
+                    return;
+                }
+
+                // CSV header
+                const header = 'Kind,Count,First Seen,Latest Seen';
+                const rows = customKindSummaries.map(s =>
+                    `${s.kind},${s.count},${formatDate(s.firstSeen)},${formatDate(s.latestSeen)}`
+                );
+                const csvContent = [header, ...rows].join('\n');
+
+                // Also include a second section with individual events
+                const eventHeader = '\n\nEvent ID,Kind,Created At,Relay';
+                const eventRows = [];
+                for (const summary of customKindSummaries) {
+                    for (const item of summary.events) {
+                        const relayStr = (item.relayUrls || []).join('; ');
+                        eventRows.push(
+                            `${item.event.id},${summary.kind},${formatDateTime(item.event.created_at)},"${relayStr}"`
+                        );
+                    }
+                }
+                const fullCSV = csvContent + eventHeader + '\n' + eventRows.join('\n');
+
+                downloadFile(fullCSV, 'nostr-custom-kinds.csv', 'text/csv');
+                showToast('CSV exported!', 'success');
+            }
+
+            /**
+             * Export results as JSON and trigger download.
+             */
+            function exportJSON() {
+                if (customKindSummaries.length === 0) {
+                    showToast('No data to export', 'error');
+                    return;
+                }
+
+                const exportData = {
+                    pubkey: currentHexPubkey,
+                    npub: currentNpub,
+                    exportedAt: new Date().toISOString(),
+                    totalCustomKinds: customKindSummaries.length,
+                    customKinds: customKindSummaries.map(s => ({
+                        kind: s.kind,
+                        count: s.count,
+                        firstSeen: s.firstSeen ? formatDateTime(s.firstSeen) : null,
+                        latestSeen: s.latestSeen ? formatDateTime(s.latestSeen) : null,
+                        events: s.events.map(item => ({
+                            id: item.event.id,
+                            pubkey: item.event.pubkey,
+                            created_at: item.event.created_at,
+                            created_at_formatted: formatDateTime(item.event.created_at),
+                            kind: item.event.kind,
+                            content: item.event.content,
+                            tags: item.event.tags || [],
+                            sig: item.event.sig,
+                            relays: item.relayUrls || [],
+                        })),
+                    })),
+                };
+
+                const jsonStr = JSON.stringify(exportData, null, 2);
+                downloadFile(jsonStr, 'nostr-custom-kinds.json', 'application/json');
+                showToast('JSON exported!', 'success');
+            }
+
+            /**
+             * Trigger a file download in the browser.
+             * @param {string} content - File content
+             * @param {string} filename - Suggested filename
+             * @param {string} mimeType - MIME type
+             */
+            function downloadFile(content, filename, mimeType) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  PROGRESS UI
+            // ═══════════════════════════════════════════════════════════
+
+            /** Track relay statuses for progress display */
+            let relayStatuses = new Map();
+
+            /**
+             * Update the progress display.
+             * @param {string} relayUrl - Relay URL
+             * @param {string} status - 'connecting', 'connected', 'failed', 'error'
+             */
+            function updateProgress(relayUrl, status) {
+                relayStatuses.set(relayUrl, status);
+                renderProgress();
+            }
+
+            /**
+             * Render the progress indicator.
+             */
+            function renderProgress() {
+                const items = DEFAULT_RELAYS.map(url => {
+                    const status = relayStatuses.get(url) || 'pending';
+                    let dotClass = '';
+                    let statusText = 'Pending';
+                    switch (status) {
+                        case 'connecting':
+                            dotClass = 'active';
+                            statusText = 'Connecting...';
+                            break;
+                        case 'connected':
+                            dotClass = 'connected';
+                            statusText = 'Connected';
+                            break;
+                        case 'failed':
+                        case 'error':
+                            dotClass = 'failed';
+                            statusText = 'Failed';
+                            break;
+                    }
+                    const shortName = url.replace('wss://', '').replace('relay.', '');
+                    return `
+                        <span class="progress-item">
+                            <span class="progress-dot ${dotClass}"></span>
+                            ${shortName}: ${statusText}
+                        </span>
+                    `;
+                }).join('');
+
+                const connectedCount = [...relayStatuses.values()].filter(s => s === 'connected').length;
+                const totalEvents = allEventsMap.size;
+
+                progressList.innerHTML = `
+                    ${items}
+                    <span class="progress-item" style="margin-left:8px;font-weight:600;">
+                        | Relays: ${connectedCount}/${DEFAULT_RELAYS.length}
+                    </span>
+                    <span class="progress-item" style="font-weight:600;">
+                        | Events: ${totalEvents}
+                    </span>
+                    ${isScanning ? `<span class="progress-item"><span class="spinner"></span> Scanning...</span>` : ''}
+                `;
+                progressArea.style.display = 'block';
+            }
+
+            /**
+             * Reset the progress display.
+             */
+            function resetProgress() {
+                relayStatuses.clear();
+                progressList.innerHTML = '';
+                progressArea.style.display = 'none';
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  MAIN SCAN LOGIC
+            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * Run a full scan: decode npub, connect relays, fetch events, process results.
+             */
+            async function runScan() {
+                if (isScanning) return;
+
+                const rawNpub = npubInput.value.trim();
+                if (!rawNpub) {
+                    showToast('Please enter an npub', 'error');
+                    return;
+                }
+
+                // Decode npub
+                let hexPubkey;
+                try {
+                    hexPubkey = decodeNpub(rawNpub);
+                } catch (err) {
+                    showToast(`Invalid npub: ${err.message}`, 'error');
+                    return;
+                }
+
+                // Reset state
+                abortController = new AbortController();
+                isScanning = true;
+                currentHexPubkey = hexPubkey;
+                currentNpub = rawNpub;
+                allEventsMap.clear();
+                customKindGroups.clear();
+                customKindSummaries = [];
+                relayStatuses.clear();
+                sortColumn = 'kind';
+                sortDirection = 'asc';
+
+                // Update UI
+                scanBtn.disabled = true;
+                scanBtn.innerHTML = '<span class="spinner"></span> Scanning...';
+                resetProgress();
+                progressArea.style.display = 'block';
+                statsGrid.style.display = 'none';
+                toolbar.style.display = 'none';
+                tableWrapper.style.display = 'none';
+                resultsBody.innerHTML = '';
+                noResults.style.display = 'none';
+                searchInput.value = '';
+
+                // Initialize progress for all relays
+                for (const url of DEFAULT_RELAYS) {
+                    relayStatuses.set(url, 'pending');
+                }
+                renderProgress();
+
+                try {
+                    // Connect to relays and fetch events
+                    const eventsMap = await connectRelays(
+                        hexPubkey,
+                        abortController.signal,
+                        (relayUrl, status) => {
+                            updateProgress(relayUrl, status);
+                        },
+                        (totalCount) => {
+                            // Update event count in progress
+                            renderProgress();
+                        }
+                    );
+
+                    // Merge events into global state
+                    mergeEvents(eventsMap);
+
+                    // Detect custom kinds
+                    customKindGroups = detectCustomKinds();
+
+                    // Build summaries
+                    customKindSummaries = buildSummaries(customKindGroups);
+                    // Default sort by kind ascending
+                    customKindSummaries = sortSummaries(customKindSummaries, 'kind', 'asc');
+
+                    // Render everything
+                    renderStats();
+                    renderTable();
+
+                    if (customKindSummaries.length === 0) {
+                        showToast(
+                            'Scan complete. No custom kinds found — all events use standard kinds.',
+                            'info'
+                        );
+                    } else {
+                        showToast(
+                            `Found ${customKindSummaries.length} custom kind(s) across ${allEventsMap.size} total events.`,
+                            'success'
+                        );
+                    }
+                } catch (err) {
+                    if (err.message === 'Scan aborted') {
+                        showToast('Scan cancelled.', 'info');
+                    } else {
+                        showToast(`Error: ${err.message}`, 'error');
+                        console.error('Scan error:', err);
+                    }
+                    // Still render whatever we have
+                    if (allEventsMap.size > 0) {
+                        customKindGroups = detectCustomKinds();
+                        customKindSummaries = buildSummaries(customKindGroups);
+                        customKindSummaries = sortSummaries(customKindSummaries, 'kind', 'asc');
+                        renderStats();
+                        renderTable();
+                    }
+                } finally {
+                    isScanning = false;
+                    abortController = null;
+                    scanBtn.disabled = false;
+                    scanBtn.innerHTML = '<span>🔎</span> Scan';
+                    // Final progress update
+                    if (allEventsMap.size > 0 || customKindSummaries.length > 0) {
+                        renderProgress();
+                        // Update progress to show finished state
+                        const finishedIndicator =
+                            '<span class="progress-item" style="font-weight:600;color:var(--success);">✔ Finished</span>';
+                        if (!progressList.innerHTML.includes('Finished')) {
+                            progressList.innerHTML += finishedIndicator;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Clear all results and reset the UI.
+             */
+            function clearResults() {
+                if (isScanning && abortController) {
+                    abortController.abort();
+                }
+                isScanning = false;
+                currentHexPubkey = null;
+                currentNpub = null;
+                allEventsMap.clear();
+                customKindGroups.clear();
+                customKindSummaries = [];
+                relayStatuses.clear();
+                sortColumn = 'kind';
+                sortDirection = 'asc';
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<span>🔎</span> Scan';
+                resetProgress();
+                statsGrid.style.display = 'none';
+                statsGrid.innerHTML = '';
+                toolbar.style.display = 'none';
+                tableWrapper.style.display = 'none';
+                resultsBody.innerHTML = '';
+                noResults.style.display = 'none';
+                searchInput.value = '';
+                npubInput.value = '';
+                hideModal();
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            //  EVENT LISTENERS
+            // ═══════════════════════════════════════════════════════════
+
+            // Scan button
+            scanBtn.addEventListener('click', runScan);
+
+            // Clear button
+            clearBtn.addEventListener('click', clearResults);
+
+            // Enter key in input triggers scan
+            npubInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runScan();
+                }
+            });
+
+            // Search input filters the table in real-time
+            searchInput.addEventListener('input', () => {
+                renderTable(searchInput.value);
+            });
+
+            // Table header click for sorting
+            resultsTable.querySelector('thead').addEventListener('click', (e) => {
+                const th = e.target.closest('th[data-sort]');
+                if (!th) return;
+                const column = th.getAttribute('data-sort');
+                if (sortColumn === column) {
+                    // Toggle direction
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = column;
+                    sortDirection = 'asc';
+                }
+                renderTable(searchInput.value);
+            });
+
+            // Modal close button
+            modalClose.addEventListener('click', hideModal);
+
+            // Click overlay background to close modal
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    hideModal();
+                }
+            });
+
+            // Escape key closes modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modalOverlay.style.display === 'flex') {
+                    hideModal();
+                }
+            });
+
+            // Export buttons
+            exportCSVBtn.addEventListener('click', exportCSV);
+            exportJSONBtn.addEventListener('click', exportJSON);
+
+            // ═══════════════════════════════════════════════════════════
+            //  INITIAL SETUP
+            // ═══════════════════════════════════════════════════════════
+
+            // Focus the input on page load
+            npubInput.focus();
+
+            // Log ready status
+            console.log('🔍 Nostr Custom Kind Explorer ready.');
+            console.log(`   Default relays: ${DEFAULT_RELAYS.length}`);
+            console.log(`   Standard kinds: ${[...STANDARD_KINDS].sort((a, b) => a - b).join(', ')}`);
+            console.log('   Enter an npub and click Scan to begin.');
+
+        })();
+    </script>
+</body>
+</html>
