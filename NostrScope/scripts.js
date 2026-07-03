@@ -30,7 +30,7 @@
         if (profileCache.has(pubkey)) return Promise.resolve(profileCache.get(pubkey));
         if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
         const promise = new Promise((resolve) => {
-            const relays = activeRelays.slice(0, 3);   // use first 3 configured relays
+            const relays = activeRelays.slice(0, 3);
             const rm = new RelayManager(relays);
             let resolved = false;
             rm.connectAll(4000).then(() => {
@@ -327,7 +327,7 @@
         p.innerHTML = h;
     }
 
-    // ── Profile Tab (collapsible followers, other events with special handling for kind 30023) ─────
+    // ── Profile Tab (FULL RENDERING) ─────
     function renderProfileTab(data, pubkey) {
         const p = document.getElementById('panel-profile');
         const profile = data.profile || {};
@@ -378,6 +378,7 @@
                         html += `<div class="event-content" style="max-height:80px;overflow-y:auto;">${escapeHtml(ev.content.substring(0, 300))}</div>`;
                     }
                 } else {
+                    // Generic other events
                     html += `<div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>`;
                     html += `<details><summary style="font-size:0.75rem;color:var(--accent2);">Show JSON</summary>
                     <div class="json-viewer" style="max-height:150px;margin-top:4px;">${syntaxHighlight(JSON.stringify(ev, null, 2))}</div></details>`;
@@ -521,7 +522,7 @@
         resultsAccountBtn?.addEventListener('click', () => showAccountModal());
         if (bottomNav) { bottomNav.addEventListener('click', e => { const btn = e.target.closest('.nav-btn'); if (btn) switchTab(btn.dataset.tab); }); }
         CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — configurable relays.');
+        console.log('🔍 NostrScope ready — full profile rendering.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
