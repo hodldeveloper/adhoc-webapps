@@ -16,7 +16,7 @@
                     <span id="homeUserStatus" class="user-badge">Not logged in</span>
                     <button id="homeLoginBtn" class="btn btn-sm btn-outline">🔑 Login</button>
                     <button id="homeLogoutBtn" class="btn btn-sm btn-outline" style="display:none;">Logout</button>
-                    <button id="homeAccountBtn" class="btn btn-sm btn-outline" style="display:none;">👤 My Account</button>
+                    <button id="homeAccountBtn" class="btn btn-sm btn-secondary" style="display:none;">👤 My Account</button>
                 </div>
             </div>
             <div class="home-logo-area">
@@ -73,8 +73,10 @@
     <div class="toast-container" id="toastContainer"></div>
     <div id="modalContainer"></div>
 
-    <script src="boost.js"></script>
-    <script src="scripts.js"></script>
+    <!-- Scripts in order -->
+    <script src="config.js"></script>
     <script src="utils.js"></script>
+    <script src="scripts.js"></script>
+    <script src="boost.js"></script>
 </body>
 </html>
