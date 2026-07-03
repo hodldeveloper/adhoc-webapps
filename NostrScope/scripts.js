@@ -20,7 +20,7 @@
     bottomNav = document.querySelector('.bottom-nav');
 
     // ── Cached account metadata ─────────
-    let cachedProfile = null;   // { profile, profileEvent }
+    let cachedProfile = null;
 
     // ── Profile cache & quick fetch ────
     const profileCache = new Map();
@@ -29,34 +29,22 @@
     function quickFetchProfile(pubkey) {
         if (profileCache.has(pubkey)) return Promise.resolve(profileCache.get(pubkey));
         if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
-
         const promise = new Promise((resolve) => {
             const relays = activeRelays.slice(0, 3);
             const rm = new RelayManager(relays);
             let resolved = false;
-
             rm.connectAll(4000).then(() => {
                 const subId = rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
-                const timeout = setTimeout(() => {
-                    if (!resolved) { resolved = true; rm.closeAll(); resolve(null); }
-                }, 3000);
-
+                const timeout = setTimeout(() => { if (!resolved) { resolved = true; rm.closeAll(); resolve(null); } }, 3000);
                 rm.onEvent = (ev) => {
                     if (ev.pubkey === pubkey && ev.kind === 0) {
                         clearTimeout(timeout);
-                        if (!resolved) {
-                            resolved = true;
-                            rm.closeAll();
-                            try { const p = JSON.parse(ev.content); resolve(p.name || p.display_name || null); } catch (e) { resolve(null); }
-                        }
+                        if (!resolved) { resolved = true; rm.closeAll(); try { const p = JSON.parse(ev.content); resolve(p.name || p.display_name || null); } catch (e) { resolve(null); } }
                     }
                 };
-                rm.onEOSE = () => {
-                    if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve(null); }
-                };
+                rm.onEOSE = () => { if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve(null); } };
             }).catch(() => { if (!resolved) { resolved = true; resolve(null); } });
         });
-
         pendingFetches.set(pubkey, promise);
         promise.then(name => { profileCache.set(pubkey, name); pendingFetches.delete(pubkey); });
         return promise;
@@ -75,7 +63,7 @@
         });
     }
 
-    // ── Fetch & cache own profile (silent) ──
+    // ── Fetch & cache own profile ─────
     async function fetchAndCacheProfile() {
         if (!currentUser) return;
         const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
@@ -107,10 +95,9 @@
         }
     }
 
-    // ── Account Modal (cached + refresh) ──
+    // ── Account Modal ──────────────────
     function showAccountModal(forceRefresh = false) {
         if (!currentUser) return;
-
         function renderModal(profile, profileEvent) {
             let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
             if (profileEvent && profileEvent.tags) {
@@ -118,14 +105,9 @@
                 badges = [...new Set([...badges, ...tTags])];
             }
             const jsonStr = JSON.stringify(profile, null, 2);
-            const name = profile.name || '';
-            const about = profile.about || '';
-            const picture = profile.picture || '';
-            const banner = profile.banner || '';
-            const nip05 = profile.nip05 || '';
-            const bchAddress = profile.bch_address || '';
+            const name = profile.name || ''; const about = profile.about || ''; const picture = profile.picture || '';
+            const banner = profile.banner || ''; const nip05 = profile.nip05 || ''; const bchAddress = profile.bch_address || '';
             const bchTipWallet = profile.bch_tip_wallet || '';
-
             let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
                 <div class="modal" style="max-width:360px;">
                     <button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button>
@@ -141,9 +123,7 @@
                         <label>NIP-05:</label><br/><input type="text" id="editNip05" value="${escapeHtml(nip05)}" style="width:100%;"/><br/>
                         <label>BCH Address:</label><br/><input type="text" id="editBchAddress" value="${escapeHtml(bchAddress)}" style="width:100%;"/><br/>
                         <label>BCH Tip Wallet:</label><br/><input type="text" id="editBchTipWallet" value="${escapeHtml(bchTipWallet)}" style="width:100%;"/><br/>
-                        <div style="margin-top:8px;">
-                            <strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}
-                        </div>
+                        <div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}</div>
                         <div style="display:flex; gap:8px; margin-top:12px;">
                             <button class="btn btn-primary" id="saveProfileBtn">💾 Save Profile</button>
                             <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
@@ -157,7 +137,6 @@
                 </div>
             </div>`;
             modalContainer.innerHTML = html;
-
             document.getElementById('saveProfileBtn').addEventListener('click', () => {
                 const newName = document.getElementById('editName').value.trim();
                 const newAbout = document.getElementById('editAbout').value.trim();
@@ -167,12 +146,9 @@
                 const newBchAddress = document.getElementById('editBchAddress').value.trim();
                 const newBchTipWallet = document.getElementById('editBchTipWallet').value.trim();
                 const newProfile = {};
-                if (newName) newProfile.name = newName;
-                if (newAbout) newProfile.about = newAbout;
-                if (newPicture) newProfile.picture = newPicture;
-                if (newBanner) newProfile.banner = newBanner;
-                if (newNip05) newProfile.nip05 = newNip05;
-                if (newBchAddress) newProfile.bch_address = newBchAddress;
+                if (newName) newProfile.name = newName; if (newAbout) newProfile.about = newAbout;
+                if (newPicture) newProfile.picture = newPicture; if (newBanner) newProfile.banner = newBanner;
+                if (newNip05) newProfile.nip05 = newNip05; if (newBchAddress) newProfile.bch_address = newBchAddress;
                 if (newBchTipWallet) newProfile.bch_tip_wallet = newBchTipWallet;
                 if (badges.length > 0) newProfile.tags = badges;
                 const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
@@ -184,13 +160,11 @@
                     document.getElementById('accountModalBackdrop').remove();
                 }).catch(e => showToast('Error: ' + e.message, 'error'));
             });
-
             document.getElementById('refreshProfileBtn').addEventListener('click', () => {
                 document.getElementById('accountModalBackdrop').remove();
                 showAccountModal(true);
             });
         }
-
         if (forceRefresh || !cachedProfile) {
             modalContainer.innerHTML = `<div class="modal-backdrop"><div class="modal"><p>Loading profile…</p></div></div>`;
             const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
@@ -353,7 +327,7 @@
         p.innerHTML = h;
     }
 
-    // ── Profile Tab (scanned user, now with other events) ─────
+    // ── Profile Tab (collapsible followers, other events) ─────
     function renderProfileTab(data, pubkey) {
         const p = document.getElementById('panel-profile');
         const profile = data.profile || {};
@@ -362,7 +336,18 @@
         if (profile.name) html += `<p><strong>Name:</strong> ${escapeHtml(profile.name)}</p>`;
         if (profile.about) html += `<p><strong>About:</strong> ${escapeHtml(profile.about)}</p>`;
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
-        if (data.follows.length) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
+
+        // Followers list – collapsible if more than 5
+        if (data.follows.length) {
+            if (data.follows.length <= 5) {
+                html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
+            } else {
+                html += `<details style="margin-top:8px;"><summary style="cursor:pointer; color:var(--accent2);">👥 Follows (${data.follows.length})</summary>`;
+                html += `<p style="word-break:break-all;">${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
+                html += `</details>`;
+            }
+        }
+
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
 
         // Other events section
@@ -445,12 +430,7 @@
             investigator.eventMap.set(event.id, event);
             investigator.events.push(event);
         }
-        if (investigator) {
-            renderThread(investigator);
-            renderTimeline(investigator);
-            renderStats(investigator);
-            renderJson(investigator);
-        }
+        if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); }
     };
 
     // ── Global window functions ─────────
@@ -476,10 +456,7 @@
 
     // ── Main analysis flow (with debounce) ──
     let pendingRender = null;
-    function debouncedRender(inv) {
-        if (pendingRender) clearTimeout(pendingRender);
-        pendingRender = setTimeout(() => { renderAll(inv); pendingRender = null; }, 100);
-    }
+    function debouncedRender(inv) { if (pendingRender) clearTimeout(pendingRender); pendingRender = setTimeout(() => { renderAll(inv); pendingRender = null; }, 100); }
 
     async function runAnalysis(inputValue) {
         const input = inputValue || homeSearchInput.value.trim();
@@ -510,12 +487,7 @@
 
     // ── Init after DOM ready ───────────
     function initApp() {
-        if (typeof NostrTools !== 'undefined') {
-            if (loadLogin()) updateUserUI();
-        } else {
-            setTimeout(initApp, 200);
-            return;
-        }
+        if (typeof NostrTools !== 'undefined') { if (loadLogin()) updateUserUI(); } else { setTimeout(initApp, 200); return; }
         homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
         homeClearBtn?.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = ''); hideError(); });
         homeSearchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
@@ -525,14 +497,9 @@
         resultsBackBtn?.addEventListener('click', () => { resultsScreen.classList.remove('active'); homeScreen.classList.add('active'); homeSearchInput.value = ''; hideError(); });
         resultsLoginBtn?.addEventListener('click', showLoginModal);
         resultsAccountBtn?.addEventListener('click', () => showAccountModal());
-        if (bottomNav) {
-            bottomNav.addEventListener('click', e => {
-                const btn = e.target.closest('.nav-btn');
-                if (btn) switchTab(btn.dataset.tab);
-            });
-        }
+        if (bottomNav) { bottomNav.addEventListener('click', e => { const btn = e.target.closest('.nav-btn'); if (btn) switchTab(btn.dataset.tab); }); }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — all features active.');
+        console.log('🔍 NostrScope ready — full version.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
