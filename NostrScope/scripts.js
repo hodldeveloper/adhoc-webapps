@@ -19,10 +19,7 @@
     homeAccountBtn = document.getElementById('homeAccountBtn');
     bottomNav = document.querySelector('.bottom-nav');
 
-    // ── Cached account metadata ─────────
     let cachedProfile = null;
-
-    // ── Profile cache & quick fetch ────
     const profileCache = new Map();
     const pendingFetches = new Map();
 
@@ -63,7 +60,6 @@
         });
     }
 
-    // ── Fetch & cache own profile ─────
     async function fetchAndCacheProfile() {
         if (!currentUser) return;
         const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
@@ -71,7 +67,6 @@
         cachedProfile = { profile: upi.profile, profileEvent: upi.profileEvent };
     }
 
-    // ── UI Updates ─────────────────────
     function updateUserUI() {
         if (currentUser) {
             const npub = npubFromHex(currentUser.publicKey).substring(0,12) + '...';
@@ -95,7 +90,6 @@
         }
     }
 
-    // ── Account Modal ──────────────────
     function showAccountModal(forceRefresh = false) {
         if (!currentUser) return;
         function renderModal(profile, profileEvent) {
@@ -177,7 +171,6 @@
         }
     }
 
-    // ── Login Modal ────────────────────
     function showLoginModal() {
         modalContainer.innerHTML = `<div class="modal-backdrop" id="loginModalBackdrop"><div class="modal"><h3>🔐 Login with nsec</h3><div class="warning">⚠️ Your private key never leaves this browser.</div><input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off"><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-primary" id="loginConfirmBtn">Login</button><button class="btn btn-outline" id="loginCancelBtn">Cancel</button></div></div></div>`;
         const backdrop = document.getElementById('loginModalBackdrop');
@@ -207,7 +200,6 @@
 
     function logout() { currentUser = null; clearLogin(); updateUserUI(); showToast('Logged out.', 'info'); }
 
-    // ── Thread View ────────────────────
     function buildThreadCards(eventId, childrenMap, depth, visited) {
         if (visited.has(eventId) && depth > 0) return '';
         visited.add(eventId);
@@ -241,7 +233,6 @@
         resolveAuthorNames(p);
     }
 
-    // ── Timeline ────────────────────────
     function renderTimeline(inv) {
         const p = document.getElementById('panel-timeline');
         const sorted = [...inv.events].sort((a, b) => sortOrder === 'newest-first' ? (b.created_at || 0) - (a.created_at || 0) : (a.created_at || 0) - (b.created_at || 0));
@@ -262,7 +253,6 @@
         resolveAuthorNames(p);
     }
 
-    // ── Statistics ──────────────────────
     function renderStats(inv) {
         const p = document.getElementById('panel-stats');
         const tree = inv.getThreadTree();
@@ -275,7 +265,6 @@
         p.innerHTML = h;
     }
 
-    // ── JSON Viewer ────────────────────
     function renderJson(inv) {
         const p = document.getElementById('panel-json');
         let h = '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>';
@@ -291,7 +280,6 @@
         p.innerHTML = h;
     }
 
-    // ── Relays ─────────────────────────
     function renderRelays() {
         const p = document.getElementById('panel-relays');
         let h = '<div class="card"><div class="card-header"><span class="card-title">🔗 Relays</span><button class="btn btn-sm btn-outline" onclick="window._addCustomRelay()">+ Add</button></div><div style="overflow-x:auto;"><table class="relay-table"><thead><tr><th>URL</th><th>Status</th><th>RT</th><th>Events</th><th>Errors</th><th></th></tr></thead><tbody>';
@@ -306,10 +294,8 @@
         p.innerHTML = h;
     }
 
-    // ── Export ─────────────────────────
     function renderExport() { document.getElementById('panel-export').innerHTML = '<div class="card"><div class="card-header"><span class="card-title">💾 Export</span></div><div class="export-btns"><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'original\')">📄 Original JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportJSON(\'all\')">📦 All JSON</button><button class="btn btn-sm btn-outline" onclick="window._exportCSV()">📊 CSV</button><button class="btn btn-sm btn-outline" onclick="window._exportMarkdown()">📝 Markdown</button><button class="btn btn-sm btn-outline" onclick="window._exportHTML()">🌐 HTML</button></div></div>'; }
 
-    // ── BCH Payments ───────────────────
     function renderBch(inv) {
         const p = document.getElementById('panel-bch');
         const evs = inv.getBchPaymentEvents();
@@ -327,7 +313,6 @@
         p.innerHTML = h;
     }
 
-    // ── Profile Tab (FULL RENDERING) ─────
     function renderProfileTab(data, pubkey) {
         const p = document.getElementById('panel-profile');
         const profile = data.profile || {};
@@ -336,8 +321,6 @@
         if (profile.name) html += `<p><strong>Name:</strong> ${escapeHtml(profile.name)}</p>`;
         if (profile.about) html += `<p><strong>About:</strong> ${escapeHtml(profile.about)}</p>`;
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
-
-        // Followers list – collapsible if more than 5
         if (data.follows.length) {
             if (data.follows.length <= 5) {
                 html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
@@ -347,18 +330,13 @@
                 html += `</details>`;
             }
         }
-
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
-
-        // Other events section
         if (data.otherEvents && data.otherEvents.length) {
             html += `<details style="margin-top:12px;"><summary style="cursor:pointer; color:var(--accent2);">📦 Other Events (${data.otherEvents.length})</summary>`;
             data.otherEvents.forEach(ev => {
                 const kindName = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
                 const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
                 html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;">`;
-
-                // Special handling for Long-form Content (kind 30023)
                 if (ev.kind === 30023) {
                     try {
                         const article = JSON.parse(ev.content);
@@ -378,7 +356,6 @@
                         html += `<div class="event-content" style="max-height:80px;overflow-y:auto;">${escapeHtml(ev.content.substring(0, 300))}</div>`;
                     }
                 } else {
-                    // Generic other events
                     html += `<div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>`;
                     html += `<details><summary style="font-size:0.75rem;color:var(--accent2);">Show JSON</summary>
                     <div class="json-viewer" style="max-height:150px;margin-top:4px;">${syntaxHighlight(JSON.stringify(ev, null, 2))}</div></details>`;
@@ -387,7 +364,6 @@
             });
             html += `</details>`;
         }
-
         if (!profile.name && !profile.about && !profile.picture && !data.follows.length && !data.relays.length && !data.otherEvents.length) {
             html += '<p style="color:var(--text2);">No public profile data found.</p>';
         }
@@ -409,7 +385,6 @@
         homeScreen.classList.remove('active');
     }
 
-    // ── Event JSON Modal ───────────────
     function showEventModal(ev) {
         const json = JSON.stringify(ev, null, 2);
         modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
@@ -423,7 +398,6 @@
         });
     }
 
-    // ── Exports ────────────────────────
     function exportJSON(type) {
         let data, filename;
         if (type === 'original' && originalEvent) { data = JSON.stringify(originalEvent, null, 2); filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`; }
@@ -435,7 +409,6 @@
     function exportMarkdown() { let md = `# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { md += `- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`; }); downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.md`, 'text/markdown'); }
     function exportHTML() { let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h += `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`; }); h += '</tbody></table></body></html>'; downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); }
 
-    // ── Tab switching ───────────────────
     function switchTab(tabName) {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.getElementById(`panel-${tabName}`)?.classList.add('active');
@@ -444,7 +417,6 @@
         if (investigator && tabName === 'export') renderExport();
     }
 
-    // ── Helper: inject a newly boosted event ──
     window.injectBoostedEvent = function(event) {
         if (!investigator || !investigator.eventMap) return;
         if (!eventMap.has(event.id)) {
@@ -456,7 +428,6 @@
         if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); }
     };
 
-    // ── Global window functions ─────────
     window._expandThread = (eventId) => { threadCollapsed.delete(eventId); if (investigator) renderThread(investigator); };
     window._expandAll = () => { threadCollapsed.clear(); if (investigator) renderThread(investigator); };
     window._collapseAll = () => { if (investigator) { investigator.eventMap.forEach((_, k) => { if (k !== investigationHexId) threadCollapsed.add(k); }); renderThread(investigator); } };
@@ -477,7 +448,6 @@
     window._exportHTML = exportHTML;
     window.runAnalysis = runAnalysis;
 
-    // ── Main analysis flow (with debounce) ──
     let pendingRender = null;
     function debouncedRender(inv) { if (pendingRender) clearTimeout(pendingRender); pendingRender = setTimeout(() => { renderAll(inv); pendingRender = null; }, 100); }
 
@@ -508,7 +478,6 @@
         renderThread(inv); renderTimeline(inv); renderStats(inv); renderJson(inv); renderRelays(); renderExport(); renderBch(inv);
     }
 
-    // ── Init after DOM ready ───────────
     function initApp() {
         if (typeof NostrTools !== 'undefined') { if (loadLogin()) updateUserUI(); } else { setTimeout(initApp, 200); return; }
         homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
@@ -522,7 +491,7 @@
         resultsAccountBtn?.addEventListener('click', () => showAccountModal());
         if (bottomNav) { bottomNav.addEventListener('click', e => { const btn = e.target.closest('.nav-btn'); if (btn) switchTab(btn.dataset.tab); }); }
         CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — full profile rendering.');
+        console.log('🔍 NostrScope ready — robust profile loading.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
