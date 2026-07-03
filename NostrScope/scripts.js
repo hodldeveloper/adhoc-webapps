@@ -20,7 +20,7 @@
     bottomNav = document.querySelector('.bottom-nav');
 
     // ── Cached account metadata ─────────
-    let cachedProfile = null;   // stores { profile, profileEvent } or null
+    let cachedProfile = null;   // { profile, profileEvent }
 
     // ── Profile cache & quick fetch ────
     const profileCache = new Map();
@@ -47,30 +47,21 @@
                         if (!resolved) {
                             resolved = true;
                             rm.closeAll();
-                            try {
-                                const p = JSON.parse(ev.content);
-                                resolve(p.name || p.display_name || null);
-                            } catch (e) { resolve(null); }
+                            try { const p = JSON.parse(ev.content); resolve(p.name || p.display_name || null); } catch (e) { resolve(null); }
                         }
                     }
                 };
                 rm.onEOSE = () => {
                     if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve(null); }
                 };
-            }).catch(() => {
-                if (!resolved) { resolved = true; resolve(null); }
-            });
+            }).catch(() => { if (!resolved) { resolved = true; resolve(null); } });
         });
 
         pendingFetches.set(pubkey, promise);
-        promise.then(name => {
-            profileCache.set(pubkey, name);
-            pendingFetches.delete(pubkey);
-        });
+        promise.then(name => { profileCache.set(pubkey, name); pendingFetches.delete(pubkey); });
         return promise;
     }
 
-    // ── Resolve author names in a container (throttled) ──
     function resolveAuthorNames(container) {
         const elements = container.querySelectorAll('.author-name:not(.resolved)');
         elements.forEach(el => {
@@ -89,16 +80,13 @@
         if (!currentUser) return;
         const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
         await upi.investigate(currentUser.publicKey, [], { silent: true });
-        cachedProfile = {
-            profile: upi.profile,
-            profileEvent: upi.profileEvent
-        };
+        cachedProfile = { profile: upi.profile, profileEvent: upi.profileEvent };
     }
 
     // ── UI Updates ─────────────────────
     function updateUserUI() {
         if (currentUser) {
-            const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
+            const npub = npubFromHex(currentUser.publicKey).substring(0,12) + '...';
             if (homeUserStatus) homeUserStatus.textContent = npub;
             if (homeLoginBtn) homeLoginBtn.style.display = 'none';
             if (homeLogoutBtn) homeLogoutBtn.style.display = 'inline-block';
@@ -106,8 +94,6 @@
             if (resultsLoginBtn) resultsLoginBtn.style.display = 'none';
             if (resultsAccountBtn) resultsAccountBtn.style.display = 'inline-block';
             window._currentUser = currentUser;
-
-            // Start background profile fetch
             fetchAndCacheProfile();
         } else {
             if (homeUserStatus) homeUserStatus.textContent = 'Not logged in';
@@ -121,7 +107,7 @@
         }
     }
 
-    // ── Account Modal (uses cached data, plus refresh) ──
+    // ── Account Modal (cached + refresh) ──
     function showAccountModal(forceRefresh = false) {
         if (!currentUser) return;
 
@@ -189,11 +175,10 @@
                 if (newBchAddress) newProfile.bch_address = newBchAddress;
                 if (newBchTipWallet) newProfile.bch_tip_wallet = newBchTipWallet;
                 if (badges.length > 0) newProfile.tags = badges;
-                const event = { kind: 0, created_at: Math.floor(Date.now() / 1000), tags: [], content: JSON.stringify(newProfile) };
+                const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
                 if (typeof window._signNostrEvent !== 'function') { showToast('Signing function not available.', 'error'); return; }
                 window._signNostrEvent(event, currentUser.privateKey).then(signed => {
                     if (relayManager) relayManager.publish(signed);
-                    // Update cache after save
                     cachedProfile = { profile: newProfile, profileEvent: null };
                     showToast('Profile updated!', 'success');
                     document.getElementById('accountModalBackdrop').remove();
@@ -207,7 +192,6 @@
         }
 
         if (forceRefresh || !cachedProfile) {
-            // Show loading indicator
             modalContainer.innerHTML = `<div class="modal-backdrop"><div class="modal"><p>Loading profile…</p></div></div>`;
             const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
             tmpInvestigator.investigate(currentUser.publicKey, [], { silent: true }).then(() => {
@@ -241,7 +225,7 @@
             try { publicKey = NostrTools.getPublicKey(privateKey); } catch (e) { showToast('Invalid private key.', 'error'); return; }
             currentUser = { privateKey, publicKey };
             saveLogin(privateKey);
-            updateUserUI();   // this triggers background fetch
+            updateUserUI();
             showToast('Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
             backdrop.remove();
         });
@@ -369,7 +353,7 @@
         p.innerHTML = h;
     }
 
-    // ── Profile Tab ────────────────────
+    // ── Profile Tab (scanned user, now with other events) ─────
     function renderProfileTab(data, pubkey) {
         const p = document.getElementById('panel-profile');
         const profile = data.profile || {};
@@ -380,7 +364,25 @@
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
         if (data.follows.length) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
-        if (!profile.name && !profile.about && !profile.picture && !data.follows.length && !data.relays.length) { html += '<p style="color:var(--text2);">No public profile data found.</p>'; }
+
+        // Other events section
+        if (data.otherEvents && data.otherEvents.length) {
+            html += `<details style="margin-top:12px;"><summary style="cursor:pointer; color:var(--accent2);">📦 Other Events (${data.otherEvents.length})</summary>`;
+            data.otherEvents.forEach(ev => {
+                const kindName = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
+                const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
+                html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;">
+                    <div><span class="badge badge-purple">${kindName}</span> <span style="font-size:0.7rem;color:var(--text2);">${time}</span></div>
+                    <details><summary style="font-size:0.75rem;color:var(--accent2);">Show JSON</summary>
+                    <div class="json-viewer" style="max-height:150px;margin-top:4px;">${syntaxHighlight(JSON.stringify(ev, null, 2))}</div></details>
+                </div>`;
+            });
+            html += `</details>`;
+        }
+
+        if (!profile.name && !profile.about && !profile.picture && !data.follows.length && !data.relays.length && !data.otherEvents.length) {
+            html += '<p style="color:var(--text2);">No public profile data found.</p>';
+        }
         html += '</div>';
         p.innerHTML = html;
         switchTab('profile');
@@ -393,7 +395,7 @@
         const upi = new UserProfileInvestigator(rm);
         await upi.investigate(pubkey, hints);
         scannedPubkey = pubkey;
-        userProfileData = { profile: upi.profile, follows: upi.follows, relays: upi.relays };
+        userProfileData = { profile: upi.profile, follows: upi.follows, relays: upi.relays, otherEvents: upi.otherEvents };
         renderProfileTab(userProfileData, pubkey);
         resultsScreen.classList.add('active');
         homeScreen.classList.remove('active');
@@ -476,10 +478,7 @@
     let pendingRender = null;
     function debouncedRender(inv) {
         if (pendingRender) clearTimeout(pendingRender);
-        pendingRender = setTimeout(() => {
-            renderAll(inv);
-            pendingRender = null;
-        }, 100);
+        pendingRender = setTimeout(() => { renderAll(inv); pendingRender = null; }, 100);
     }
 
     async function runAnalysis(inputValue) {
@@ -533,7 +532,7 @@
             });
         }
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        console.log('🔍 NostrScope ready — cached profile, sticky header.');
+        console.log('🔍 NostrScope ready — all features active.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
