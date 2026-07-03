@@ -265,9 +265,36 @@ class EventInvestigator {
 class UserProfileInvestigator { constructor(relayManager) { this.rm = relayManager; this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; } async investigate(pubkey, hints = [], options = {}) { const allRelays = [...new Set([...activeRelays, ...hints])]; this.rm.relayUrls = allRelays; this.rm.connections.clear(); this.rm.subscriptions.clear(); relayStats.clear(); for (const u of allRelays) relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null, startTime: Date.now() }); showLoading('Connecting to relays...'); await this.rm.connectAll(10000); const connected = [...relayStats.values()].filter(s => s.status === 'connected').length; if (connected === 0) { hideLoading(); if (!options.silent) showToast('No relays connected.', 'error'); return; } showLoading(`Fetching profile for ${npubFromHex(pubkey).substring(0,12)}...`); this.profile = null; this.follows = []; this.relays = []; this.profileEvent = null; const pending = new Set(); const profileSub = this.rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]); const followsSub = this.rm.subscribe([{ kinds: [3], authors: [pubkey], limit: 1 }]); const relaySub = this.rm.subscribe([{ kinds: [10002], authors: [pubkey], limit: 1 }]); pending.add(profileSub); pending.add(followsSub); pending.add(relaySub); this.rm.onEvent = (ev) => { if (ev.pubkey === pubkey) { if (ev.kind === 0) { try { this.profile = JSON.parse(ev.content || '{}'); } catch (e) { this.profile = {}; } this.profileEvent = ev; } if (ev.kind === 3) this.follows = ev.tags.filter(t => t[0] === 'p').map(t => t[1]); if (ev.kind === 10002) this.relays = ev.tags.filter(t => t[0] === 'r').map(t => t[1]); } }; return new Promise((resolve) => { this.rm.onEOSE = (subId) => { pending.delete(subId); if (pending.size === 0) { this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); } }; setTimeout(() => { for (const sid of pending) this.rm.closeSubscription(sid); pending.clear(); this.rm.onEvent = null; this.rm.onEOSE = null; resolve(); }, 10000); }).then(() => { hideLoading(); if (!options.silent) { if (!this.profile && this.follows.length === 0 && this.relays.length === 0) showToast('No profile found.', 'info'); else showToast('Profile loaded.', 'success'); } }); } }
 
 // ── Login Persistence ──────────────
-function saveLogin(privateKey) { localStorage.setItem('nostrscope_privkey', privateKey); }
-function loadLogin() { const saved = localStorage.getItem('nostrscope_privkey'); if (saved && typeof NostrTools !== 'undefined') { try { const privateKey = saved; const publicKey = NostrTools.getPublicKey(privateKey); currentUser = { privateKey, publicKey }; return true; } catch (e) { localStorage.removeItem('nostrscope_privkey'); } } return false; }
-function clearLogin() { localStorage.removeItem('nostrscope_privkey'); }
+// ── Login Persistence ──────────────
+function saveLogin(privateKey) {
+    localStorage.setItem('nostrscope_privkey', privateKey);
+    localStorage.setItem('nostrscope_loggedIn', 'true');   // helper flag to verify
+    console.log('🔑 Private key saved to localStorage.');
+}
+
+function loadLogin() {
+    const saved = localStorage.getItem('nostrscope_privkey');
+    if (saved && typeof NostrTools !== 'undefined') {
+        try {
+            const privateKey = saved;
+            const publicKey = NostrTools.getPublicKey(privateKey);
+            currentUser = { privateKey, publicKey };
+            console.log('🔓 Session restored from localStorage.');
+            return true;
+        } catch (e) {
+            console.error('Error restoring session:', e);
+            localStorage.removeItem('nostrscope_privkey');
+            localStorage.removeItem('nostrscope_loggedIn');
+        }
+    }
+    return false;
+}
+
+function clearLogin() {
+    localStorage.removeItem('nostrscope_privkey');
+    localStorage.removeItem('nostrscope_loggedIn');
+    console.log('🗑️ Login data cleared.');
+}
 
 // ── Helper: media extraction ─────────
 function renderMediaFromContent(content) { if (!content) return { text: '', media: '' }; const urlRegex = /(https?:\/\/[^\s]+)/g; let html = escapeHtml(content); let mediaHtml = ''; let match; while ((match = urlRegex.exec(content)) !== null) { const url = match[0]; if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) { mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onerror="this.style.display='none'">`; } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) { mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;"><source src="${url}" type="video/mp4"></video>`; } } html = html.replace(urlRegex, (u) => { if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u)) return ''; return `<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);word-break:break-all;">${u}</a>`; }); return { text: html, media: mediaHtml }; }
