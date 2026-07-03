@@ -13,15 +13,27 @@
   const modalContainer = document.getElementById("modalContainer");
   const analysisBackBtn = document.getElementById("analysisBackBtn");
   const refreshFeedBtn = document.getElementById("refreshFeedBtn");
+  const refreshBoostsBtn = document.getElementById("refreshBoostsBtn");
   const feedLoginBtn = document.getElementById("feedLoginBtn");
   const feedAccountBtn = document.getElementById("feedAccountBtn");
   const profileContent = document.getElementById("profileContent");
+  const analysisContent = document.getElementById("analysisContent");
 
   // ── State ──
   let currentUser = null;
   let cachedProfile = null;
   const profileCache = new Map();
   const pendingFetches = new Map();
+  const wallState = {
+    pubkey: null,
+    hints: [],
+    posts: [],
+    oldestTs: null,
+    hasMore: false,
+    loadingMore: false,
+  };
+  let wallAutoLoadObserver = null;
+  const ACTIVE_SCREEN_KEY = "nostrscope_active_screen";
 
   function setSessionUser(user) {
     currentUser = user;
@@ -68,8 +80,15 @@
       .forEach((s) => s.classList.remove("active"));
     const screen = document.getElementById(screenName + "Screen");
     if (screen) screen.classList.add("active");
+    if (["feed", "boosts", "search", "profile"].includes(screenName)) {
+      try {
+        localStorage.setItem(ACTIVE_SCREEN_KEY, screenName);
+      } catch (e) {}
+    }
     if (typeof setActiveNav === "function") setActiveNav(screenName);
     if (screenName === "feed" && typeof loadFeed === "function") loadFeed();
+    if (screenName === "boosts" && typeof loadBoostedFeed === "function")
+      loadBoostedFeed();
     if (screenName === "profile") renderMyProfile();
   };
 
@@ -271,6 +290,15 @@
   }
 
   function renderAccountModal(profile, profileEvent) {
+    const COMMON_RELAYS = [
+      "wss://relay.damus.io",
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "wss://relay.nostr.band",
+      "wss://purplepag.es",
+      "wss://relay.snort.social",
+      "wss://nostr.wine",
+    ];
     let badges =
       profile.tags && Array.isArray(profile.tags) ? [...profile.tags] : [];
     if (profileEvent && profileEvent.tags) {
@@ -287,6 +315,11 @@
     const nip05 = profile.nip05 || "";
     const bchAddress = profile.bch_address || "";
     const bchTipWallet = profile.bch_tip_wallet || "";
+    const currentRelays =
+      typeof window.getActiveRelays === "function"
+        ? window.getActiveRelays()
+        : activeRelays;
+    const relayText = (currentRelays || []).join("\n");
     let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
             <div class="modal account-modal" style="max-width:460px;">
                 <button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button>
@@ -327,6 +360,17 @@
                         <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
                     </div>
                 </div>
+
+                  <div class="account-meta-block" style="margin-top:12px;">
+                    <p><strong>Relay Settings</strong></p>
+                    <p style="font-size:0.75rem; color:var(--text2); margin-top:4px;">One relay per line. Only wss:// relays are saved.</p>
+                    <textarea id="editRelays" rows="7" style="margin-top:8px; width:100%;">${escapeHtml(relayText)}</textarea>
+                    <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                      <button class="btn btn-outline btn-sm" id="saveRelaysBtn">💾 Save Relays</button>
+                      <button class="btn btn-outline btn-sm" id="useCommonRelaysBtn">✨ Use Common</button>
+                      <button class="btn btn-outline btn-sm" id="resetDefaultRelaysBtn">↺ Reset Default</button>
+                    </div>
+                  </div>
 
                 <div class="account-preview" style="margin-top:14px;">
                     <div class="account-preview-title">Preview</div>
@@ -471,6 +515,49 @@
         document.getElementById("accountModalBackdrop").remove();
         showAccountModal(true);
       });
+
+    const parseRelaysFromTextarea = () => {
+      const raw = document.getElementById("editRelays").value || "";
+      return raw
+        .split(/\r?\n|,/) 
+        .map((r) => r.trim())
+        .filter((r) => /^wss:\/\//i.test(r));
+    };
+
+    document.getElementById("saveRelaysBtn").addEventListener("click", () => {
+      const parsed = [...new Set(parseRelaysFromTextarea())];
+      if (!parsed.length) {
+        showToast("Please enter at least one valid wss:// relay.", "error");
+        return;
+      }
+      if (typeof window.setActiveRelays === "function") {
+        window.setActiveRelays(parsed);
+      } else {
+        globalThis.activeRelays = parsed;
+      }
+      showToast(`Saved ${parsed.length} relays.`, "success");
+      if (feedScreen.classList.contains("active") && typeof loadFeed === "function") loadFeed();
+      if (document.getElementById("boostsScreen")?.classList.contains("active") && typeof loadBoostedFeed === "function") loadBoostedFeed(true);
+    });
+
+    document
+      .getElementById("useCommonRelaysBtn")
+      .addEventListener("click", () => {
+        const relayInput = document.getElementById("editRelays");
+        relayInput.value = COMMON_RELAYS.join("\n");
+      });
+
+    document
+      .getElementById("resetDefaultRelaysBtn")
+      .addEventListener("click", () => {
+        const defaults =
+          typeof window.resetActiveRelays === "function"
+            ? window.resetActiveRelays()
+            : [...CONFIG.relays];
+        const relayInput = document.getElementById("editRelays");
+        relayInput.value = defaults.join("\n");
+        showToast("Relays reset to default list.", "info");
+      });
   }
 
   // ── Profile Screen ──
@@ -485,42 +572,231 @@
         ?.addEventListener("click", showLoginModal);
       return;
     }
-    if (!cachedProfile) {
-      const cached = localStorage.getItem("nostrscope_profile");
-      if (cached) {
-        try {
-          cachedProfile = { profile: JSON.parse(cached), profileEvent: null };
-        } catch (e) {}
+    investigateUser(currentUser.publicKey, [], {
+      seedProfile: cachedProfile,
+      initialPostsLimit: 80,
+    });
+  }
+
+  async function fetchUserPosts(pubkey, hints = [], limit = 30, untilTs = null) {
+    const relays = [...new Set([...activeRelays, ...hints])];
+    const rm = new RelayManager(relays);
+    const postsMap = new Map();
+    try {
+      await rm.connectAll(5000);
+      const filter = {
+        kinds: [1, 6, 16, 30023, 30078],
+        authors: [pubkey],
+        limit,
+      };
+      if (typeof untilTs === "number" && untilTs > 0) {
+        filter.until = untilTs;
       }
-      if (!cachedProfile) {
-        profileContent.innerHTML =
-          '<p style="padding:20px; color:var(--text2);">Loading profile…</p>';
-        fetchAndCacheProfile().then(renderMyProfile);
-        return;
-      }
+      const subId = rm.subscribe([filter]);
+      rm.onEvent = (ev) => {
+        if (ev.pubkey === pubkey) postsMap.set(ev.id, ev);
+      };
+      await new Promise((resolve) => {
+        rm.onEOSE = (sid) => {
+          if (sid === subId) {
+            rm.closeSubscription(subId);
+            resolve();
+          }
+        };
+        setTimeout(resolve, 9000);
+      });
+    } catch (e) {
+    } finally {
+      rm.closeAll();
     }
-    const profile = cachedProfile.profile || {};
-    const name = profile.name || "";
+    return [...postsMap.values()].sort(
+      (a, b) => (b.created_at || 0) - (a.created_at || 0),
+    );
+  }
+
+  function sanitizeMediaUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    const clean = url.trim();
+    if (!clean) return "";
+    if (/^javascript:/i.test(clean)) return "";
+    if (/^(https?:|data:image\/|blob:|\/\/)/i.test(clean)) return clean;
+    return "";
+  }
+
+  function mergeProfileWithFallback(primary = {}, fallback = {}) {
+    const merged = { ...(fallback || {}), ...(primary || {}) };
+    const keys = [
+      "name",
+      "display_name",
+      "about",
+      "picture",
+      "banner",
+      "nip05",
+      "bch_address",
+      "bch_tip_wallet",
+      "website",
+      "lud16",
+      "lud06",
+    ];
+    keys.forEach((key) => {
+      const value = primary?.[key];
+      if (typeof value === "string") {
+        if (value.trim()) merged[key] = value;
+        else if (fallback?.[key]) merged[key] = fallback[key];
+      }
+    });
+
+    if (Array.isArray(primary?.tags) && primary.tags.length > 0) {
+      merged.tags = [...new Set(primary.tags)];
+    } else if (Array.isArray(fallback?.tags) && fallback.tags.length > 0) {
+      merged.tags = [...new Set(fallback.tags)];
+    }
+
+    return merged;
+  }
+
+  function renderUserWallLoading(pubkey, seedProfile = null) {
+    const handle = npubFromHex(pubkey).substring(0, 16) + "...";
+    const profile = seedProfile?.profile || {};
+    const name = profile.name || profile.display_name || "";
+    const picture = sanitizeMediaUrl(profile.picture || "");
+    const banner = sanitizeMediaUrl(profile.banner || "");
     const about = profile.about || "";
-    const picture = profile.picture || "";
-    const npub = npubFromHex(currentUser.publicKey);
-    profileContent.innerHTML = `
-        <div style="padding:20px;">
-            <div style="display:flex; align-items:center; gap:16px;">
-                <div class="post-avatar" style="width:60px;height:60px;">${picture ? `<img src="${picture}">` : "👤"}</div>
-                <div>
-                    <h3 style="font-size:1.2rem;">${escapeHtml(name || "Unnamed")}</h3>
-                    <p style="color:var(--text2); font-size:0.8rem;">@${npub.substring(0, 12)}...</p>
-                </div>
-            </div>
-            ${about ? `<p style="margin-top:12px;">${escapeHtml(about)}</p>` : ""}
-            <button class="btn btn-outline" style="margin-top:16px;" id="editProfileBtn">Edit Profile</button>
-            <button class="btn btn-outline" style="margin-top:16px; margin-left:8px;" id="logoutBtn">Logout</button>
-        </div>`;
-    document
-      .getElementById("editProfileBtn")
-      ?.addEventListener("click", () => showAccountModal());
-    document.getElementById("logoutBtn")?.addEventListener("click", logout);
+    const bannerStyle = banner ? `background-image:url("${encodeURI(banner)}");` : "";
+    if (!name && !picture && !banner && !about) {
+      profileContent.innerHTML = `<div class="user-wall"><div class="user-wall-header card user-wall-skeleton"><div class="user-wall-banner user-wall-skeleton-block"></div><div class="user-wall-profile"><div class="user-wall-avatar user-wall-skeleton-block"></div><div class="user-wall-meta"><div class="user-wall-skeleton-line" style="width:160px;"></div><div class="user-wall-skeleton-line" style="width:120px; margin-top:8px;"></div></div></div><p class="user-wall-about"><span class="user-wall-skeleton-line" style="width:92%;"></span><span class="user-wall-skeleton-line" style="width:80%; margin-top:8px;"></span></p><div class="user-wall-stats"><span><strong>...</strong> posts</span><span><strong>...</strong> follows</span><span><strong>...</strong> relays</span></div></div><div class="card" style="margin-top:12px;"><p style="color:var(--text2);">Loading wall for @${handle}</p></div></div>`;
+      return;
+    }
+    profileContent.innerHTML = `<div class="user-wall"><div class="user-wall-header card"><div class="user-wall-banner" style="${bannerStyle}"></div><div class="user-wall-profile"><div class="user-wall-avatar">${picture ? `<img src="${picture}" alt="avatar" data-fallback-emoji="👤"/>` : "👤"}</div><div class="user-wall-meta"><h3 class="user-wall-name">${escapeHtml(name || "Unnamed")}</h3><div class="user-wall-handle">@${handle}</div></div></div><p class="user-wall-about">${escapeHtml(about || "Loading profile...")}</p><div class="user-wall-stats"><span><strong>...</strong> posts</span><span><strong>...</strong> follows</span><span><strong>...</strong> relays</span></div></div><div class="card" style="margin-top:12px;"><p style="color:var(--text2);">Loading wall for @${handle}</p></div></div>`;
+  }
+
+  function renderUserWall(pubkey, data, posts) {
+    const profile = data.profile || {};
+    const displayName = profile.name || profile.display_name || "Unnamed";
+    const handle = npubFromHex(pubkey).substring(0, 16) + "...";
+    const about = profile.about || "No bio yet.";
+    const picture = sanitizeMediaUrl(profile.picture || "");
+    const banner = sanitizeMediaUrl(profile.banner || "");
+    const nip05 = profile.nip05 || "";
+    const isMyWall = !!currentUser && currentUser.publicKey === pubkey;
+    const bannerStyle = banner ? `background-image:url("${encodeURI(banner)}");` : "";
+
+    let postsHtml = "";
+    if (!posts.length) {
+      postsHtml =
+        '<div class="card" style="margin-top:12px;"><p style="color:var(--text2);">No posts found yet.</p></div>';
+    } else {
+      postsHtml = posts
+        .map((post) => {
+          const time = new Date((post.created_at || 0) * 1000).toLocaleString();
+          const parsed = renderMediaFromContent(post.content || "");
+          const isLong = (post.content || "").length > 320;
+          const replyTarget = (post.tags || []).find((t) => t[0] === "e" && t[1])?.[1] || "";
+          return `<div class="post-card user-wall-post" data-event-id="${post.id}"><div class="post-avatar">${picture ? `<img src="${picture}" alt="avatar" data-fallback-emoji="👤"/>` : "👤"}</div><div class="post-body"><div class="post-header"><span class="post-name">${escapeHtml(displayName)}</span><span class="post-username">@${handle}</span><span class="post-time">· ${time}</span></div>${replyTarget ? `<div class="reply-context"><a href="#" class="reply-context-link" data-parent-id="${replyTarget}">Replying to ${replyTarget.substring(0, 12)}...</a></div>` : ""}<div class="post-content ${isLong ? "truncated" : ""}">${parsed.text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? '<span class="show-more-btn">Show more</span>' : ""}${parsed.media ? `<div class="post-media">${parsed.media}</div>` : ""}<div class="post-actions"><button class="post-action-btn analyze-btn" data-event-id="${post.id}">🔍 Analyze</button>${currentUser ? `<button class="post-action-btn" data-boost-id="${post.id}">🚀 Boost</button>` : ""}</div></div></div>`;
+        })
+        .join("");
+    }
+
+    const autoLoadStatus = wallState.loadingMore
+      ? '<div class="wall-auto-load-status"><span class="wall-auto-load-dot"></span>Auto-loading older posts...</div>'
+      : "";
+    const loadMoreCta = wallState.hasMore
+      ? `${autoLoadStatus}<div id="wallAutoLoadSentinel" style="height:1px;"></div><div class="card" style="margin-top:10px; text-align:center;"><button class="btn btn-outline" id="wallLoadMoreBtn">${wallState.loadingMore ? "Loading..." : "Load older posts"}</button></div>`
+      : "";
+
+    profileContent.innerHTML = `<div class="user-wall"><div class="user-wall-header card"><div class="user-wall-banner" style="${bannerStyle}"></div><div class="user-wall-profile"><div class="user-wall-avatar">${picture ? `<img src="${picture}" alt="avatar" data-fallback-emoji="👤"/>` : "👤"}</div><div class="user-wall-meta"><h3 class="user-wall-name">${escapeHtml(displayName)}</h3><div class="user-wall-handle">@${handle}</div>${nip05 ? `<div class="user-wall-nip05">${escapeHtml(nip05)}</div>` : ""}</div></div><p class="user-wall-about">${escapeHtml(about)}</p><div class="user-wall-stats"><span><strong>${posts.length}</strong> posts</span><span><strong>${(data.follows || []).length}</strong> follows</span><span><strong>${(data.relays || []).length}</strong> relays</span></div>${isMyWall ? '<div class="user-wall-owner-actions" style="padding:0 14px 14px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="wallEditAccountBtn">Edit Account</button><button class="btn btn-outline btn-sm" id="wallLogoutBtn">Logout</button></div>' : ""}</div><div class="user-wall-feed">${postsHtml}${loadMoreCta}</div></div>`;
+
+    profileContent.querySelectorAll("img[data-fallback-emoji]").forEach((img) => {
+      img.addEventListener("error", () => {
+        const holder = img.parentElement;
+        if (holder) holder.textContent = img.dataset.fallbackEmoji || "👤";
+      });
+    });
+
+    profileContent.querySelectorAll(".show-more-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const content = btn.previousElementSibling;
+        if (content?.classList.contains("post-content")) {
+          content.classList.remove("truncated");
+          btn.remove();
+        }
+      });
+    });
+
+    profileContent.querySelectorAll(".analyze-btn").forEach((btn) => {
+      btn.addEventListener("click", () => runAnalysis(btn.dataset.eventId));
+    });
+
+    profileContent.querySelectorAll(".reply-context-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        runAnalysis(link.dataset.parentId);
+      });
+    });
+
+    profileContent.querySelectorAll("[data-boost-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const post = posts.find((p) => p.id === btn.dataset.boostId);
+        if (post && typeof window.boostEvent === "function") {
+          window.boostEvent(post.id, post.pubkey, post.kind);
+        }
+      });
+    });
+
+    if (isMyWall) {
+      document
+        .getElementById("wallEditAccountBtn")
+        ?.addEventListener("click", () => showAccountModal());
+      document.getElementById("wallLogoutBtn")?.addEventListener("click", logout);
+    }
+
+    document.getElementById("wallLoadMoreBtn")?.addEventListener("click", () => {
+      loadMoreWallPosts();
+    });
+
+    bindWallAutoLoader();
+  }
+
+  function bindWallAutoLoader() {
+    if (wallAutoLoadObserver) {
+      wallAutoLoadObserver.disconnect();
+      wallAutoLoadObserver = null;
+    }
+    const sentinel = document.getElementById("wallAutoLoadSentinel");
+    if (!sentinel || !wallState.hasMore) return;
+    wallAutoLoadObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreWallPosts();
+        }
+      },
+      {
+        root: profileContent,
+        rootMargin: "200px 0px",
+        threshold: 0.01,
+      },
+    );
+    wallAutoLoadObserver.observe(sentinel);
+  }
+
+  async function loadMoreWallPosts() {
+    if (wallState.loadingMore || !wallState.hasMore || !wallState.pubkey) return;
+    wallState.loadingMore = true;
+    renderUserWall(wallState.pubkey, userProfileData || {}, wallState.posts);
+    try {
+      const untilTs = (wallState.oldestTs || 0) - 1;
+      const older = await fetchUserPosts(wallState.pubkey, wallState.hints, 120, untilTs > 0 ? untilTs : null);
+      const map = new Map(wallState.posts.map((p) => [p.id, p]));
+      for (const p of older) map.set(p.id, p);
+      wallState.posts = [...map.values()].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      wallState.oldestTs = wallState.posts[wallState.posts.length - 1]?.created_at || wallState.oldestTs;
+      wallState.hasMore = older.length >= 120;
+    } catch (e) {
+      showToast("Could not load older posts.", "error");
+    } finally {
+      wallState.loadingMore = false;
+      renderUserWall(wallState.pubkey, userProfileData || {}, wallState.posts);
+    }
   }
 
   // ── Analysis rendering (full versions from previous scripts.js) ──
@@ -566,9 +842,49 @@
       p.innerHTML = '<div class="card"><p>No thread data.</p></div>';
       return;
     }
+    const rows = [];
+    const seen = new Set();
+    const pushNode = (eventId, depth) => {
+      if (!eventId || seen.has(eventId)) return;
+      seen.add(eventId);
+      const ev = eventMap.get(eventId);
+      if (!ev) return;
+      const isOriginal = eventId === investigationHexId;
+      const kindName = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
+      const authorShort = ev.pubkey ? `${ev.pubkey.substring(0, 8)}...` : "unknown";
+      const time = new Date((ev.created_at || 0) * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const textPreview = escapeHtml(
+        ((ev.content || "").replace(/\s+/g, " ").trim() || "(no text)").substring(
+          0,
+          90,
+        ),
+      );
+      rows.push(`
+        <div class="thread-map-row" style="margin-left:${depth * 12}px;">
+          <div class="thread-map-main">
+            <div class="thread-map-meta">
+              <span class="badge ${isOriginal ? "badge-green" : "badge-blue"}">${isOriginal ? "★ Original" : escapeHtml(kindName)}</span>
+              <span class="thread-map-author">${escapeHtml(authorShort)}</span>
+              <span class="thread-map-time">${escapeHtml(time)}</span>
+            </div>
+            <div class="thread-map-text">${textPreview}${(ev.content || "").length > 90 ? "..." : ""}</div>
+          </div>
+          <div class="thread-actions">
+            <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${ev.id}')">JSON</button>
+          </div>
+        </div>
+      `);
+      const children = tree.childrenMap.get(eventId) || [];
+      for (const child of children) pushNode(child.id, depth + 1);
+    };
+    pushNode(tree.rootId, 0);
+
     let html =
-      '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread View</span><div style="display:flex; gap:6px;"><button class="btn btn-sm btn-outline" onclick="window._expandAll()">Expand</button><button class="btn btn-sm btn-outline" onclick="window._collapseAll()">Collapse</button></div></div><div class="thread-tree-container">';
-    html += buildThreadCards(tree.rootId, tree.childrenMap, 0, new Set());
+      '<div class="card"><div class="card-header"><span class="card-title">🌳 Thread Map</span></div><div class="thread-tree-container thread-map-simple">';
+    html += rows.join("") || '<p style="color:var(--text2);">No thread nodes found.</p>';
     html += "</div></div>";
     p.innerHTML = html;
   }
@@ -585,9 +901,9 @@
       return;
     }
     let html =
-      '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline</span><button class="btn btn-sm btn-outline" onclick="window._toggleSortOrder()">Sort: ' +
+      '<div class="card"><div class="card-header"><span class="card-title">⏱ Timeline (Chronological)</span><button class="btn btn-sm btn-outline" onclick="window._toggleSortOrder()">Sort: ' +
       (sortOrder === "oldest-first" ? "Oldest ▲" : "Newest ▼") +
-      '</button></div><div class="timeline-list">';
+      '</button></div><div class="timeline-list timeline-compact-list">';
     sorted.forEach((e) => {
       const time = new Date((e.created_at || 0) * 1000).toLocaleTimeString([], {
         hour: "2-digit",
@@ -595,11 +911,8 @@
       });
       const kind = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
       const isOrig = e.id === investigationHexId;
-      const { text, media } = renderMediaFromContent(e.content);
-      let borderClass = "reply-post";
-      if (isOrig) borderClass = "original-post";
-      else if (e.kind === 6) borderClass = "repost-post";
-      html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? "badge-green" : "badge-purple"}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ""}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0, 10)}...</code><div>${text || ""}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ""}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ""}</div></div>`;
+      const authorShort = e.pubkey ? `${e.pubkey.substring(0, 8)}...` : "unknown";
+      html += `<div class="timeline-compact-row"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? "badge-green" : "badge-purple"}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ""}</span><span class="timeline-compact-author">${escapeHtml(authorShort)}</span><code class="timeline-compact-id">${e.id.substring(0, 10)}...</code><div class="timeline-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button></div></div>`;
     });
     html += "</div></div>";
     p.innerHTML = html;
@@ -620,6 +933,12 @@
       };
       nested = count(tree.rootId, 0);
     }
+    const interactionGroup = {
+      textNotes: inv.getEventsByKind(1).length,
+      reactions: inv.getEventsByKind(7).length,
+      zapped: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length,
+      boosts: inv.getEventsByKind(6).length,
+    };
     const stats = [
       { l: "Original", v: originalEvent ? 1 : 0 },
       {
@@ -651,12 +970,6 @@
             e.tags.some((t) => t[0] === "e" && t[1] === investigationHexId),
         ).length,
       },
-      { l: "Reposts", v: inv.getEventsByKind(6).length },
-      { l: "Reactions", v: inv.getEventsByKind(7).length },
-      {
-        l: "Zaps",
-        v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length,
-      },
       { l: "BCH Tips", v: inv.getBchPaymentEvents().length },
       { l: "Unknown", v: inv.getUnknownEvents().length },
       { l: "Authors", v: inv.getUniqueAuthors() },
@@ -683,7 +996,13 @@
       { l: "Total", v: inv.events.length },
     ];
     let h =
-      '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';
+      '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div>' +
+      '<div class="analysis-interaction-group">' +
+      `<span class="interaction-pill">TextNote <strong>${interactionGroup.textNotes}</strong></span>` +
+      `<span class="interaction-pill">Reaction <strong>${interactionGroup.reactions}</strong></span>` +
+      `<span class="interaction-pill">Zapped <strong>${interactionGroup.zapped}</strong></span>` +
+      `<span class="interaction-pill">Boost <strong>${interactionGroup.boosts}</strong></span>` +
+      '</div><div class="stats-grid">';
     stats.forEach(
       (s) =>
         (h += `<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`),
@@ -695,12 +1014,12 @@
   function renderJson(inv) {
     const p = document.getElementById("panel-json");
     let h =
-      '<div class="card"><div class="card-header"><span class="card-title">{ } Raw JSON</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>';
+      '<div class="card"><div class="card-header"><span class="card-title">{ } JSON (Formatted)</span><div><button class="btn btn-sm btn-outline" onclick="window._copyAllJson()">Copy All</button> <button class="btn btn-sm btn-primary" onclick="window._downloadAllJson()">Download</button></div></div>';
     if (originalEvent) {
       h +=
-        '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><div class="json-viewer">' +
-        syntaxHighlight(JSON.stringify(originalEvent, null, 2)) +
-        '</div><button class="btn btn-sm btn-outline" onclick="window._copyEventJson(\'' +
+        '<h4 style="margin:8px 0;color:var(--green);">★ Original Event</h4><pre class="json-viewer json-plain">' +
+        escapeHtml(JSON.stringify(originalEvent, null, 2)) +
+        '</pre><button class="btn btn-sm btn-outline" onclick="window._copyEventJson(\'' +
         originalEvent.id +
         '\')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson(\'' +
         originalEvent.id +
@@ -709,10 +1028,11 @@
     h +=
       '<h4 style="margin:16px 0 8px;">All Events (' +
       inv.events.length +
-      ')</h4><input type="text" placeholder="Search JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
+      ')</h4><input type="text" placeholder="Search JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" id="jsonAll" style="max-height:50vh;">';
     for (const e of inv.events) {
       const isOrig = e.id === investigationHexId;
-      h += `<div><span style="color:${isOrig ? "var(--green)" : "var(--accent2)"};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? "★ " : "▸ "}${e.id.substring(0, 12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-sm btn-outline" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
+      const pretty = JSON.stringify(e, null, 2);
+      h += `<div><span style="color:${isOrig ? "var(--green)" : "var(--accent2)"};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? "★ " : "▸ "}${e.id.substring(0, 12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content"><pre class="json-viewer json-plain" style="max-height:none;margin-top:8px;">${escapeHtml(pretty)}</pre><button class="btn btn-sm btn-outline" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
     }
     h += "</div></div>";
     p.innerHTML = h;
@@ -856,27 +1176,217 @@
     p.innerHTML = html;
   }
 
-  async function investigateUser(pubkey, hints = []) {
+  function ensureAnalysisLayout() {
+    if (!analysisContent) return;
+    analysisContent.innerHTML = `
+      <div class="analysis-overview-wrap" id="analysisOverviewWrap">
+        <div id="panel-overview"></div>
+      </div>
+
+      <details class="analysis-section" open>
+        <summary>🌳 Thread Map (Simple)</summary>
+        <div id="panel-thread"></div>
+      </details>
+
+      <details class="analysis-section" open>
+        <summary>⏱ Timeline (Chronological)</summary>
+        <div id="panel-timeline"></div>
+      </details>
+
+      <details class="analysis-section" open>
+        <summary>📊 Statistics</summary>
+        <div id="panel-stats"></div>
+      </details>
+
+      <details class="analysis-section" open>
+        <summary>💸 BCH Payments</summary>
+        <div id="panel-bch"></div>
+      </details>
+
+      <details class="analysis-section">
+        <summary>🔗 Relays</summary>
+        <div id="panel-relays"></div>
+      </details>
+
+      <details class="analysis-section">
+        <summary>{ } JSON (Formatted)</summary>
+        <div id="panel-json"></div>
+      </details>
+    `;
+  }
+
+  function renderOverview(inv) {
+    const p = document.getElementById("panel-overview");
+    if (!p) return;
+    const root = inv.originalEvent;
+    const rootKind = root ? KNOWN_KINDS[root.kind] || `Kind ${root.kind}` : "Unknown";
+    const rootTime = root
+      ? new Date((root.created_at || 0) * 1000).toLocaleString()
+      : "N/A";
+    const author = root?.pubkey ? `${root.pubkey.substring(0, 12)}...` : "unknown";
+    const replies = inv
+      .getEventsByKind(1)
+      .filter(
+        (e) =>
+          e.id !== investigationHexId &&
+          inv.getParentIds(e).includes(investigationHexId),
+      ).length;
+    const reposts = inv.getEventsByKind(6).length;
+    const reactions = inv.getEventsByKind(7).length;
+    const textNotes = inv.getEventsByKind(1).length;
+    const zapped = inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length;
+    const tips = inv.getBchPaymentEvents().length;
+    const preview = root?.content
+      ? escapeHtml(root.content.substring(0, 220)) + (root.content.length > 220 ? "..." : "")
+      : "No text content";
+
+    p.innerHTML = `
+      <div class="card analysis-overview-card">
+        <div class="card-header">
+          <span class="card-title">Post Detail Summary</span>
+          <span class="badge badge-blue">${escapeHtml(rootKind)}</span>
+        </div>
+        <div class="analysis-overview-meta">
+          <div><strong>Event:</strong> <code>${escapeHtml((investigationHexId || "").substring(0, 20))}...</code></div>
+          <div><strong>Author:</strong> ${escapeHtml(author)}</div>
+          <div><strong>Created:</strong> ${escapeHtml(rootTime)}</div>
+        </div>
+        <p class="analysis-overview-preview">${preview}</p>
+        <div class="analysis-interaction-group">
+          <span class="interaction-pill">TextNote <strong>${textNotes}</strong></span>
+          <span class="interaction-pill">Reaction <strong>${reactions}</strong></span>
+          <span class="interaction-pill">Zapped <strong>${zapped}</strong></span>
+          <span class="interaction-pill">Boost <strong>${reposts}</strong></span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-value">${inv.events.length}</div><div class="stat-label">Total Events</div></div>
+          <div class="stat-card"><div class="stat-value">${replies}</div><div class="stat-label">Replies</div></div>
+          <div class="stat-card"><div class="stat-value">${tips}</div><div class="stat-label">BCH Tips</div></div>
+          <div class="stat-card"><div class="stat-value">${inv.getUniqueAuthors()}</div><div class="stat-label">Authors</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function investigateUser(pubkey, hints = [], options = {}) {
+    document
+      .querySelectorAll(".screen")
+      .forEach((s) => s.classList.remove("active"));
+    profileScreen.classList.add("active");
+    feedScreen.classList.remove("active");
+    analysisScreen.classList.remove("active");
+    if (typeof setActiveNav === "function") setActiveNav("profile");
+
+    const seedProfileData =
+      options.seedProfile?.profile ||
+      (pubkey === currentUser?.publicKey ? cachedProfile?.profile : null) ||
+      null;
+
+    renderUserWallLoading(pubkey, seedProfileData ? { profile: seedProfileData } : null);
+    showLoading("Opening user wall...");
+
     const allUrls = [...new Set([...activeRelays, ...hints])];
     const rm = new RelayManager(allUrls);
     window._relayManager = rm;
-    const upi = new UserProfileInvestigator(rm);
-    await upi.investigate(pubkey, hints);
-    scannedPubkey = pubkey;
-    userProfileData = {
-      profile: upi.profile,
-      follows: upi.follows,
-      relays: upi.relays,
-      otherEvents: upi.otherEvents,
-    };
-    renderProfileTab(userProfileData, pubkey);
-    analysisScreen.classList.add("active");
-    feedScreen.classList.remove("active");
+    try {
+      const upi = new UserProfileInvestigator(rm);
+      const profilePromise = upi.investigate(pubkey, hints, { silent: true });
+      const firstBatchLimit = options.initialPostsLimit || 80;
+      const postsPromise = fetchUserPosts(pubkey, hints, firstBatchLimit);
+      const [, firstPosts] = await Promise.all([profilePromise, postsPromise]);
+
+      const profileRelayHints = Array.isArray(upi.relays)
+        ? upi.relays.filter((r) => /^wss:\/\//i.test(r)).slice(0, 12)
+        : [];
+      const commonRelayHints = [
+        "wss://relay.damus.io",
+        "wss://nos.lol",
+        "wss://relay.primal.net",
+        "wss://relay.nostr.band",
+        "wss://purplepag.es",
+        "wss://relay.snort.social",
+        "wss://nostr.wine",
+      ];
+      let posts = firstPosts;
+      if (profileRelayHints.length > 0) {
+        const backfillPosts = await fetchUserPosts(
+          pubkey,
+          [...hints, ...profileRelayHints],
+          firstBatchLimit,
+        );
+        const merged = new Map(firstPosts.map((p) => [p.id, p]));
+        backfillPosts.forEach((p) => merged.set(p.id, p));
+        posts = [...merged.values()].sort(
+          (a, b) => (b.created_at || 0) - (a.created_at || 0),
+        );
+      }
+
+      // If we still have too few posts, do deeper pagination over a wider relay universe.
+      const deepHints = [
+        ...new Set([
+          ...(hints || []),
+          ...profileRelayHints,
+          ...commonRelayHints,
+          ...CONFIG.relays,
+        ]),
+      ];
+      if (posts.length < 20) {
+        let untilTs = posts[posts.length - 1]?.created_at || Math.floor(Date.now() / 1000);
+        for (let i = 0; i < 3; i++) {
+          const older = await fetchUserPosts(pubkey, deepHints, 120, untilTs - 1);
+          if (!older.length) break;
+          const map = new Map(posts.map((p) => [p.id, p]));
+          older.forEach((p) => map.set(p.id, p));
+          posts = [...map.values()].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          untilTs = posts[posts.length - 1]?.created_at || untilTs;
+          if (older.length < 120) break;
+        }
+      }
+
+      scannedPubkey = pubkey;
+      const mergedProfile = mergeProfileWithFallback(upi.profile || {}, seedProfileData || {});
+      userProfileData = {
+        profile: mergedProfile,
+        follows: upi.follows,
+        relays: upi.relays,
+        otherEvents: upi.otherEvents,
+      };
+      if (pubkey === currentUser?.publicKey && mergedProfile && Object.keys(mergedProfile).length > 0) {
+        cachedProfile = { profile: mergedProfile, profileEvent: null };
+        try {
+          localStorage.setItem("nostrscope_profile", JSON.stringify(mergedProfile));
+        } catch (e) {}
+      }
+      wallState.pubkey = pubkey;
+      wallState.hints = deepHints;
+      wallState.posts = posts;
+      wallState.oldestTs = posts[posts.length - 1]?.created_at || null;
+      wallState.hasMore = posts.length >= firstBatchLimit;
+      wallState.loadingMore = false;
+      renderUserWall(pubkey, userProfileData, wallState.posts);
+    } catch (e) {
+      if (seedProfileData && Object.keys(seedProfileData).length > 0) {
+        const fallbackData = {
+          profile: seedProfileData,
+          follows: [],
+          relays: [],
+          otherEvents: [],
+        };
+        renderUserWall(pubkey, fallbackData, wallState.posts || []);
+        showToast("Loaded cached profile details. Live refresh failed.", "info");
+      } else {
+        profileContent.innerHTML =
+          '<div class="card"><p style="color:var(--red);">Failed to load user wall.</p></div>';
+        showToast("Failed to load user wall.", "error");
+      }
+    } finally {
+      hideLoading();
+    }
   }
 
   function showEventModal(ev) {
     const json = JSON.stringify(ev, null, 2);
-    modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind] || ev.kind} | ${new Date((ev.created_at || 0) * 1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
+    modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind] || ev.kind} | ${new Date((ev.created_at || 0) * 1000).toLocaleString()}</p><pre class="json-viewer json-plain" style="max-height:50vh;">${escapeHtml(json)}</pre><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
     const b = modalContainer.querySelector(".modal-backdrop");
     b.querySelector(".copy-json-btn").addEventListener("click", () => {
       navigator.clipboard
@@ -957,12 +1467,13 @@
     const c = document.getElementById("jsonAll");
     if (!c) return;
     c.querySelectorAll(".json-block-content").forEach((b) => {
+      const haystack = (b.dataset.jsonText || b.textContent || "").toLowerCase();
       if (!q) {
         b.style.display = "none";
         b.previousElementSibling &&
           (b.previousElementSibling.textContent =
             b.previousElementSibling.textContent.replace("▾", "▸"));
-      } else if (b.textContent.toLowerCase().includes(q.toLowerCase())) {
+      } else if (haystack.includes(q.toLowerCase())) {
         b.style.display = "block";
         b.previousElementSibling &&
           (b.previousElementSibling.textContent =
@@ -1009,6 +1520,7 @@
       renderJson(investigator);
     }
   };
+  window.investigateUser = investigateUser;
   window.runAnalysis = runAnalysis;
 
   // ── Exports ──
@@ -1087,15 +1599,21 @@
       showError("Please enter an event or user identifier.");
       return;
     }
+    showLoading("Analyzing...");
     hideError();
     const parsed = parseInput(input);
     if (parsed.error) {
       showError(parsed.error);
       showToast(parsed.error, "error");
+      hideLoading();
       return;
     }
     if (parsed.pubkey) {
-      await investigateUser(parsed.pubkey, parsed.relayHints || []);
+      try {
+        await investigateUser(parsed.pubkey, parsed.relayHints || []);
+      } finally {
+        hideLoading();
+      }
       return;
     }
     investigationHexId = parsed.hexId;
@@ -1117,9 +1635,14 @@
       debouncedRender(inv);
       hideLoading();
     };
-    await investigator.investigate(parsed.hexId, parsed.relayHints || []);
-    switchScreen("analysis");
-    document.getElementById("panel-thread").classList.add("active");
+    try {
+      await investigator.investigate(parsed.hexId, parsed.relayHints || []);
+      switchScreen("analysis");
+      document.getElementById("panel-thread").classList.add("active");
+    } catch (e) {
+      showToast("Failed to analyze this event.", "error");
+      hideLoading();
+    }
   }
 
   let pendingRender = null;
@@ -1144,17 +1667,14 @@
       return;
     }
     analysisScreen.classList.add("active");
+    ensureAnalysisLayout();
+    renderOverview(inv);
     renderThread(inv);
     renderTimeline(inv);
     renderStats(inv);
     renderJson(inv);
     renderRelays();
     renderBch(inv);
-    document.getElementById("panel-thread").classList.add("active");
-    ["timeline", "stats", "json", "relays", "bch", "profile"].forEach((id) => {
-      const el = document.getElementById("panel-" + id);
-      if (el) el.classList.remove("active");
-    });
   }
 
   // ── Event listeners ──
@@ -1166,8 +1686,14 @@
   refreshFeedBtn.addEventListener("click", () => {
     if (typeof refreshNewPosts === "function") refreshNewPosts();
   });
+  refreshBoostsBtn?.addEventListener("click", () => {
+    if (typeof loadBoostedFeed === "function") loadBoostedFeed();
+  });
   feedLoginBtn.addEventListener("click", () => showLoginModal());
-  feedAccountBtn.addEventListener("click", () => showAccountModal());
+  feedAccountBtn.addEventListener("click", () => {
+    switchScreen("profile");
+    renderMyProfile();
+  });
 
   // ── Init ──
   function initApp() {
@@ -1195,7 +1721,34 @@
         responseTime: null,
       }),
     );
-    switchScreen("feed");
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const interactive = e.target.closest(
+          "button, a, [role='button'], .nav-btn",
+        );
+        if (!interactive) return;
+        if (
+          interactive.closest("[data-no-loading]") ||
+          interactive.classList.contains("modal-close")
+        )
+          return;
+        if (typeof window.indicateUserActionLoading === "function") {
+          window.indicateUserActionLoading(450, "Loading...");
+        }
+      },
+      true,
+    );
+
+    let initialScreen = "feed";
+    try {
+      const saved = localStorage.getItem(ACTIVE_SCREEN_KEY);
+      if (["feed", "boosts", "search", "profile"].includes(saved)) {
+        initialScreen = saved;
+      }
+    } catch (e) {}
+    switchScreen(initialScreen);
   }
 
   window.showLoginModal = showLoginModal;

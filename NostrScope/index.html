@@ -29,6 +29,23 @@
             <div class="feed-content" id="feedContent"></div>
         </div>
 
+        <!-- Boosted Screen -->
+        <div class="screen feed-screen" id="boostsScreen">
+            <div class="feed-header">
+                <div class="feed-brand">
+                    <div class="feed-brand-icon">🚀</div>
+                    <div class="feed-brand-text">
+                        <div class="feed-brand-title">Boosted<span>Posts</span></div>
+                        <div class="feed-brand-subtitle">Kind 30078</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-icon" id="refreshBoostsBtn">🔄</button>
+                </div>
+            </div>
+            <div class="feed-content" id="boostsContent"></div>
+        </div>
+
         <!-- Search Screen -->
         <div class="screen search-screen" id="searchScreen">
             <div class="home-logo-area">
@@ -69,6 +86,7 @@
         <!-- Bottom Navigation -->
         <div class="bottom-nav">
             <button class="nav-btn active" data-screen="feed">📰</button>
+            <button class="nav-btn" data-screen="boosts">🚀</button>
             <button class="nav-btn" data-screen="search">🔍</button>
             <button class="nav-btn" data-screen="profile">👤</button>
         </div>

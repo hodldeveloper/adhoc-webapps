@@ -45,7 +45,43 @@ var allEvents = [],
   originalEvent = null,
   eventMap = new Map(),
   relayStats = new Map();
-var activeRelays = [...CONFIG.relays];
+const RELAY_STORAGE_KEY = "nostrscope_active_relays";
+
+function normalizeRelayList(relays) {
+  if (!Array.isArray(relays)) return [];
+  const cleaned = relays
+    .map((r) => (typeof r === "string" ? r.trim() : ""))
+    .filter((r) => /^wss:\/\//i.test(r));
+  return [...new Set(cleaned)];
+}
+
+function loadSavedRelays() {
+  try {
+    const raw = localStorage.getItem(RELAY_STORAGE_KEY);
+    if (!raw) return [...CONFIG.relays];
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeRelayList(parsed);
+    return normalized.length ? normalized : [...CONFIG.relays];
+  } catch (e) {
+    return [...CONFIG.relays];
+  }
+}
+
+function saveActiveRelays(relays) {
+  const normalized = normalizeRelayList(relays);
+  if (!normalized.length) return [...activeRelays];
+  activeRelays = normalized;
+  localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(activeRelays));
+  return [...activeRelays];
+}
+
+function resetActiveRelays() {
+  activeRelays = [...CONFIG.relays];
+  localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(activeRelays));
+  return [...activeRelays];
+}
+
+var activeRelays = loadSavedRelays();
 var relayCooldowns = new Map();
 var investigationHexId = null;
 var threadCollapsed = new Set(),
@@ -231,6 +267,9 @@ function isRelayInCooldown(url) {
 }
 
 window.isRelayInCooldown = isRelayInCooldown;
+window.getActiveRelays = () => [...activeRelays];
+window.setActiveRelays = saveActiveRelays;
+window.resetActiveRelays = resetActiveRelays;
 
 // ── Input Parser ──────────────────
 function parseInput(input) {
@@ -358,6 +397,9 @@ function decodeNevent1(s) {
 }
 
 // ── Toast / Loading ────────────────
+let loadingCounter = 0;
+let interactionLoadingTimer = null;
+
 function showToast(msg, type = "info") {
   if (!toastContainer) return;
   const t = document.createElement("div");
@@ -370,13 +412,40 @@ function showToast(msg, type = "info") {
   }, 3500);
 }
 window.showToast = showToast;
+function handleMediaLoaded(el) {
+  if (!el) return;
+  el.classList.remove("media-pending");
+  const holder = el.closest(".media-item");
+  if (holder) holder.classList.remove("media-loading");
+}
+function handleMediaError(el) {
+  const holder = el?.closest(".media-item");
+  if (holder) holder.style.display = "none";
+}
+window._handleMediaLoaded = handleMediaLoaded;
+window._handleMediaError = handleMediaError;
 function showLoading(text) {
   if (loadingText) loadingText.textContent = text;
+  loadingCounter++;
   if (loadingOverlay) loadingOverlay.classList.add("active");
 }
 function hideLoading() {
-  if (loadingOverlay) loadingOverlay.classList.remove("active");
+  loadingCounter = Math.max(loadingCounter - 1, 0);
+  if (loadingCounter === 0 && loadingOverlay) {
+    loadingOverlay.classList.remove("active");
+  }
 }
+
+function indicateUserActionLoading(ms = 450, text = "Working...") {
+  if (interactionLoadingTimer) clearTimeout(interactionLoadingTimer);
+  showLoading(text);
+  interactionLoadingTimer = setTimeout(() => {
+    hideLoading();
+    interactionLoadingTimer = null;
+  }, ms);
+}
+
+window.indicateUserActionLoading = indicateUserActionLoading;
 function showError(msg) {
   if (errorMsg) {
     errorMsg.textContent = msg;
@@ -995,9 +1064,9 @@ function renderMediaFromContent(content) {
   while ((match = urlRegex.exec(content)) !== null) {
     const url = match[0];
     if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
-      mediaHtml += `<img src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onerror="this.style.display='none'">`;
+      mediaHtml += `<div class="media-item media-loading"><img class="lazy-media media-pending" src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onload="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"></div>`;
     } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
-      mediaHtml += `<video controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;"><source src="${url}" type="video/mp4"></video>`;
+      mediaHtml += `<div class="media-item media-loading"><video class="lazy-media media-pending" controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;" onloadeddata="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"><source src="${url}" type="video/mp4"></video></div>`;
     }
   }
   html = html.replace(urlRegex, (u) => {
