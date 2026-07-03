@@ -28,7 +28,7 @@
         if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
 
         const promise = new Promise((resolve) => {
-            const relays = activeRelays.slice(0, 3); // first 3 relays for speed
+            const relays = activeRelays.slice(0, 3);
             const rm = new RelayManager(relays);
             let resolved = false;
 
@@ -67,20 +67,16 @@
         return promise;
     }
 
-    // ── Resolve author names in a container (throttled) ──
     function resolveAuthorNames(container) {
         const elements = container.querySelectorAll('.author-name:not(.resolved)');
-        const fetches = [];
         elements.forEach(el => {
             const pubkey = el.dataset.pubkey;
             if (!pubkey) return;
-            fetches.push(
-                quickFetchProfile(pubkey).then(name => {
-                    if (name) el.textContent = name;
-                    else el.textContent = pubkey.substring(0, 10) + '...';
-                    el.classList.add('resolved');
-                })
-            );
+            quickFetchProfile(pubkey).then(name => {
+                if (name) el.textContent = name;
+                else el.textContent = pubkey.substring(0, 10) + '...';
+                el.classList.add('resolved');
+            });
         });
     }
 
@@ -206,14 +202,14 @@
         if (saved) {
             try {
                 const { type, identifier } = JSON.parse(saved);
+                // We keep the saved state – we’ll only clear it after a successful manual new analysis.
+                // We’ll run the analysis now.
                 if (type === 'event' && identifier) {
-                    // Auto-run analysis after a short delay to let everything settle
                     setTimeout(() => runAnalysis(identifier), 500);
                 } else if (type === 'profile' && identifier) {
                     setTimeout(() => runAnalysis(identifier), 500);
                 }
-                // Clear after auto-running to prevent infinite loop on refresh
-                clearSavedInvestigation();
+                // Do NOT clear here – we clear only on manual logout or successful new analysis.
             } catch (e) {}
         }
     }
@@ -459,6 +455,8 @@
         const parsed = parseInput(input);
         if (parsed.error) { showError(parsed.error); showToast(parsed.error, 'error'); return; }
         if (parsed.pubkey) {
+            // Clear any existing investigation state before saving a new one
+            clearSavedInvestigation();
             await investigateUser(parsed.pubkey, parsed.relayHints || []);
             return;
         }
@@ -477,6 +475,7 @@
             homeScreen.classList.remove('active');
             switchTab('thread');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Save the new investigation state
             saveInvestigationState('event', investigationHexId);
         };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
@@ -495,18 +494,14 @@
         if (typeof NostrTools !== 'undefined') {
             if (loadLogin()) {
                 updateUserUI();
-                // Show a welcome back toast only if the login was actually restored
-                if (currentUser) {
-                    const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
-                    showToast('Welcome back, ' + npub, 'info');
-                }
+                const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
+                showToast('Welcome back, ' + npub, 'info');
             }
         } else {
             setTimeout(initApp, 200);
             return;
         }
 
-        // Bind event listeners
         homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
         homeClearBtn?.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = ''); hideError(); });
         homeSearchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
@@ -525,10 +520,10 @@
 
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
 
-        // Auto‑restore the last investigation if any
+        // Resume last investigation if available
         loadSavedInvestigation();
 
-        console.log('🔍 NostrScope ready — session persistent & auto‑resume.');
+        console.log('🔍 NostrScope ready — state now persists across reloads.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
