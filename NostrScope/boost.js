@@ -14,26 +14,26 @@
     }
     window._signNostrEvent = signNostrEvent;
 
-    // ── BCH‑boost (kind 30078) ─────
+    // ── BCH‑boost (kind 30078) with optional txid ──
     window.boostWithBCH = function(eventId, eventPubkey) {
         if (!window._currentUser) {
             window.showToast('Please login first.', 'info');
             if (typeof window.showLoginModal === 'function') window.showLoginModal();
             return;
         }
-        // Show a modal to collect transaction details
+        // Show modal – txid is now optional
         const modalBackdrop = document.createElement('div');
         modalBackdrop.className = 'modal-backdrop';
         modalBackdrop.innerHTML = `
             <div class="modal" style="max-width:360px;">
                 <h3>🚀 Boost with BCH</h3>
-                <p style="color:var(--text2);font-size:0.8rem;">Enter the BCH transaction ID and amount you sent to boost this post.</p>
-                <label>TXID:</label><br/>
-                <input type="text" id="boostTxid" placeholder="e.g. 1c5e6f..." style="width:100%;"/><br/>
+                <p style="color:var(--text2);font-size:0.8rem;">Enter transaction details (TXID optional).</p>
                 <label>Amount (satoshis):</label><br/>
-                <input type="number" id="boostAmount" placeholder="10000" style="width:100%;"/><br/>
-                <label>Expiry (optional, UNIX timestamp):</label><br/>
-                <input type="text" id="boostExpiry" placeholder="1783068989" style="width:100%;"/><br/>
+                <input type="number" id="boostAmount" placeholder="1000" style="width:100%;"/><br/>
+                <label>TXID (optional):</label><br/>
+                <input type="text" id="boostTxid" placeholder="leave blank for placeholder" style="width:100%;"/><br/>
+                <label>Expiry (UNIX timestamp, optional):</label><br/>
+                <input type="text" id="boostExpiry" placeholder="default 24h" style="width:100%;"/><br/>
                 <div style="display:flex; gap:8px; margin-top:12px;">
                     <button class="btn btn-primary" id="confirmBoostBtn">🚀 Boost</button>
                     <button class="btn btn-outline" id="cancelBoostBtn">Cancel</button>
@@ -42,25 +42,24 @@
         document.body.appendChild(modalBackdrop);
         modalBackdrop.querySelector('#cancelBoostBtn').addEventListener('click', () => modalBackdrop.remove());
         modalBackdrop.querySelector('#confirmBoostBtn').addEventListener('click', async () => {
-            const txid = modalBackdrop.querySelector('#boostTxid').value.trim();
             const amount = parseInt(modalBackdrop.querySelector('#boostAmount').value.trim(), 10);
+            const txid = modalBackdrop.querySelector('#boostTxid').value.trim() || '0000000000000000000000000000000000000000000000000000000000000000';
             const expiry = modalBackdrop.querySelector('#boostExpiry').value.trim();
-            if (!txid || isNaN(amount) || amount <= 0) {
-                window.showToast('Please enter a valid TXID and amount.', 'error');
+            if (isNaN(amount) || amount <= 0) {
+                window.showToast('Please enter a valid amount.', 'error');
                 return;
             }
             modalBackdrop.remove();
 
             const dTag = `bchnostr/boost/${eventId}`;
             const now = Math.floor(Date.now() / 1000);
-            const expiresAt = expiry ? parseInt(expiry, 10) : (now + 86400); // default 24h
+            const expiresAt = expiry ? parseInt(expiry, 10) : (now + 86400);
             const contentObj = {
                 eventId,
                 tier: 'bid',
                 priceSats: amount,
                 expiresAt,
                 boostedBy: window._currentUser.publicKey,
-                // bidUsd optional – we can omit or calculate later
             };
             const eventTemplate = {
                 kind: 30078,
@@ -73,7 +72,7 @@
                     ['expires', String(expiresAt)],
                     ['amount', String(amount)],
                     ['txid', txid],
-                    ['p', eventPubkey || ''] // optionally tag the original author
+                    ['p', eventPubkey || '']
                 ],
                 content: JSON.stringify(contentObj)
             };
@@ -82,12 +81,10 @@
                 if (window._relayManager) {
                     window._relayManager.publish(signed);
                 }
-                window.showToast('🚀 BCH boost published!', 'success');
-                // Optionally inject into thread
+                window.showToast('🚀 Boost published! (txid: ' + (txid === '0000...' ? 'placeholder' : txid) + ')', 'success');
                 if (typeof window.injectBoostedEvent === 'function') {
                     window.injectBoostedEvent(signed);
                 }
-                // Re‑fetch after a few seconds to show updated ranking
                 if (window._investigationHexId) {
                     setTimeout(() => {
                         if (typeof window.runAnalysis === 'function') {
@@ -101,7 +98,7 @@
         });
     };
 
-    // ── Old free repost (kind 6) – kept as fallback ──
+    // ── Free repost (kind 6) ──
     async function publishBoost(eventId, eventPubkey, eventKind) {
         if (!window._currentUser) {
             window.showToast('Please login first.', 'info');
@@ -128,7 +125,7 @@
             if (typeof window.injectBoostedEvent === 'function') {
                 window.injectBoostedEvent(signedEvent);
             }
-            window.showToast('🚀 Repost sent! (free)', 'success');
+            window.showToast('🚀 Repost sent!', 'success');
             if (typeof window._investigationHexId !== 'undefined' && window._investigationHexId) {
                 setTimeout(() => {
                     if (typeof window.runAnalysis === 'function') window.runAnalysis(window._investigationHexId);
@@ -137,5 +134,5 @@
         } catch (e) { window.showToast('Boost error: ' + e.message, 'error'); }
     }
 
-    window.boostEvent = publishBoost; // keep old button working as free repost
+    window.boostEvent = publishBoost;
 })();
