@@ -18,13 +18,19 @@
             --warning: #d29922;
             --error: #f85149;
             --purple: #a371f7;
+            --unknown-row: rgba(210, 153, 34, 0.08);
+            --unknown-border: rgba(210, 153, 34, 0.25);
             --radius: 8px;
             --radius-sm: 5px;
             --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
             --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
             --transition: 0.2s ease;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             background: var(--bg);
             color: var(--text);
@@ -34,117 +40,643 @@
             padding: 20px;
             -webkit-font-smoothing: antialiased;
         }
-        .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        .header { text-align: center; padding: 10px 0 0 0; }
-        .header h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .header .subtitle { color: var(--text2); font-size: 0.9rem; margin-top: 2px; }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
-        .input-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .header {
+            text-align: center;
+            padding: 10px 0 0 0;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            color: var(--text2);
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 22px;
+        }
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
         .input-row input {
-            flex: 1; min-width: 280px; padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
-            background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 0.9rem; outline: none;
+            flex: 1;
+            min-width: 280px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            outline: none;
             transition: border var(--transition), box-shadow var(--transition);
         }
-        .input-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,0.12); }
-        .input-row input::placeholder { color: var(--text2); opacity: 0.6; }
-        .btn {
-            display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; border-radius: var(--radius-sm);
-            border: 1px solid transparent; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all var(--transition);
-            white-space: nowrap; font-family: var(--font-sans); letter-spacing: 0.2px;
+        .input-row input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.12);
         }
-        .btn-primary { background: var(--accent2); color: #fff; border-color: var(--accent2); }
-        .btn-primary:hover { background: #388bfd; border-color: #388bfd; box-shadow: 0 4px 14px rgba(31,111,235,0.35); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-        .btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
-        .btn-outline:hover { background: var(--surface2); border-color: #5a6575; }
-        .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 4px; }
-        .btn-xs { padding: 4px 10px; font-size: 0.72rem; border-radius: 4px; }
-        .progress-area { min-height: 20px; }
-        .progress-list { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--text2); }
-        .progress-item { display: flex; align-items: center; gap: 5px; }
-        .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background var(--transition); }
-        .progress-dot.connected { background: var(--success); box-shadow: 0 0 6px rgba(63,185,80,0.5); }
-        .progress-dot.failed { background: var(--error); }
-        .progress-dot.active { background: var(--warning); animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-        .stat-item { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 16px; border: 1px solid var(--border); }
-        .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 4px; }
-        .stat-value { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); color: var(--text); word-break: break-all; }
-        .stat-value.highlight { color: var(--purple); }
-        .stat-value.small { font-size: 0.8rem; }
-        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+        .input-row input::placeholder {
+            color: var(--text2);
+            opacity: 0.6;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 11px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+            font-family: var(--font-sans);
+            letter-spacing: 0.2px;
+        }
+        .btn-primary {
+            background: var(--accent2);
+            color: #fff;
+            border-color: var(--accent2);
+        }
+        .btn-primary:hover {
+            background: #388bfd;
+            border-color: #388bfd;
+            box-shadow: 0 4px 14px rgba(31, 111, 235, 0.35);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-outline:hover {
+            background: var(--surface2);
+            border-color: #5a6575;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            border-radius: 4px;
+        }
+        .progress-area {
+            min-height: 20px;
+        }
+        .progress-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-size: 0.85rem;
+            color: var(--text2);
+        }
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .progress-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+            flex-shrink: 0;
+            transition: background var(--transition);
+        }
+        .progress-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
+        }
+        .progress-dot.failed {
+            background: var(--error);
+        }
+        .progress-dot.active {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+            gap: 10px;
+        }
+        .stat-item {
+            background: var(--surface2);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+        }
+        .stat-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--text2);
+            margin-bottom: 3px;
+        }
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text);
+            word-break: break-all;
+        }
+        .stat-value.highlight {
+            color: var(--purple);
+        }
+        .stat-value.small {
+            font-size: 0.78rem;
+        }
+        .summary-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            align-items: center;
+        }
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 0 16px;
+            border-right: 1px solid var(--border);
+        }
+        .summary-item:last-child {
+            border-right: none;
+        }
+        .summary-item .s-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text2);
+        }
+        .summary-item .s-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+        .summary-item .s-value.standard {
+            color: var(--accent);
+        }
+        .summary-item .s-value.custom {
+            color: var(--purple);
+        }
+        .summary-item .s-value.unknown {
+            color: var(--warning);
+        }
+        .summary-bar {
+            flex: 1;
+            min-width: 120px;
+            height: 8px;
+            border-radius: 10px;
+            background: var(--border);
+            overflow: hidden;
+            display: flex;
+        }
+        .summary-bar .bar-standard {
+            background: var(--accent);
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+        .summary-bar .bar-custom {
+            background: var(--purple);
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+        .summary-bar .bar-unknown {
+            background: var(--warning);
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
         .toolbar .search-input {
-            padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg);
-            color: var(--text); font-family: var(--font-mono); font-size: 0.85rem; width: 200px; outline: none;
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            width: 200px;
+            outline: none;
             transition: border var(--transition);
         }
-        .toolbar .search-input:focus { border-color: var(--accent); }
-        .toolbar .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
-        .table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); max-height: 55vh; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 600px; }
-        thead { position: sticky; top: 0; z-index: 2; }
-        thead th { background: var(--surface2); color: var(--text2); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 14px; text-align: left; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; transition: color var(--transition); }
-        thead th:hover { color: var(--accent); }
-        thead th .sort-arrow { margin-left: 4px; font-size: 0.7rem; }
-        tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
-        tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
-        tbody tr:hover { background: rgba(88,166,255,0.06); }
-        .kind-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; }
-        .no-results { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 1rem; }
-        .no-results .icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: center;
-            justify-content: center; padding: 20px; animation: fadeIn 0.2s ease;
+        .toolbar .search-input:focus {
+            border-color: var(--accent);
         }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .toolbar .btn-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            min-width: 900px;
+        }
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        thead th {
+            background: var(--surface2);
+            color: var(--text2);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 10px;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: color var(--transition);
+        }
+        thead th:hover {
+            color: var(--accent);
+        }
+        thead th .sort-arrow {
+            margin-left: 3px;
+            font-size: 0.65rem;
+        }
+        tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+        tbody td.purpose-cell {
+            max-width: 220px;
+            white-space: normal;
+            word-break: break-word;
+            font-family: var(--font-sans);
+            font-size: 0.76rem;
+            color: var(--text2);
+            line-height: 1.4;
+        }
+        tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.015);
+        }
+        tbody tr:hover {
+            background: rgba(88, 166, 255, 0.08);
+        }
+        tbody tr.row-unknown {
+            background: var(--unknown-row) !important;
+            border-left: 3px solid var(--unknown-border);
+        }
+        tbody tr.row-unknown:hover {
+            background: rgba(210, 153, 34, 0.14) !important;
+        }
+        .kind-badge {
+            display: inline-block;
+            background: var(--accent2);
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.76rem;
+        }
+        .kind-badge.unknown-badge {
+            background: var(--warning);
+            color: #000;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            font-family: var(--font-sans);
+        }
+        .type-badge.standard {
+            background: rgba(88, 166, 255, 0.2);
+            color: var(--accent);
+        }
+        .type-badge.custom {
+            background: rgba(163, 113, 247, 0.2);
+            color: var(--purple);
+        }
+        .type-badge.unknown {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--warning);
+        }
+        .nip-tag {
+            font-size: 0.7rem;
+            color: var(--text2);
+            font-family: var(--font-sans);
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text2);
+            font-size: 1rem;
+        }
+        .no-results .icon {
+            font-size: 2.5rem;
+            display: block;
+            margin-bottom: 10px;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
         .modal {
-            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%;
-            max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.25s ease;
         }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-        .modal-header h3 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-        .modal-close { background: none; border: none; color: var(--text2); font-size: 1.5rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all var(--transition); line-height: 1; }
-        .modal-close:hover { color: var(--text); background: var(--surface2); }
-        .modal-body { overflow-y: auto; padding: 16px 20px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
-        .event-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
-        .event-card .event-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.78rem; color: var(--text2); font-family: var(--font-mono); }
-        .event-card .event-meta span { display: inline-flex; align-items: center; gap: 4px; }
-        .event-card .event-meta .label { color: var(--text2); font-weight: 500; font-family: var(--font-sans); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; }
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all var(--transition);
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: var(--text);
+            background: var(--surface2);
+        }
+        .modal-body {
+            overflow-y: auto;
+            padding: 16px 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .event-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .event-card .event-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-size: 0.78rem;
+            color: var(--text2);
+            font-family: var(--font-mono);
+        }
+        .event-card .event-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .event-card .event-meta .label {
+            color: var(--text2);
+            font-weight: 500;
+            font-family: var(--font-sans);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
         .event-card pre {
-            background: #0a0d12; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;
-            overflow-x: auto; font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; color: #c9d1d9;
-            max-height: 250px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+            background: #0a0d12;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            line-height: 1.5;
+            color: #c9d1d9;
+            max-height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-        .event-card .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .event-card .btn-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
         .toast {
-            position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border);
-            padding: 10px 18px; border-radius: var(--radius-sm); font-size: 0.85rem; z-index: 200;
-            animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s forwards; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            z-index: 200;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s forwards;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
-        @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
-        @media (max-width: 600px) {
-            .input-row { flex-direction: column; align-items: stretch; }
-            .input-row input { min-width: auto; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .toolbar { flex-direction: column; align-items: stretch; }
-            .toolbar .search-input { width: 100%; }
-            table { font-size: 0.75rem; }
-            thead th, tbody td { padding: 8px 10px; }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+        }
+        .legend-inline {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            font-size: 0.72rem;
+            color: var(--text2);
+            align-items: center;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 4px;
+        }
+        .legend-dot.standard {
+            background: var(--accent);
+        }
+        .legend-dot.custom {
+            background: var(--purple);
+        }
+        .legend-dot.unknown {
+            background: var(--warning);
+        }
+        @media (max-width: 700px) {
+            .input-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-row input {
+                min-width: auto;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .toolbar .search-input {
+                width: 100%;
+            }
+            .summary-panel {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            .summary-item {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 6px 0;
+            }
+            .summary-item:last-child {
+                border-bottom: none;
+            }
+            table {
+                font-size: 0.7rem;
+            }
+            thead th,
+            tbody td {
+                padding: 6px 8px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
             <h1>🔍 Nostr Custom Kind Explorer</h1>
-            <p class="subtitle">Discover non-standard event kinds published by any npub</p>
+            <p class="subtitle">Discover non-standard event kinds &mdash; with built-in Kind Reference Database</p>
         </div>
+
+        <!-- Input Card -->
         <div class="card">
             <div class="input-row">
                 <input type="text" id="npubInput" placeholder="Enter npub... (e.g. npub1...)" autocomplete="off" spellcheck="false">
@@ -152,25 +684,67 @@
                 <button class="btn btn-outline btn-sm" id="clearBtn" title="Clear all results">✕ Clear</button>
             </div>
         </div>
+
+        <!-- Progress Area -->
         <div class="progress-area" id="progressArea" style="display:none;">
             <div class="progress-list" id="progressList"></div>
         </div>
+
+        <!-- Stats Grid -->
         <div class="stats-grid" id="statsGrid" style="display:none;"></div>
+
+        <!-- Summary Panel -->
+        <div class="summary-panel" id="summaryPanel" style="display:none;">
+            <div class="summary-item">
+                <span class="s-label">Total Standard Kinds</span>
+                <span class="s-value standard" id="sumStandard">0</span>
+            </div>
+            <div class="summary-item">
+                <span class="s-label">Total Custom Kinds</span>
+                <span class="s-value custom" id="sumCustom">0</span>
+            </div>
+            <div class="summary-item">
+                <span class="s-label">Unknown Kinds</span>
+                <span class="s-value unknown" id="sumUnknown">0</span>
+            </div>
+            <div class="summary-item">
+                <span class="s-label">Total Events</span>
+                <span class="s-value" id="sumTotal">0</span>
+            </div>
+            <div class="summary-bar" id="summaryBar">
+                <div class="bar-standard" style="width:0%;"></div>
+                <div class="bar-custom" style="width:0%;"></div>
+                <div class="bar-unknown" style="width:0%;"></div>
+            </div>
+            <div class="legend-inline">
+                <span><span class="legend-dot standard"></span> Standard</span>
+                <span><span class="legend-dot custom"></span> Custom (known)</span>
+                <span><span class="legend-dot unknown"></span> Unknown</span>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
         <div class="toolbar" id="toolbar" style="display:none;">
-            <input type="text" class="search-input" id="searchInput" placeholder="Filter by kind...">
+            <input type="text" class="search-input" id="searchInput" placeholder="Filter by kind or name...">
             <div class="btn-group">
                 <button class="btn btn-outline btn-sm" id="exportCSVBtn">📄 Export CSV</button>
                 <button class="btn btn-outline btn-sm" id="exportJSONBtn">📦 Export JSON</button>
             </div>
         </div>
+
+        <!-- Table -->
         <div class="table-wrapper" id="tableWrapper" style="display:none;">
             <table id="resultsTable">
                 <thead>
                     <tr>
                         <th data-sort="kind">Kind <span class="sort-arrow">▼</span></th>
+                        <th data-sort="name">Name <span class="sort-arrow"></span></th>
+                        <th data-sort="type">Type <span class="sort-arrow"></span></th>
+                        <th data-sort="nip">NIP <span class="sort-arrow"></span></th>
                         <th data-sort="count">Count <span class="sort-arrow"></span></th>
                         <th data-sort="firstSeen">First Seen <span class="sort-arrow"></span></th>
                         <th data-sort="latestSeen">Latest Seen <span class="sort-arrow"></span></th>
+                        <th>Purpose</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -182,6 +756,8 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Overlay -->
     <div class="modal-overlay" id="modalOverlay" style="display:none;">
         <div class="modal">
             <div class="modal-header">
@@ -191,9 +767,187 @@
             <div class="modal-body" id="modalBody"></div>
         </div>
     </div>
+
+    <!-- Toast container -->
     <div id="toastContainer"></div>
+
     <script>
         (function() {
+            // ═══════════════════════════════════════════════════════════════
+            //  KIND REFERENCE DATABASE (Editable)
+            //  Add or modify entries here as you discover new kinds.
+            //  Each entry: { name, nip, purpose, type: 'Standard'|'Custom' }
+            // ═══════════════════════════════════════════════════════════════
+            const KIND_REFERENCE = {
+                0: { name: 'Profile Metadata', nip: 'NIP-01', purpose: 'User profile information (name, about, picture, etc.)',
+                    type: 'Standard' },
+                1: { name: 'Short Text Note', nip: 'NIP-01', purpose: 'Normal posts / text notes', type: 'Standard' },
+                2: { name: 'Recommend Relay', nip: 'NIP-01', purpose: 'Deprecated relay recommendation', type: 'Standard' },
+                3: { name: 'Contact List', nip: 'NIP-02', purpose: 'Following list / petnames', type: 'Standard' },
+                4: { name: 'Encrypted Direct Message', nip: 'NIP-04', purpose: 'Encrypted private messages (legacy)',
+                    type: 'Standard' },
+                5: { name: 'Event Deletion', nip: 'NIP-09', purpose: 'Deletion request for an event', type: 'Standard' },
+                6: { name: 'Repost', nip: 'NIP-18', purpose: 'Repost / boost of another event', type: 'Standard' },
+                7: { name: 'Reaction', nip: 'NIP-25', purpose: 'Like, emoji reaction, or upvote', type: 'Standard' },
+                8: { name: 'Badge Award', nip: 'NIP-58', purpose: 'Award a badge to a user', type: 'Standard' },
+                9: { name: 'Chat Message', nip: 'NIP-28', purpose: 'Public chat message', type: 'Standard' },
+                10: { name: 'Text Note (Thread)', nip: 'NIP-10', purpose: 'Text note with threaded reply markers',
+                    type: 'Standard' },
+                11: { name: 'Thread', nip: 'NIP-10', purpose: 'Thread root / reply marker event', type: 'Standard' },
+                12: { name: 'Mute List', nip: 'NIP-51', purpose: 'Muted users list', type: 'Standard' },
+                13: { name: 'Pin List', nip: 'NIP-51', purpose: 'Pinned events list', type: 'Standard' },
+                14: { name: 'Direct Message (NIP-17)', nip: 'NIP-17', purpose: 'Sealed direct messages', type: 'Standard' },
+                15: { name: 'Generic File', nip: 'NIP-94', purpose: 'File header event', type: 'Standard' },
+                16: { name: 'Generic Repost', nip: 'NIP-18', purpose: 'Generic repost event', type: 'Standard' },
+                17: { name: 'Private DM (Gift Wrap)', nip: 'NIP-59', purpose: 'Gift-wrapped sealed event',
+                type: 'Standard' },
+                20: { name: 'Picture Feed', nip: 'NIP-38', purpose: 'Picture-only feed event', type: 'Standard' },
+                21: { name: 'Video Feed', nip: 'NIP-38', purpose: 'Video-only feed event', type: 'Standard' },
+                22: { name: 'Short-form Video', nip: 'NIP-38', purpose: 'Short vertical video content', type: 'Standard' },
+                23: { name: 'Long-form Video', nip: 'NIP-38', purpose: 'Long horizontal video content', type: 'Standard' },
+                24: { name: 'Gallery', nip: 'NIP-38', purpose: 'Image gallery event', type: 'Standard' },
+                30: { name: 'Custom Emoji', nip: 'NIP-30', purpose: 'Custom emoji definition', type: 'Standard' },
+                40: { name: 'Channel Creation', nip: 'NIP-28', purpose: 'Public chat channel creation',
+                type: 'Standard' },
+                41: { name: 'Channel Metadata', nip: 'NIP-28', purpose: 'Channel metadata update', type: 'Standard' },
+                42: { name: 'Channel Message', nip: 'NIP-28', purpose: 'Message in a public channel', type: 'Standard' },
+                43: { name: 'Channel Hide Message', nip: 'NIP-28', purpose: 'Hide a message in a channel',
+                type: 'Standard' },
+                44: { name: 'Channel Mute User', nip: 'NIP-28', purpose: 'Mute a user in a channel', type: 'Standard' },
+                1063: { name: 'File Metadata', nip: 'NIP-94', purpose: 'File header / metadata event',
+                type: 'Standard' },
+                1311: { name: 'Live Chat Message', nip: 'NIP-53', purpose: 'Live stream chat message', type: 'Standard' },
+                1984: { name: 'Reporting', nip: 'NIP-56', purpose: 'Content reporting / flagging', type: 'Standard' },
+                1985: { name: 'Label', nip: 'NIP-32', purpose: 'Labeling / tagging content', type: 'Standard' },
+                2003: { name: 'Torrent', nip: 'NIP-35', purpose: 'Torrent / peer-to-peer file sharing',
+                type: 'Standard' },
+                2004: { name: 'Torrent Comment', nip: 'NIP-35', purpose: 'Comment on a torrent', type: 'Standard' },
+                3000: { name: 'Follow Set', nip: 'NIP-51', purpose: 'Curated follow list set', type: 'Standard' },
+                3001: { name: 'Bookmark Set', nip: 'NIP-51', purpose: 'Curated bookmark list', type: 'Standard' },
+                3002: { name: 'Relay Set', nip: 'NIP-51', purpose: 'Curated relay list set', type: 'Standard' },
+                3003: { name: 'Interest Set', nip: 'NIP-51', purpose: 'Curated interest / topic list', type: 'Standard' },
+                3004: { name: 'Curation Set', nip: 'NIP-51', purpose: 'Generic curation set', type: 'Standard' },
+                3005: { name: 'Video Set', nip: 'NIP-51', purpose: 'Curated video playlist', type: 'Standard' },
+                3008: { name: 'Badge Definition', nip: 'NIP-58', purpose: 'Badge definition event', type: 'Standard' },
+                3009: { name: 'Badge Profile', nip: 'NIP-58', purpose: 'Badge profile / collection', type: 'Standard' },
+                3010: { name: 'Bookmark List', nip: 'NIP-51', purpose: 'Alternative bookmark list', type: 'Standard' },
+                3011: { name: 'Mute Set', nip: 'NIP-51', purpose: 'Curated mute list set', type: 'Standard' },
+                3030: { name: 'User Status', nip: 'NIP-38', purpose: 'User status update', type: 'Standard' },
+                30311: { name: 'Live Event', nip: 'NIP-53', purpose: 'Live streaming event', type: 'Standard' },
+                30315: { name: 'User Status', nip: 'NIP-38', purpose: 'Extended user status', type: 'Standard' },
+                3040: { name: 'Draft', nip: 'NIP-37', purpose: 'Draft event (not yet published)', type: 'Standard' },
+                3041: { name: 'Draft Settings', nip: 'NIP-37', purpose: 'Draft settings', type: 'Standard' },
+                31922: { name: 'Date-Based Calendar Event', nip: 'NIP-52', purpose: 'Calendar event (date-based)',
+                    type: 'Standard' },
+                31923: { name: 'Time-Based Calendar Event', nip: 'NIP-52', purpose: 'Calendar event (time-based)',
+                    type: 'Standard' },
+                31924: { name: 'Calendar', nip: 'NIP-52', purpose: 'Calendar definition', type: 'Standard' },
+                31925: { name: 'Calendar Event RSVP', nip: 'NIP-52', purpose: 'RSVP to a calendar event',
+                type: 'Standard' },
+                9734: { name: 'Zap Request', nip: 'NIP-57', purpose: 'Lightning zap payment request', type: 'Standard' },
+                9735: { name: 'Zap Receipt', nip: 'NIP-57', purpose: 'Proof of zap payment', type: 'Standard' },
+                9802: { name: 'Highlight', nip: 'NIP-84', purpose: 'Highlight / annotation of content', type: 'Standard' },
+                10000: { name: 'Mute List (Plain)', nip: 'NIP-51', purpose: 'Plain mute list', type: 'Standard' },
+                10001: { name: 'Pin List (Plain)', nip: 'NIP-51', purpose: 'Plain pin list', type: 'Standard' },
+                10002: { name: 'Relay List', nip: 'NIP-65', purpose: 'Preferred relay list', type: 'Standard' },
+                10003: { name: 'Bookmark List (Plain)', nip: 'NIP-51', purpose: 'Plain bookmark list',
+                type: 'Standard' },
+                10004: { name: 'Communities List', nip: 'NIP-51', purpose: 'List of joined communities',
+                type: 'Standard' },
+                10005: { name: 'Public Chats List', nip: 'NIP-51', purpose: 'List of public chats', type: 'Standard' },
+                10006: { name: 'Blocked Relays', nip: 'NIP-51', purpose: 'Blocked relays list', type: 'Standard' },
+                10007: { name: 'Search Relays', nip: 'NIP-51', purpose: 'Search relay preferences', type: 'Standard' },
+                10013: { name: 'Private DM Relays', nip: 'NIP-17', purpose: 'Relays for private messages',
+                    type: 'Standard' },
+                10015: { name: 'Interests List', nip: 'NIP-51', purpose: 'User interests list', type: 'Standard' },
+                10019: { name: 'NutZap Info', nip: 'NIP-60', purpose: 'NutZap wallet info / cashu', type: 'Standard' },
+                10030: { name: 'Emoji List', nip: 'NIP-51', purpose: 'Custom emoji set list', type: 'Standard' },
+                10050: { name: 'Relay Rankings', nip: 'NIP-51', purpose: 'Relay ranking / scoring', type: 'Standard' },
+                10096: { name: 'File Storage', nip: 'NIP-96', purpose: 'File storage server list', type: 'Standard' },
+                13194: { name: 'Wallet Info', nip: 'NIP-47', purpose: 'Nostr Wallet Connect info', type: 'Standard' },
+                22242: { name: 'Client Auth', nip: 'NIP-42', purpose: 'Client authentication to relay',
+                type: 'Standard' },
+                23194: { name: 'NWC Request', nip: 'NIP-47', purpose: 'Nostr Wallet Connect request', type: 'Standard' },
+                23195: { name: 'NWC Response', nip: 'NIP-47', purpose: 'Nostr Wallet Connect response',
+                type: 'Standard' },
+                24133: { name: 'Nostr Connect', nip: 'NIP-46', purpose: 'Remote signing request/response',
+                    type: 'Standard' },
+                27235: { name: 'HTTP Auth', nip: 'NIP-98', purpose: 'HTTP authentication event', type: 'Standard' },
+                30000: { name: 'Profile Set', nip: 'NIP-51', purpose: 'Profile information set', type: 'Standard' },
+                30001: { name: 'Bookmark Set (Alt)', nip: 'NIP-51', purpose: 'Alternative bookmark set',
+                type: 'Standard' },
+                30008: { name: 'Badge Definition Set', nip: 'NIP-58', purpose: 'Badge definition in set format',
+                    type: 'Standard' },
+                30009: { name: 'Badge Award Set', nip: 'NIP-58', purpose: 'Badge award in set format', type: 'Standard' },
+                30015: { name: 'Interest Set', nip: 'NIP-51', purpose: 'Curated interest set', type: 'Standard' },
+                30017: { name: 'Stall', nip: 'NIP-15', purpose: 'Marketplace stall definition', type: 'Standard' },
+                30018: { name: 'Product', nip: 'NIP-15', purpose: 'Marketplace product listing', type: 'Standard' },
+                30019: { name: 'Order', nip: 'NIP-15', purpose: 'Marketplace order', type: 'Standard' },
+                30020: { name: 'Auction', nip: 'NIP-15', purpose: 'Marketplace auction', type: 'Standard' },
+                30023: { name: 'Long-form Article', nip: 'NIP-23', purpose: 'Blog / long-form article publishing',
+                    type: 'Standard' },
+                30024: { name: 'Draft Article', nip: 'NIP-23', purpose: 'Draft of a long-form article',
+                type: 'Standard' },
+                30030: { name: 'Emoji Set', nip: 'NIP-51', purpose: 'Emoji set definition', type: 'Standard' },
+                30040: { name: 'Channel Set', nip: 'NIP-51', purpose: 'Channel curation set', type: 'Standard' },
+                30041: { name: 'Channel Order', nip: 'NIP-51', purpose: 'Channel ordering set', type: 'Standard' },
+                30078: { name: 'Application Data', nip: 'NIP-78', purpose: 'Arbitrary app-specific data (commonly used by BCHNostr, Highlighter, etc.)',
+                    type: 'Custom' },
+                30079: { name: 'App Recommendation', nip: 'NIP-89', purpose: 'Recommended app handler',
+                type: 'Standard' },
+                30166: { name: 'Peer-to-Peer Order', nip: 'NIP-69', purpose: 'P2P order event', type: 'Standard' },
+                30360: { name: 'Wiki Article', nip: 'NIP-54', purpose: 'Wiki / knowledge base article',
+                type: 'Standard' },
+                30361: { name: 'Wiki Redirect', nip: 'NIP-54', purpose: 'Wiki redirect', type: 'Standard' },
+                30402: { name: 'Classified Listing', nip: 'NIP-99', purpose: 'Classified ad listing', type: 'Standard' },
+                30403: { name: 'Draft Classified', nip: 'NIP-99', purpose: 'Draft classified listing',
+                type: 'Standard' },
+                30617: { name: 'Repository', nip: 'NIP-34', purpose: 'Git repository event', type: 'Standard' },
+                30618: { name: 'Repository Patch', nip: 'NIP-34', purpose: 'Patch / PR for a repo', type: 'Standard' },
+                30619: { name: 'Repository Issue', nip: 'NIP-34', purpose: 'Issue in a repo', type: 'Standard' },
+                30818: { name: 'Wiki Article (Alt)', nip: 'NIP-54', purpose: 'Alternative wiki article',
+                type: 'Standard' },
+                31234: { name: 'Draft Event', nip: 'NIP-37', purpose: 'Generic draft event', type: 'Standard' },
+                31337: { name: 'Audio Track', nip: 'NIP-38', purpose: 'Audio / podcast track', type: 'Standard' },
+                31890: { name: 'Feed Definition', nip: 'NIP-38', purpose: 'Content feed definition', type: 'Standard' },
+                31989: { name: 'App Handler', nip: 'NIP-89', purpose: 'Application handler recommendation',
+                    type: 'Standard' },
+                31990: { name: 'Handler Info', nip: 'NIP-89', purpose: 'Handler information event', type: 'Standard' },
+                34550: { name: 'Community Definition', nip: 'NIP-72', purpose: 'Community / group definition',
+                    type: 'Standard' },
+                34551: { name: 'Community Post', nip: 'NIP-72', purpose: 'Post within a community', type: 'Standard' },
+                39000: { name: 'Group Metadata', nip: 'NIP-29', purpose: 'Group metadata event', type: 'Standard' },
+                39001: { name: 'Group Member', nip: 'NIP-29', purpose: 'Group membership event', type: 'Standard' },
+            };
+
+            /**
+             * Look up kind reference information.
+             * @param {number} kind - The event kind number
+             * @returns {{name: string, nip: string, purpose: string, type: string, isUnknown: boolean}}
+             */
+            function getKindInfo(kind) {
+                if (KIND_REFERENCE.hasOwnProperty(kind)) {
+                    const ref = KIND_REFERENCE[kind];
+                    return {
+                        name: ref.name,
+                        nip: ref.nip || '—',
+                        purpose: ref.purpose || '—',
+                        type: ref.type || 'Custom',
+                        isUnknown: false,
+                    };
+                }
+                return {
+                    name: 'Unknown',
+                    nip: '—',
+                    purpose: 'Not recognized. Possibly application-specific.',
+                    type: 'Unknown',
+                    isUnknown: true,
+                };
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  CONSTANTS
+            // ═══════════════════════════════════════════════════════════════
             const DEFAULT_RELAYS = [
                 'wss://relay.damus.io',
                 'wss://nos.lol',
@@ -201,12 +955,18 @@
                 'wss://purplepag.es',
                 'wss://relay.snort.social',
             ];
-            const STANDARD_KINDS = new Set([0,1,3,5,6,7,8,14,16,20,21,40,41,42,43,44,9734,9735,10002,10019,30023]);
+            const STANDARD_KINDS = new Set([
+                0, 1, 3, 5, 6, 7, 8, 14, 16, 20, 21, 40, 41, 42, 43, 44,
+                9734, 9735, 10002, 10019, 30023,
+            ]);
             const RELAY_TIMEOUT_MS = 10000;
             const PAGE_LIMIT = 500;
             const MAX_PAGINATION_ROUNDS = 3;
             const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
+            // ═══════════════════════════════════════════════════════════════
+            //  APPLICATION STATE
+            // ═══════════════════════════════════════════════════════════════
             let currentHexPubkey = null;
             let currentNpub = null;
             let allEventsMap = new Map();
@@ -217,12 +977,21 @@
             let sortColumn = 'kind';
             let sortDirection = 'asc';
 
+            // ═══════════════════════════════════════════════════════════════
+            //  DOM REFERENCES
+            // ═══════════════════════════════════════════════════════════════
             const npubInput = document.getElementById('npubInput');
             const scanBtn = document.getElementById('scanBtn');
             const clearBtn = document.getElementById('clearBtn');
             const progressArea = document.getElementById('progressArea');
             const progressList = document.getElementById('progressList');
             const statsGrid = document.getElementById('statsGrid');
+            const summaryPanel = document.getElementById('summaryPanel');
+            const sumStandard = document.getElementById('sumStandard');
+            const sumCustom = document.getElementById('sumCustom');
+            const sumUnknown = document.getElementById('sumUnknown');
+            const sumTotal = document.getElementById('sumTotal');
+            const summaryBar = document.getElementById('summaryBar');
             const toolbar = document.getElementById('toolbar');
             const searchInput = document.getElementById('searchInput');
             const tableWrapper = document.getElementById('tableWrapper');
@@ -237,8 +1006,12 @@
             const exportJSONBtn = document.getElementById('exportJSONBtn');
             const resultsTable = document.getElementById('resultsTable');
 
+            // ═══════════════════════════════════════════════════════════════
+            //  BECH32 DECODER
+            // ═══════════════════════════════════════════════════════════════
             function bech32Decode(bech32Str) {
-                if (!bech32Str || bech32Str !== bech32Str.toLowerCase()) throw new Error('Bech32 string must be all lowercase');
+                if (!bech32Str || bech32Str !== bech32Str.toLowerCase()) throw new Error(
+                    'Bech32 string must be all lowercase');
                 if (bech32Str.length < 8 || bech32Str.length > 90) throw new Error('Bech32 string length out of range');
                 const sepIndex = bech32Str.lastIndexOf('1');
                 if (sepIndex < 1 || sepIndex + 7 > bech32Str.length) throw new Error('Invalid bech32 format');
@@ -255,180 +1028,229 @@
                 if (!bech32VerifyChecksum(hrp, dataValues)) throw new Error('Bech32 checksum verification failed');
                 return { hrp, data: dataValues.slice(0, -6) };
             }
+
             function bech32Polymod(values) {
-                const GEN = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+                const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
                 let chk = 1;
-                for (let v of values) {
-                    const top = chk >> 25;
-                    chk = ((chk & 0x1ffffff) << 5) ^ v;
-                    for (let j = 0; j < 5; j++) if ((top >> j) & 1) chk ^= GEN[j];
-                }
+                for (let v of values) { const top = chk >> 25;
+                    chk = ((chk & 0x1ffffff) << 5) ^ v; for (let j = 0; j < 5; j++)
+                        if ((top >> j) & 1) chk ^= GEN[j]; }
                 return chk;
             }
-            function bech32HrpExpand(hrp) {
-                const result = [];
-                for (let i=0;i<hrp.length;i++) result.push(hrp.charCodeAt(i) >> 5);
-                result.push(0);
-                for (let i=0;i<hrp.length;i++) result.push(hrp.charCodeAt(i) & 31);
-                return result;
-            }
-            function bech32VerifyChecksum(hrp, data) {
-                return bech32Polymod(bech32HrpExpand(hrp).concat(data)) === 1;
-            }
-            function convert5to8Bits(data5bit, expectedBytes) {
-                let bitBuffer=0, bitCount=0, result=[];
-                for (const v of data5bit) {
-                    bitBuffer = (bitBuffer << 5) | v;
-                    bitCount += 5;
-                    while (bitCount >= 8) { bitCount -= 8; result.push((bitBuffer >> bitCount) & 0xff); }
-                }
-                if (expectedBytes !== null && result.length !== expectedBytes) throw new Error('Unexpected byte count');
-                return result;
-            }
-            function decodeNpub(npub) {
-                const trimmed = npub.trim();
-                if (!trimmed.startsWith('npub1')) throw new Error('Invalid npub');
-                const {hrp, data} = bech32Decode(trimmed);
-                if (hrp !== 'npub') throw new Error('Not an npub');
-                const bytes = convert5to8Bits(data, 32);
-                return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
-            }
 
-            function formatDate(ts) { if (!ts || isNaN(ts)) return '—'; const d = new Date(ts*1000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-            function formatDateTime(ts) { if (!ts || isNaN(ts)) return '—'; return new Date(ts*1000).toISOString().replace('T',' ').slice(0,19); }
-            function showToast(msg, type='info') {
-                const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
-                if (type==='error') t.style.borderColor='var(--error)';
-                if (type==='success') t.style.borderColor='var(--success)';
+            function bech32HrpExpand(hrp) { const result = []; for (let i = 0; i < hrp.length; i++) result.push(hrp
+                    .charCodeAt(i) >> 5);
+                result.push(0); for (let i = 0; i < hrp.length; i++) result.push(hrp.charCodeAt(i) & 31); return result; }
+
+            function bech32VerifyChecksum(hrp, data) { return bech32Polymod(bech32HrpExpand(hrp).concat(data)) === 1; }
+
+            function convert5to8Bits(data5bit, expectedBytes) { let bitBuffer = 0,
+                    bitCount = 0,
+                    result = []; for (const v of data5bit) { bitBuffer = (bitBuffer << 5) | v;
+                    bitCount += 5; while (bitCount >= 8) { bitCount -= 8;
+                        result.push((bitBuffer >> bitCount) & 0xff); } } if (expectedBytes !== null && result.length !==
+                    expectedBytes) throw new Error('Unexpected byte count'); return result; }
+
+            function decodeNpub(npub) { const trimmed = npub.trim(); if (!trimmed.startsWith('npub1')) throw new Error(
+                    'Invalid npub'); const { hrp, data } = bech32Decode(trimmed); if (hrp !== 'npub') throw new Error(
+                    'Not an npub'); const bytes = convert5to8Bits(data, 32); return bytes.map(b => b.toString(16)
+                    .padStart(2, '0')).join(''); }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  UTILITY FUNCTIONS
+            // ═══════════════════════════════════════════════════════════════
+            function formatDate(ts) { if (!ts || isNaN(ts)) return '—'; const d = new Date(ts * 1000); return `${d
+                    .getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+            function formatDateTime(ts) { if (!ts || isNaN(ts)) return '—'; return new Date(ts * 1000).toISOString()
+                    .replace('T', ' ').slice(0, 19); }
+
+            function showToast(msg, type = 'info') { const t = document.createElement('div');
+                t.className = 'toast';
+                t.textContent = msg; if (type === 'error') t.style.borderColor = 'var(--error)'; if (type === 'success')
+                    t.style.borderColor = 'var(--success)';
                 toastContainer.appendChild(t);
-                setTimeout(() => t.remove(), 2200);
-            }
-            async function copyToClipboard(text, label='Text') {
-                try { await navigator.clipboard.writeText(text); } catch {
-                    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-                }
-                showToast(`${label} copied!`,'success');
-            }
+                setTimeout(() => t.remove(), 2200); }
+            async function copyToClipboard(text, label = 'Text') { try { await navigator.clipboard.writeText(
+                text); } catch { const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove(); }
+                showToast(`${label} copied!`, 'success'); }
 
+            // ═══════════════════════════════════════════════════════════════
+            //  RELAY CONNECTION & EVENT FETCHING
+            // ═══════════════════════════════════════════════════════════════
             function fetchFromRelay(relayUrl, hexPubkey, signal, onStatus) {
                 return new Promise((resolve, reject) => {
-                    const events=[], seenIds=new Set();
-                    let socket=null, subId=null, round=0, oldest=null, timeout=null, resolved=false;
-                    function finish(err) {
-                        if (resolved) return; resolved=true;
-                        if (timeout) clearTimeout(timeout);
-                        if (socket) {
-                            if (subId && socket.readyState===WebSocket.OPEN) try{socket.send(JSON.stringify(['CLOSE',subId]))}catch(_){}
-                            socket.close();
-                        }
-                        err ? reject(err) : resolve(events);
-                    }
-                    function resetTimeout() {
-                        if (timeout) clearTimeout(timeout);
-                        timeout = setTimeout(() => {
-                            if (events.length>0 && round<MAX_PAGINATION_ROUNDS) return;
-                            finish(new Error(`Timeout: ${relayUrl}`));
-                        }, RELAY_TIMEOUT_MS);
-                    }
-                    function sendReq() {
-                        if (resolved) return;
-                        round++; subId = 'sub-'+Math.random().toString(36).slice(2,10)+'-p'+round;
-                        const filter = { authors:[hexPubkey], limit:PAGE_LIMIT };
-                        if (oldest !== null) filter.until = oldest - 1;
-                        try { socket.send(JSON.stringify(['REQ',subId,filter])); } catch(e) { finish(new Error('Send failed')); return; }
-                        resetTimeout();
-                    }
-                    try { socket = new WebSocket(relayUrl); } catch(e) { finish(new Error('Cannot connect')); return; }
-                    socket.onopen = () => { if(resolved) return; onStatus(relayUrl,'connected'); sendReq(); };
-                    socket.onmessage = (msg) => {
-                        if(resolved) return; resetTimeout();
-                        let parsed; try { parsed=JSON.parse(msg.data); } catch{return;}
-                        if(!Array.isArray(parsed)||parsed.length<2) return;
-                        const [type, id, ...rest] = parsed;
-                        if(type==='EVENT' && id===subId && rest[0]) {
-                            const ev = rest[0];
-                            if(ev.id && !seenIds.has(ev.id)) { seenIds.add(ev.id); events.push({event:ev, relayUrl}); if(oldest===null||ev.created_at<oldest) oldest=ev.created_at; }
-                        }
-                        if(type==='EOSE' && id===subId) {
-                            if(events.length >= PAGE_LIMIT*0.8 && round<MAX_PAGINATION_ROUNDS && oldest!==null) setTimeout(() => { if(!resolved) sendReq(); }, 200);
-                            else finish(null);
-                        }
-                    };
-                    socket.onerror = () => { onStatus(relayUrl,'error'); };
-                    socket.onclose = () => { if(resolved) return; if(events.length>0) finish(null); else finish(new Error('Disconnected')); };
-                    if(signal) signal.addEventListener('abort', ()=>finish(new Error('Aborted')), {once:true});
+                    const events = [],
+                        seenIds = new Set();
+                    let socket = null,
+                        subId = null,
+                        round = 0,
+                        oldest = null,
+                        timeout = null,
+                        resolved = false;
+
+                    function finish(err) { if (resolved) return;
+                        resolved = true; if (timeout) clearTimeout(timeout); if (socket) { if (subId && socket
+                                .readyState === WebSocket.OPEN) try { socket.send(JSON.stringify(['CLOSE',
+                                subId
+                            ])); } catch (_) {} socket.close(); } err ? reject(err) : resolve(events); }
+
+                    function resetTimeout() { if (timeout) clearTimeout(timeout);
+                        timeout = setTimeout(() => { if (events.length > 0 && round < MAX_PAGINATION_ROUNDS)
+                            return;
+                            finish(new Error(`Timeout: ${relayUrl}`)); }, RELAY_TIMEOUT_MS); }
+
+                    function sendReq() { if (resolved) return;
+                        round++;
+                        subId = 'sub-' + Math.random().toString(36).slice(2, 10) + '-p' + round; const filter = {
+                            authors: [hexPubkey],
+                            limit: PAGE_LIMIT }; if (oldest !== null) filter.until = oldest - 1; try { socket.send(
+                            JSON.stringify(['REQ', subId, filter])); } catch (e) { finish(new Error(
+                            'Send failed')); return; }
+                        resetTimeout(); }
+                    try { socket = new WebSocket(relayUrl); } catch (e) { finish(new Error('Cannot connect')); return; }
+                    socket.onopen = () => { if (resolved) return;
+                        onStatus(relayUrl, 'connected');
+                        sendReq(); };
+                    socket.onmessage = (msg) => { if (resolved) return;
+                        resetTimeout(); let parsed; try { parsed = JSON.parse(msg.data); } catch { return; } if (
+                            !Array.isArray(parsed) || parsed.length < 2) return; const [type, id, ...rest] =
+                            parsed; if (type === 'EVENT' && id === subId && rest[0]) { const ev = rest[0]; if (ev
+                                .id && !seenIds.has(ev.id)) { seenIds.add(ev.id);
+                                events.push({ event: ev, relayUrl }); if (oldest === null || ev.created_at <
+                                    oldest) oldest = ev.created_at; } } if (type === 'EOSE' && id === subId) { if (
+                                events.length >= PAGE_LIMIT * 0.8 && round < MAX_PAGINATION_ROUNDS && oldest !==
+                                null) setTimeout(() => { if (!resolved) sendReq(); }, 200); else finish(
+                            null); } };
+                    socket.onerror = () => { onStatus(relayUrl, 'error'); };
+                    socket.onclose = () => { if (resolved) return; if (events.length > 0) finish(null); else finish(
+                            new Error('Disconnected')); }; if (signal) signal.addEventListener('abort', () => finish(
+                            new Error('Aborted')), { once: true });
                     resetTimeout();
                 });
             }
 
             async function connectRelays(hexPubkey, signal, onRelayStatus, onEventCount) {
-                const merged = new Map(); let total=0;
+                const merged = new Map();
+                let total = 0;
                 const promises = DEFAULT_RELAYS.map(async url => {
                     try {
-                        onRelayStatus(url,'connecting');
-                        const res = await fetchFromRelay(url, hexPubkey, signal, (u,s)=>onRelayStatus(u,s));
-                        for (const {event, relayUrl} of res) {
-                            if (merged.has(event.id)) {
-                                const ex = merged.get(event.id);
-                                if (!ex.relayUrls.includes(relayUrl)) ex.relayUrls.push(relayUrl);
-                            } else { merged.set(event.id, {event, relayUrls:[relayUrl]}); total++; onEventCount(total); }
-                        }
-                        return {url, ok:true};
-                    } catch(e) { onRelayStatus(url,'failed'); return {url, ok:false}; }
+                        onRelayStatus(url, 'connecting');
+                        const res = await fetchFromRelay(url, hexPubkey, signal, (u, s) => onRelayStatus(u, s));
+                        for (const { event, relayUrl } of res) { if (merged.has(event.id)) { const ex = merged.get(event
+                                    .id); if (!ex.relayUrls.includes(relayUrl)) ex.relayUrls.push(
+                            relayUrl); } else { merged.set(event.id, { event, relayUrls: [relayUrl] });
+                            total++;
+                            onEventCount(total); } }
+                        return { url, ok: true };
+                    } catch (e) { onRelayStatus(url, 'failed'); return { url, ok: false }; }
                 });
                 const results = await Promise.allSettled(promises);
-                if (merged.size===0 && !results.some(r=>r.value&&r.value.ok)) throw new Error('All relays failed');
+                if (merged.size === 0 && !results.some(r => r.value && r.value.ok)) throw new Error('All relays failed');
                 return merged;
             }
 
-            function mergeEvents(eventsMap) {
-                for (const [id, data] of eventsMap) {
-                    if (!allEventsMap.has(id)) allEventsMap.set(id, data);
-                    else { const ex = allEventsMap.get(id); for (const u of data.relayUrls) if (!ex.relayUrls.includes(u)) ex.relayUrls.push(u); }
-                }
-            }
+            function mergeEvents(eventsMap) { for (const [id, data] of eventsMap) { if (!allEventsMap.has(id))
+                    allEventsMap.set(id, data); else { const ex = allEventsMap.get(id); for (const u of data.relayUrls)
+                        if (!ex.relayUrls.includes(u)) ex.relayUrls.push(u); } } }
 
-            function detectCustomKinds() {
-                const kindMap = new Map();
+            function detectCustomKinds() { const kindMap = new Map(); for (const [, data] of allEventsMap) { const k =
+                    data.event.kind; if (k === undefined || STANDARD_KINDS.has(k)) continue; if (!kindMap.has(k))
+                    kindMap.set(k, []); kindMap.get(k).push({ event: data.event, relayUrls: data.relayUrls }); } return kindMap; }
+
+            function buildSummaries(groups) { const arr = []; for (const [kind, events] of groups) { let first = Infinity,
+                    latest = -Infinity; for (const { event } of events) { const t = event.created_at || 0; if (t <
+                        first) first = t; if (t > latest) latest = t; } const info = getKindInfo(kind);
+                arr.push({ kind, count: events.length, firstSeen: first === Infinity ? null : first, latestSeen: latest === -
+                        Infinity ? null : latest, events, name: info.name, nip: info.nip, purpose: info.purpose,
+                    type: info.type, isUnknown: info.isUnknown }); } return arr; }
+
+            function sortSummaries(arr, col, dir) { const mult = dir === 'asc' ? 1 : -1; return [...arr].sort((a, b) => { let va,
+                        vb; switch (col) { case 'kind':
+                        va = a.kind;
+                        vb = b.kind; break; case 'name':
+                        va = a.name.toLowerCase();
+                        vb = b.name.toLowerCase(); break; case 'type':
+                        va = a.type.toLowerCase();
+                        vb = b.type.toLowerCase(); break; case 'nip':
+                        va = a.nip.toLowerCase();
+                        vb = b.nip.toLowerCase(); break; case 'count':
+                        va = a.count;
+                        vb = b.count; break; case 'firstSeen':
+                        va = a.firstSeen || 0;
+                        vb = b.firstSeen || 0; break; case 'latestSeen':
+                        va = a.latestSeen || 0;
+                        vb = b.latestSeen || 0; break; default:
+                        va = a.kind;
+                        vb = b.kind; } return va < vb ? -mult : va > vb ? mult : 0; }); }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  RENDERING
+            // ═══════════════════════════════════════════════════════════════
+            function renderSummary() {
+                let totalStandardKinds = new Set();
+                let totalCustomKnownKinds = new Set();
+                let totalUnknownKinds = new Set();
+                let totalEvents = allEventsMap.size;
+                let standardEventCount = 0;
+                let customEventCount = 0;
+                let unknownEventCount = 0;
+
                 for (const [, data] of allEventsMap) {
-                    const k = data.event.kind;
-                    if (k===undefined || STANDARD_KINDS.has(k)) continue;
-                    if (!kindMap.has(k)) kindMap.set(k, []);
-                    kindMap.get(k).push({event:data.event, relayUrls:data.relayUrls});
-                }
-                return kindMap;
-            }
-
-            function buildSummaries(groups) {
-                const arr = [];
-                for (const [kind, events] of groups) {
-                    let first=Infinity, latest=-Infinity;
-                    for (const {event} of events) { const t=event.created_at||0; if(t<first)first=t; if(t>latest)latest=t; }
-                    arr.push({kind, count:events.length, firstSeen:first===Infinity?null:first, latestSeen:latest===-Infinity?null:latest, events});
-                }
-                return arr;
-            }
-
-            function sortSummaries(arr, col, dir) {
-                const mult = dir==='asc'?1:-1;
-                return [...arr].sort((a,b)=>{
-                    let va,vb;
-                    switch(col){
-                        case 'kind': va=a.kind; vb=b.kind; break;
-                        case 'count': va=a.count; vb=b.count; break;
-                        case 'firstSeen': va=a.firstSeen||0; vb=b.firstSeen||0; break;
-                        case 'latestSeen': va=a.latestSeen||0; vb=b.latestSeen||0; break;
-                        default: va=a.kind; vb=b.kind;
+                    const kind = data.event.kind;
+                    const info = getKindInfo(kind);
+                    if (info.type === 'Standard') {
+                        totalStandardKinds.add(kind);
+                        standardEventCount++;
+                    } else if (info.type === 'Custom') {
+                        totalCustomKnownKinds.add(kind);
+                        customEventCount++;
+                    } else {
+                        totalUnknownKinds.add(kind);
+                        unknownEventCount++;
                     }
-                    return va<vb ? -mult : va>vb ? mult : 0;
-                });
+                }
+
+                const standardKindsCount = totalStandardKinds.size;
+                const customKnownCount = totalCustomKnownKinds.size;
+                const unknownCount = totalUnknownKinds.size;
+                const grandTotal = standardKindsCount + customKnownCount + unknownCount;
+
+                sumStandard.textContent = standardKindsCount;
+                sumCustom.textContent = customKnownCount;
+                sumUnknown.textContent = unknownCount;
+                sumTotal.textContent = totalEvents;
+
+                const barStandard = summaryBar.querySelector('.bar-standard');
+                const barCustom = summaryBar.querySelector('.bar-custom');
+                const barUnknown = summaryBar.querySelector('.bar-unknown');
+
+                if (grandTotal > 0) {
+                    barStandard.style.width = ((standardKindsCount / grandTotal) * 100) + '%';
+                    barCustom.style.width = ((customKnownCount / grandTotal) * 100) + '%';
+                    barUnknown.style.width = ((unknownCount / grandTotal) * 100) + '%';
+                } else {
+                    barStandard.style.width = '0%';
+                    barCustom.style.width = '0%';
+                    barUnknown.style.width = '0%';
+                }
+
+                summaryPanel.style.display = 'flex';
             }
 
-            function renderTable(filterText='') {
+            function renderTable(filterText = '') {
                 let filtered = customKindSummaries;
                 if (filterText.trim()) {
                     const s = filterText.trim().toLowerCase();
-                    filtered = customKindSummaries.filter(x => String(x.kind).includes(s));
+                    filtered = customKindSummaries.filter(x =>
+                        String(x.kind).includes(s) || x.name.toLowerCase().includes(s) || x.purpose.toLowerCase()
+                        .includes(s)
+                    );
                 }
                 filtered = sortSummaries(filtered, sortColumn, sortDirection);
 
@@ -437,7 +1259,7 @@
                     const col = th.getAttribute('data-sort');
                     const arrow = th.querySelector('.sort-arrow');
                     if (arrow) {
-                        arrow.textContent = (col === sortColumn) ? (sortDirection==='asc'?'▲':'▼') : '';
+                        arrow.textContent = (col === sortColumn) ? (sortDirection === 'asc' ? '▲' : '▼') : '';
                     }
                     th.style.color = (col === sortColumn) ? 'var(--accent)' : '';
                 });
@@ -447,15 +1269,25 @@
                     noResults.style.display = 'block';
                 } else {
                     noResults.style.display = 'none';
-                    resultsBody.innerHTML = filtered.map(s => `
-                        <tr>
-                            <td><span class="kind-badge">${s.kind}</span></td>
+                    resultsBody.innerHTML = filtered.map(s => {
+                        const rowClass = s.isUnknown ? 'row-unknown' : '';
+                        const kindBadgeClass = s.isUnknown ? 'unknown-badge' : '';
+                        let typeBadgeClass = 'standard';
+                        if (s.type === 'Custom') typeBadgeClass = 'custom';
+                        if (s.type === 'Unknown') typeBadgeClass = 'unknown';
+                        return `
+                        <tr class="${rowClass}">
+                            <td><span class="kind-badge ${kindBadgeClass}">${s.kind}</span></td>
+                            <td>${escapeHTML(s.name)}</td>
+                            <td><span class="type-badge ${typeBadgeClass}">${s.type}</span></td>
+                            <td><span class="nip-tag">${escapeHTML(s.nip)}</span></td>
                             <td>${s.count}</td>
                             <td>${formatDate(s.firstSeen)}</td>
                             <td>${formatDate(s.latestSeen)}</td>
+                            <td class="purpose-cell">${escapeHTML(s.purpose)}</td>
                             <td><button class="btn btn-outline btn-xs view-btn" data-kind="${s.kind}">👁 View</button></td>
-                        </tr>
-                    `).join('');
+                        </tr>`;
+                    }).join('');
                     resultsBody.querySelectorAll('.view-btn').forEach(btn => {
                         btn.addEventListener('click', () => showModal(parseInt(btn.dataset.kind)));
                     });
@@ -467,16 +1299,21 @@
             function showModal(kind) {
                 const group = customKindGroups.get(kind);
                 if (!group) return;
+                const info = getKindInfo(kind);
                 modalKindBadge.textContent = kind;
+                if (info.isUnknown) modalKindBadge.classList.add('unknown-badge');
+                else modalKindBadge.classList.remove('unknown-badge');
                 modalBody.innerHTML = group.map((item, idx) => {
                     const ev = item.event;
-                    const relayStr = (item.relayUrls||[]).map(r=>r.replace('wss://','')).join(', ') || 'unknown';
+                    const relayStr = (item.relayUrls || []).map(r => r.replace('wss://', '')).join(', ') ||
+                        'unknown';
                     const json = JSON.stringify(ev, null, 2);
                     return `<div class="event-card">
                         <div class="event-meta">
                             <span><span class="label">ID:</span> ${ev.id||'—'}</span>
                             <span><span class="label">Created:</span> ${formatDateTime(ev.created_at)}</span>
                             <span><span class="label">Relay:</span> ${relayStr}</span>
+                            <span><span class="label">#${idx+1}</span></span>
                         </div>
                         <pre>${escapeHTML(json)}</pre>
                         <div class="btn-row">
@@ -485,138 +1322,209 @@
                         </div>
                     </div>`;
                 }).join('');
-                modalBody.querySelectorAll('.copy-json-btn').forEach(b => b.addEventListener('click', ()=> copyToClipboard(unescapeAttr(b.dataset.json),'JSON')));
-                modalBody.querySelectorAll('.copy-id-btn').forEach(b => b.addEventListener('click', ()=> copyToClipboard(b.dataset.id,'Event ID')));
+                modalBody.querySelectorAll('.copy-json-btn').forEach(b => b.addEventListener('click', () =>
+                    copyToClipboard(unescapeAttr(b.dataset.json), 'JSON')));
+                modalBody.querySelectorAll('.copy-id-btn').forEach(b => b.addEventListener('click', () => copyToClipboard(
+                    b.dataset.id, 'Event ID')));
                 modalOverlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             }
-            function hideModal() { modalOverlay.style.display='none'; modalBody.innerHTML=''; document.body.style.overflow=''; }
-            function escapeHTML(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-            function escapeAttr(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-            function unescapeAttr(s) { const ta = document.createElement('textarea'); ta.innerHTML = s; return ta.value; }
 
-            function exportCSV() {
-                if (!customKindSummaries.length) { showToast('No data','error'); return; }
-                let csv = 'Kind,Count,First Seen,Latest Seen\n' + customKindSummaries.map(s=>`${s.kind},${s.count},${formatDate(s.firstSeen)},${formatDate(s.latestSeen)}`).join('\n');
-                csv += '\n\nEvent ID,Kind,Created At,Relay\n';
-                for (const s of customKindSummaries) for (const {event,relayUrls} of s.events) csv += `${event.id},${s.kind},${formatDateTime(event.created_at)},"${(relayUrls||[]).join('; ')}"\n`;
-                downloadFile(csv,'nostr-custom-kinds.csv','text/csv');
-                showToast('CSV exported','success');
-            }
-            function exportJSON() {
-                if (!customKindSummaries.length) { showToast('No data','error'); return; }
-                const obj = {
-                    pubkey: currentHexPubkey, npub: currentNpub, exportedAt: new Date().toISOString(),
-                    customKinds: customKindSummaries.map(s=>({
-                        kind:s.kind, count:s.count,
-                        firstSeen: s.firstSeen?formatDateTime(s.firstSeen):null,
-                        latestSeen: s.latestSeen?formatDateTime(s.latestSeen):null,
-                        events: s.events.map(({event,relayUrls})=>({id:event.id, pubkey:event.pubkey, created_at:event.created_at, kind:event.kind, content:event.content, tags:event.tags, sig:event.sig, relays:relayUrls}))
-                    }))
+            function hideModal() { modalOverlay.style.display = 'none';
+                modalBody.innerHTML = '';
+                document.body.style.overflow = ''; }
+
+            function escapeHTML(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(
+                /"/g, '&quot;'); }
+
+            function escapeAttr(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+
+            function unescapeAttr(s) { const ta = document.createElement('textarea');
+                ta.innerHTML = s; return ta.value; }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  EXPORT
+            // ═══════════════════════════════════════════════════════════════
+            function exportCSV() { if (!customKindSummaries.length) { showToast('No data', 'error'); return; } let csv =
+                    'Kind,Name,Type,NIP,Count,First Seen,Latest Seen,Purpose\n';
+                csv += customKindSummaries.map(s =>
+                    `"${s.kind}","${s.name}","${s.type}","${s.nip}",${s.count},${formatDate(s.firstSeen)},${formatDate(s.latestSeen)},"${s.purpose.replace(/"/g,'""')}"`
+                    ).join('\n');
+                csv += '\n\nEvent ID,Kind,Created At,Relay\n'; for (const s of customKindSummaries) for (const { event,
+                        relayUrls } of s.events) csv +=
+                    `${event.id},${s.kind},${formatDateTime(event.created_at)},"${(relayUrls||[]).join('; ')}"\n`;
+                downloadFile(csv, 'nostr-custom-kinds.csv', 'text/csv');
+                showToast('CSV exported', 'success'); }
+
+            function exportJSON() { if (!customKindSummaries.length) { showToast('No data', 'error'); return; } const obj = {
+                    pubkey: currentHexPubkey,
+                    npub: currentNpub,
+                    exportedAt: new Date().toISOString(),
+                    customKinds: customKindSummaries.map(s => ({
+                        kind: s.kind,
+                        name: s.name,
+                        type: s.type,
+                        nip: s.nip,
+                        purpose: s.purpose,
+                        isUnknown: s.isUnknown,
+                        count: s.count,
+                        firstSeen: s.firstSeen ? formatDateTime(s.firstSeen) : null,
+                        latestSeen: s.latestSeen ? formatDateTime(s.latestSeen) : null,
+                        events: s.events.map(({ event, relayUrls }) => ({ id: event.id,
+                            pubkey: event.pubkey,
+                            created_at: event.created_at,
+                            kind: event.kind,
+                            content: event.content,
+                            tags: event.tags,
+                            sig: event.sig,
+                            relays: relayUrls })),
+                    })),
                 };
-                downloadFile(JSON.stringify(obj,null,2),'nostr-custom-kinds.json','application/json');
-                showToast('JSON exported','success');
-            }
-            function downloadFile(content, name, type) {
-                const blob = new Blob([content],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
-            }
+                downloadFile(JSON.stringify(obj, null, 2), 'nostr-custom-kinds.json', 'application/json');
+                showToast('JSON exported', 'success'); }
 
+            function downloadFile(content, name, type) { const blob = new Blob([content], { type }); const a = document
+                    .createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                a.click();
+                URL.revokeObjectURL(a.href); }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  PROGRESS UI
+            // ═══════════════════════════════════════════════════════════════
             let relayStatuses = new Map();
-            function updateProgress(url, status) { relayStatuses.set(url,status); renderProgress(); }
-            function renderProgress() {
-                let html = DEFAULT_RELAYS.map(url => {
-                    const st = relayStatuses.get(url)||'pending'; let dot='', txt='Pending';
-                    if(st==='connecting'){dot='active';txt='Connecting...';} else if(st==='connected'){dot='connected';txt='Connected';} else if(st==='failed'||st==='error'){dot='failed';txt='Failed';}
-                    return `<span class="progress-item"><span class="progress-dot ${dot}"></span>${url.replace('wss://','')}: ${txt}</span>`;
-                }).join('');
-                html += ` | Relays: ${[...relayStatuses.values()].filter(s=>s==='connected').length}/${DEFAULT_RELAYS.length} | Events: ${allEventsMap.size}`;
+
+            function updateProgress(url, status) { relayStatuses.set(url, status);
+                renderProgress(); }
+
+            function renderProgress() { let html = DEFAULT_RELAYS.map(url => { const st = relayStatuses.get(url) ||
+                        'pending'; let dot = '',
+                        txt = 'Pending'; if (st === 'connecting') { dot = 'active';
+                        txt = 'Connecting...'; } else if (st === 'connected') { dot = 'connected';
+                        txt = 'Connected'; } else if (st === 'failed' || st === 'error') { dot = 'failed';
+                        txt = 'Failed'; } return `<span class="progress-item"><span class="progress-dot ${dot}"></span>${url
+                            .replace('wss://','')}: ${txt}</span>`; }).join('');
+                html +=
+                    ` | Relays: ${[...relayStatuses.values()].filter(s=>s==='connected').length}/${DEFAULT_RELAYS.length} | Events: ${allEventsMap.size}`;
                 if (isScanning) html += ' <span class="spinner"></span> Scanning...';
                 progressList.innerHTML = html;
-                progressArea.style.display = 'block';
-            }
-            function resetProgress() { relayStatuses.clear(); progressList.innerHTML=''; progressArea.style.display='none'; }
+                progressArea.style.display = 'block'; }
 
-            async function runScan() {
-                if (isScanning) return;
-                const raw = npubInput.value.trim();
-                if (!raw) { showToast('Enter npub','error'); return; }
-                let hex;
-                try { hex = decodeNpub(raw); } catch(e) { showToast('Invalid npub: '+e.message,'error'); return; }
+            function resetProgress() { relayStatuses.clear();
+                progressList.innerHTML = '';
+                progressArea.style.display = 'none'; }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  MAIN SCAN LOGIC
+            // ═══════════════════════════════════════════════════════════════
+            async function runScan() { if (isScanning) return; const raw = npubInput.value.trim(); if (!raw) { showToast(
+                        'Enter npub', 'error'); return; } let hex; try { hex = decodeNpub(raw); } catch (e) { showToast(
+                        'Invalid npub: ' + e.message, 'error'); return; }
                 abortController = new AbortController();
-                isScanning = true; currentHexPubkey = hex; currentNpub = raw;
-                allEventsMap.clear(); customKindGroups.clear(); customKindSummaries=[];
-                relayStatuses.clear(); sortColumn='kind'; sortDirection='asc';
-                scanBtn.disabled=true; scanBtn.innerHTML='<span class="spinner"></span> Scanning...';
-                resetProgress(); statsGrid.style.display='none'; toolbar.style.display='none'; tableWrapper.style.display='none';
-                resultsBody.innerHTML=''; noResults.style.display='none'; searchInput.value='';
-                for (const url of DEFAULT_RELAYS) relayStatuses.set(url,'pending');
-                renderProgress();
-                try {
-                    const eventsMap = await connectRelays(hex, abortController.signal, updateProgress, (count)=>{ renderProgress(); });
+                isScanning = true;
+                currentHexPubkey = hex;
+                currentNpub = raw;
+                allEventsMap.clear();
+                customKindGroups.clear();
+                customKindSummaries = [];
+                relayStatuses.clear();
+                sortColumn = 'kind';
+                sortDirection = 'asc';
+                scanBtn.disabled = true;
+                scanBtn.innerHTML = '<span class="spinner"></span> Scanning...';
+                resetProgress();
+                statsGrid.style.display = 'none';
+                summaryPanel.style.display = 'none';
+                toolbar.style.display = 'none';
+                tableWrapper.style.display = 'none';
+                resultsBody.innerHTML = '';
+                noResults.style.display = 'none';
+                searchInput.value = ''; for (const url of DEFAULT_RELAYS) relayStatuses.set(url, 'pending');
+                renderProgress(); try { const eventsMap = await connectRelays(hex, abortController.signal,
+                        updateProgress, (count) => { renderProgress(); });
                     mergeEvents(eventsMap);
                     customKindGroups = detectCustomKinds();
                     customKindSummaries = buildSummaries(customKindGroups);
                     customKindSummaries = sortSummaries(customKindSummaries, 'kind', 'asc');
-                    renderStats(); renderTable();
-                    if(customKindSummaries.length) showToast(`Found ${customKindSummaries.length} custom kind(s)`,'success');
-                    else showToast('No custom kinds found','info');
-                } catch(e) {
-                    if(e.message!=='Aborted') { showToast('Error: '+e.message,'error'); console.error(e); }
-                    if(allEventsMap.size) { customKindGroups=detectCustomKinds(); customKindSummaries=buildSummaries(customKindGroups); renderStats(); renderTable(); }
-                } finally {
-                    isScanning=false; abortController=null; scanBtn.disabled=false; scanBtn.innerHTML='<span>🔎</span> Scan';
-                    if (progressList.innerHTML) progressList.innerHTML += '<span class="progress-item" style="color:var(--success);">✔ Finished</span>';
-                }
-            }
+                    renderStats();
+                    renderSummary();
+                    renderTable(); if (customKindSummaries.length) showToast(
+                        `Found ${customKindSummaries.length} custom kind(s)`, 'success'); else showToast(
+                        'No custom kinds found', 'info'); } catch (e) { if (e.message !== 'Aborted') { showToast('Error: ' +
+                            e.message, 'error');
+                        console.error(e); } if (allEventsMap.size) { customKindGroups = detectCustomKinds();
+                        customKindSummaries = buildSummaries(customKindGroups);
+                        renderStats();
+                        renderSummary();
+                        renderTable(); } } finally { isScanning = false;
+                    abortController = null;
+                    scanBtn.disabled = false;
+                    scanBtn.innerHTML = '<span>🔎</span> Scan'; if (progressList.innerHTML) progressList.innerHTML +=
+                        '<span class="progress-item" style="color:var(--success);">✔ Finished</span>'; } }
 
-            function clearResults() {
-                if (isScanning && abortController) abortController.abort();
-                isScanning=false; currentHexPubkey=null; currentNpub=null;
-                allEventsMap.clear(); customKindGroups.clear(); customKindSummaries=[];
-                relayStatuses.clear(); sortColumn='kind'; sortDirection='asc';
-                scanBtn.disabled=false; scanBtn.innerHTML='<span>🔎</span> Scan';
-                resetProgress(); statsGrid.style.display='none'; statsGrid.innerHTML='';
-                toolbar.style.display='none'; tableWrapper.style.display='none';
-                resultsBody.innerHTML=''; noResults.style.display='none';
-                searchInput.value=''; npubInput.value=''; hideModal();
-            }
+            function clearResults() { if (isScanning && abortController) abortController.abort();
+                isScanning = false;
+                currentHexPubkey = null;
+                currentNpub = null;
+                allEventsMap.clear();
+                customKindGroups.clear();
+                customKindSummaries = [];
+                relayStatuses.clear();
+                sortColumn = 'kind';
+                sortDirection = 'asc';
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<span>🔎</span> Scan';
+                resetProgress();
+                statsGrid.style.display = 'none';
+                statsGrid.innerHTML = '';
+                summaryPanel.style.display = 'none';
+                toolbar.style.display = 'none';
+                tableWrapper.style.display = 'none';
+                resultsBody.innerHTML = '';
+                noResults.style.display = 'none';
+                searchInput.value = '';
+                npubInput.value = '';
+                hideModal(); }
 
-            function renderStats() {
-                let total=allEventsMap.size, std=0, cus=0, stdSet=new Set(), cusSet=new Set();
-                for (const [,{event}] of allEventsMap) {
-                    if (STANDARD_KINDS.has(event.kind)) { std++; stdSet.add(event.kind); }
-                    else { cus++; cusSet.add(event.kind); }
-                }
-                statsGrid.innerHTML = [
-                    {label:'NPUB',value:currentNpub,small:true},
-                    {label:'Hex Pubkey',value:currentHexPubkey,small:true},
-                    {label:'Total Events',value:total},
-                    {label:'Standard Events',value:std},
-                    {label:'Custom Events',value:cus,highlight:true},
-                    {label:'Unique Standard Kinds',value:stdSet.size},
-                    {label:'Unique Custom Kinds',value:cusSet.size,highlight:true}
-                ].map(i=>`<div class="stat-item"><div class="stat-label">${i.label}</div><div class="stat-value${i.highlight?' highlight':''}${i.small?' small':''}">${i.value}</div></div>`).join('');
-                statsGrid.style.display='grid';
-            }
+            function renderStats() { let total = allEventsMap.size,
+                    std = 0,
+                    cus = 0,
+                    stdSet = new Set(),
+                    cusSet = new Set(); for (const [, { event }] of allEventsMap) { if (STANDARD_KINDS.has(event
+                        .kind)) { std++;
+                        stdSet.add(event.kind); } else { cus++;
+                        cusSet.add(event.kind); } }
+                statsGrid.innerHTML = [{ label: 'NPUB', value: currentNpub || '—', small: true }, { label: 'Hex Pubkey',
+                        value: currentHexPubkey || '—', small: true }, { label: 'Total Events', value: total }, { label: 'Standard Events',
+                        value: std }, { label: 'Custom Events', value: cus, highlight: true }, { label: 'Unique Standard Kinds',
+                        value: stdSet.size }, { label: 'Unique Custom Kinds', value: cusSet.size, highlight: true }].map(i =>
+                        `<div class="stat-item"><div class="stat-label">${i.label}</div><div class="stat-value${i.highlight?' highlight':''}${i.small?' small':''}">${i.value}</div></div>`
+                    ).join('');
+                statsGrid.style.display = 'grid'; }
 
+            // ═══════════════════════════════════════════════════════════════
+            //  EVENT LISTENERS
+            // ═══════════════════════════════════════════════════════════════
             scanBtn.addEventListener('click', runScan);
             clearBtn.addEventListener('click', clearResults);
-            npubInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); runScan(); } });
+            npubInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
+                    runScan(); } });
             searchInput.addEventListener('input', () => renderTable(searchInput.value));
-            resultsTable.querySelector('thead').addEventListener('click', e => {
-                const th = e.target.closest('th[data-sort]'); if(!th) return;
-                const col = th.dataset.sort;
-                if(sortColumn===col) sortDirection = sortDirection==='asc'?'desc':'asc';
-                else { sortColumn=col; sortDirection='asc'; }
-                renderTable(searchInput.value);
-            });
+            resultsTable.querySelector('thead').addEventListener('click', e => { const th = e.target.closest(
+                    'th[data-sort]'); if (!th) return; const col = th.dataset.sort; if (sortColumn === col)
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'; else { sortColumn = col;
+                    sortDirection = 'asc'; }
+                renderTable(searchInput.value); });
             modalClose.addEventListener('click', hideModal);
-            modalOverlay.addEventListener('click', e => { if(e.target===modalOverlay) hideModal(); });
-            document.addEventListener('keydown', e => { if(e.key==='Escape'&&modalOverlay.style.display==='flex') hideModal(); });
+            modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) hideModal(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalOverlay.style.display ===
+                    'flex') hideModal(); });
             exportCSVBtn.addEventListener('click', exportCSV);
             exportJSONBtn.addEventListener('click', exportJSON);
             npubInput.focus();
-            console.log('Nostr Custom Kind Explorer ready');
+            console.log('🔍 Nostr Custom Kind Explorer ready — with Kind Reference Database.');
+            console.log(`   ${Object.keys(KIND_REFERENCE).length} kinds in reference database.`);
         })();
     </script>
 </body>
