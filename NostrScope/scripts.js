@@ -19,6 +19,9 @@
     homeAccountBtn = document.getElementById('homeAccountBtn');
     bottomNav = document.querySelector('.bottom-nav');
 
+    // ── Cached account metadata ─────────
+    let cachedProfile = null;   // stores { profile, profileEvent } or null
+
     // ── Profile cache & quick fetch ────
     const profileCache = new Map();
     const pendingFetches = new Map();
@@ -67,6 +70,7 @@
         return promise;
     }
 
+    // ── Resolve author names in a container (throttled) ──
     function resolveAuthorNames(container) {
         const elements = container.querySelectorAll('.author-name:not(.resolved)');
         elements.forEach(el => {
@@ -80,6 +84,17 @@
         });
     }
 
+    // ── Fetch & cache own profile (silent) ──
+    async function fetchAndCacheProfile() {
+        if (!currentUser) return;
+        const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
+        await upi.investigate(currentUser.publicKey, [], { silent: true });
+        cachedProfile = {
+            profile: upi.profile,
+            profileEvent: upi.profileEvent
+        };
+    }
+
     // ── UI Updates ─────────────────────
     function updateUserUI() {
         if (currentUser) {
@@ -91,6 +106,9 @@
             if (resultsLoginBtn) resultsLoginBtn.style.display = 'none';
             if (resultsAccountBtn) resultsAccountBtn.style.display = 'inline-block';
             window._currentUser = currentUser;
+
+            // Start background profile fetch
+            fetchAndCacheProfile();
         } else {
             if (homeUserStatus) homeUserStatus.textContent = 'Not logged in';
             if (homeLoginBtn) homeLoginBtn.style.display = 'inline-block';
@@ -99,16 +117,15 @@
             if (resultsLoginBtn) resultsLoginBtn.style.display = 'inline-block';
             if (resultsAccountBtn) resultsAccountBtn.style.display = 'none';
             window._currentUser = null;
+            cachedProfile = null;
         }
     }
 
-    // ── Account Modal ──────────────────
-    function showAccountModal() {
+    // ── Account Modal (uses cached data, plus refresh) ──
+    function showAccountModal(forceRefresh = false) {
         if (!currentUser) return;
-        const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
-        tmpInvestigator.investigate(currentUser.publicKey, [], { silent: true }).then(() => {
-            const profile = tmpInvestigator.profile || {};
-            const profileEvent = tmpInvestigator.profileEvent;
+
+        function renderModal(profile, profileEvent) {
             let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
             if (profileEvent && profileEvent.tags) {
                 const tTags = profileEvent.tags.filter(t => t[0] === 't' && t[1]).map(t => t[1]);
@@ -122,8 +139,39 @@
             const nip05 = profile.nip05 || '';
             const bchAddress = profile.bch_address || '';
             const bchTipWallet = profile.bch_tip_wallet || '';
-            let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();"><div class="modal" style="max-width:360px;"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>👤 My Account</h3><p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p><p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/><div id="accountEditForm"><label>Name:</label><br/><input type="text" id="editName" value="${escapeHtml(name)}" style="width:100%;"/><br/><label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="2">${escapeHtml(about)}</textarea><br/><label>Picture URL:</label><br/><input type="text" id="editPicture" value="${escapeHtml(picture)}" style="width:100%;"/><br/><label>Banner URL:</label><br/><input type="text" id="editBanner" value="${escapeHtml(banner)}" style="width:100%;"/><br/><label>NIP-05:</label><br/><input type="text" id="editNip05" value="${escapeHtml(nip05)}" style="width:100%;"/><br/><label>BCH Address:</label><br/><input type="text" id="editBchAddress" value="${escapeHtml(bchAddress)}" style="width:100%;"/><br/><label>BCH Tip Wallet:</label><br/><input type="text" id="editBchTipWallet" value="${escapeHtml(bchTipWallet)}" style="width:100%;"/><br/><div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}</div><button class="btn btn-primary" id="saveProfileBtn" style="margin-top:12px;">💾 Save Profile</button></div><hr/><details style="margin-top:12px;"><summary style="cursor:pointer; color:var(--accent2);">📄 Full Profile JSON</summary><div class="json-viewer" style="max-height:200px; margin-top:8px;">${syntaxHighlight(jsonStr)}</div></details></div></div>`;
+
+            let html = `<div class="modal-backdrop" id="accountModalBackdrop" onclick="if(event.target===this)this.remove();">
+                <div class="modal" style="max-width:360px;">
+                    <button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button>
+                    <h3>👤 My Account</h3>
+                    <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
+                    <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p>
+                    <hr/>
+                    <div id="accountEditForm">
+                        <label>Name:</label><br/><input type="text" id="editName" value="${escapeHtml(name)}" style="width:100%;"/><br/>
+                        <label>About:</label><br/><textarea id="editAbout" style="width:100%;" rows="2">${escapeHtml(about)}</textarea><br/>
+                        <label>Picture URL:</label><br/><input type="text" id="editPicture" value="${escapeHtml(picture)}" style="width:100%;"/><br/>
+                        <label>Banner URL:</label><br/><input type="text" id="editBanner" value="${escapeHtml(banner)}" style="width:100%;"/><br/>
+                        <label>NIP-05:</label><br/><input type="text" id="editNip05" value="${escapeHtml(nip05)}" style="width:100%;"/><br/>
+                        <label>BCH Address:</label><br/><input type="text" id="editBchAddress" value="${escapeHtml(bchAddress)}" style="width:100%;"/><br/>
+                        <label>BCH Tip Wallet:</label><br/><input type="text" id="editBchTipWallet" value="${escapeHtml(bchTipWallet)}" style="width:100%;"/><br/>
+                        <div style="margin-top:8px;">
+                            <strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:12px;">
+                            <button class="btn btn-primary" id="saveProfileBtn">💾 Save Profile</button>
+                            <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
+                        </div>
+                    </div>
+                    <hr/>
+                    <details style="margin-top:12px;">
+                        <summary style="cursor:pointer; color:var(--accent2);">📄 Full Profile JSON</summary>
+                        <div class="json-viewer" style="max-height:200px; margin-top:8px;">${syntaxHighlight(jsonStr)}</div>
+                    </details>
+                </div>
+            </div>`;
             modalContainer.innerHTML = html;
+
             document.getElementById('saveProfileBtn').addEventListener('click', () => {
                 const newName = document.getElementById('editName').value.trim();
                 const newAbout = document.getElementById('editAbout').value.trim();
@@ -145,11 +193,30 @@
                 if (typeof window._signNostrEvent !== 'function') { showToast('Signing function not available.', 'error'); return; }
                 window._signNostrEvent(event, currentUser.privateKey).then(signed => {
                     if (relayManager) relayManager.publish(signed);
+                    // Update cache after save
+                    cachedProfile = { profile: newProfile, profileEvent: null };
                     showToast('Profile updated!', 'success');
                     document.getElementById('accountModalBackdrop').remove();
                 }).catch(e => showToast('Error: ' + e.message, 'error'));
             });
-        });
+
+            document.getElementById('refreshProfileBtn').addEventListener('click', () => {
+                document.getElementById('accountModalBackdrop').remove();
+                showAccountModal(true);
+            });
+        }
+
+        if (forceRefresh || !cachedProfile) {
+            // Show loading indicator
+            modalContainer.innerHTML = `<div class="modal-backdrop"><div class="modal"><p>Loading profile…</p></div></div>`;
+            const tmpInvestigator = new UserProfileInvestigator(new RelayManager(activeRelays));
+            tmpInvestigator.investigate(currentUser.publicKey, [], { silent: true }).then(() => {
+                cachedProfile = { profile: tmpInvestigator.profile || {}, profileEvent: tmpInvestigator.profileEvent };
+                renderModal(cachedProfile.profile, cachedProfile.profileEvent);
+            });
+        } else {
+            renderModal(cachedProfile.profile, cachedProfile.profileEvent);
+        }
     }
 
     // ── Login Modal ────────────────────
@@ -174,42 +241,13 @@
             try { publicKey = NostrTools.getPublicKey(privateKey); } catch (e) { showToast('Invalid private key.', 'error'); return; }
             currentUser = { privateKey, publicKey };
             saveLogin(privateKey);
-            updateUserUI();
+            updateUserUI();   // this triggers background fetch
             showToast('Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
             backdrop.remove();
         });
     }
 
-    function logout() {
-        currentUser = null;
-        clearLogin();
-        clearSavedInvestigation();
-        updateUserUI();
-        showToast('Logged out.', 'info');
-    }
-
-    // ── Investigation state persistence ──
-    function saveInvestigationState(type, identifier) {
-        localStorage.setItem('nostrscope_investigation', JSON.stringify({ type, identifier }));
-    }
-
-    function clearSavedInvestigation() {
-        localStorage.removeItem('nostrscope_investigation');
-    }
-
-    function loadSavedInvestigation() {
-        const saved = localStorage.getItem('nostrscope_investigation');
-        if (saved) {
-            try {
-                const { type, identifier } = JSON.parse(saved);
-                if (type === 'event' && identifier) {
-                    setTimeout(() => runAnalysis(identifier), 500);
-                } else if (type === 'profile' && identifier) {
-                    setTimeout(() => runAnalysis(identifier), 500);
-                }
-            } catch (e) {}
-        }
-    }
+    function logout() { currentUser = null; clearLogin(); updateUserUI(); showToast('Logged out.', 'info'); }
 
     // ── Thread View ────────────────────
     function buildThreadCards(eventId, childrenMap, depth, visited) {
@@ -227,7 +265,7 @@
         const authorShort = event.pubkey ? event.pubkey.substring(0, 8) + '...' : 'unknown';
         const contentId = 'c-' + event.id;
         const isLong = (event.content || '').length > 250;
-        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostWithBCH('${event.id}','${event.pubkey}')">💸 Boost</button>` : ''}</div></div></div>`;
+        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none'; this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : ''}</div></div></div>`;
         let html = cardHtml;
         const children = childrenMap.get(eventId) || [];
         if (children.length > 0) { html += `<div class="tree-branch">`; for (const child of children) { html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited)); } html += `</div>`; }
@@ -259,7 +297,7 @@
             let borderClass = 'reply-post';
             if (isOrig) borderClass = 'original-post';
             else if (e.kind === 6) borderClass = 'repost-post';
-            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostWithBCH('${e.id}','${e.pubkey}')">💸 Boost</button>` : ''}</div></div>`;
+            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${currentUser ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : ''}</div><span class="event-author author-name" data-pubkey="${e.pubkey || ''}" style="display:none;">${escapeHtml(e.pubkey?.substring(0,8) + '...')}</span></div>`;
         });
         html += '</div></div>';
         p.innerHTML = html;
@@ -359,7 +397,6 @@
         renderProfileTab(userProfileData, pubkey);
         resultsScreen.classList.add('active');
         homeScreen.classList.remove('active');
-        saveInvestigationState('profile', pubkey);
     }
 
     // ── Event JSON Modal ───────────────
@@ -451,10 +488,7 @@
         hideError();
         const parsed = parseInput(input);
         if (parsed.error) { showError(parsed.error); showToast(parsed.error, 'error'); return; }
-        if (parsed.pubkey) {
-            await investigateUser(parsed.pubkey, parsed.relayHints || []);
-            return;
-        }
+        if (parsed.pubkey) { await investigateUser(parsed.pubkey, parsed.relayHints || []); return; }
         investigationHexId = parsed.hexId;
         window._investigationHexId = investigationHexId;
         allEvents = []; originalEvent = null; eventMap.clear(); threadCollapsed.clear(); sortOrder = 'oldest-first'; relayStats.clear();
@@ -463,15 +497,7 @@
         window._relayManager = relayManager;
         investigator = new EventInvestigator(relayManager);
         investigator.onUpdate = inv => debouncedRender(inv);
-        investigator.onComplete = inv => {
-            debouncedRender(inv);
-            hideLoading();
-            resultsScreen.classList.add('active');
-            homeScreen.classList.remove('active');
-            switchTab('thread');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            saveInvestigationState('event', investigationHexId);
-        };
+        investigator.onComplete = inv => { debouncedRender(inv); hideLoading(); resultsScreen.classList.add('active'); homeScreen.classList.remove('active'); switchTab('thread'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
         await investigator.investigate(parsed.hexId, parsed.relayHints || []);
     }
 
@@ -486,37 +512,28 @@
     // ── Init after DOM ready ───────────
     function initApp() {
         if (typeof NostrTools !== 'undefined') {
-            if (loadLogin()) {
-                updateUserUI();
-                const npub = npubFromHex(currentUser.publicKey).substring(0, 12) + '...';
-                showToast('Welcome back, ' + npub, 'info');
-            }
+            if (loadLogin()) updateUserUI();
         } else {
             setTimeout(initApp, 200);
             return;
         }
-
         homeAnalyzeBtn?.addEventListener('click', () => runAnalysis());
         homeClearBtn?.addEventListener('click', () => { homeSearchInput && (homeSearchInput.value = ''); hideError(); });
         homeSearchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
         homeLoginBtn?.addEventListener('click', showLoginModal);
         homeLogoutBtn?.addEventListener('click', logout);
-        homeAccountBtn?.addEventListener('click', showAccountModal);
+        homeAccountBtn?.addEventListener('click', () => showAccountModal());
         resultsBackBtn?.addEventListener('click', () => { resultsScreen.classList.remove('active'); homeScreen.classList.add('active'); homeSearchInput.value = ''; hideError(); });
         resultsLoginBtn?.addEventListener('click', showLoginModal);
-        resultsAccountBtn?.addEventListener('click', showAccountModal);
+        resultsAccountBtn?.addEventListener('click', () => showAccountModal());
         if (bottomNav) {
             bottomNav.addEventListener('click', e => {
                 const btn = e.target.closest('.nav-btn');
                 if (btn) switchTab(btn.dataset.tab);
             });
         }
-
         DEFAULT_RELAYS.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-
-        loadSavedInvestigation();
-
-        console.log('🔍 NostrScope ready — BCH boost modal active.');
+        console.log('🔍 NostrScope ready — cached profile, sticky header.');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
