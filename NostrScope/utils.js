@@ -268,7 +268,7 @@ window.getActiveRelays = () => [...activeRelays];
 window.setActiveRelays = saveActiveRelays;
 window.resetActiveRelays = resetActiveRelays;
 
-// ── Input Parser (now with naddr support) ──
+// ── Input Parser (supports all identifier types) ──
 function parseInput(input) {
   const t = input.trim();
   if (!t) return { error: "Please enter an event or user identifier." };
@@ -303,7 +303,6 @@ function parseInput(input) {
       };
     return { error: "Invalid nprofile identifier." };
   }
-  // ── naddr1 (replaceable event coordinate) ──
   if (t.startsWith("naddr1")) {
     const r = decodeNaddr(t);
     if (r && r.kind && r.pubkey && r.dTag)
@@ -329,9 +328,10 @@ function parseInput(input) {
     /https?:\/\/primal\.net\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
   );
   if (m) return parseInput(m[1]);
+  // BCHNostr note URL
   m = t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);
   if (m) return parseInput(m[1]);
-  // BCHNostr blog URL with naddr
+  // BCHNostr blog URL (naddr)
   m = t.match(
     /https?:\/\/bchnostr\.com\/blog\/(naddr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
   );
@@ -410,17 +410,15 @@ function decodeNevent1(s) {
     .map((t) => new TextDecoder().decode(new Uint8Array(t.value)));
   return { eventId: eid, relayHints: hints };
 }
-// New: decode naddr1 (replaceable event coordinate)
 function decodeNaddr(s) {
   const d = bech32Decode(s);
-  if (!d || d.hrp !== "naddr" || d.bytes.length < 38) return null; // 38 = 32 (pubkey) + 2 (kind) + 1 (d-tag length) + ... minimum
+  if (!d || d.hrp !== "naddr" || d.bytes.length < 38) return null;
   const pubkey = bytesToHex(d.bytes.slice(0, 32));
-  const kind = (d.bytes[32] << 8) | d.bytes[33]; // big-endian 2-byte kind
-  const dTagLen = d.bytes[34]; // length of d-tag (max 128)
-  if (34 + dTagLen > d.bytes.length) return null; // safety check
+  const kind = (d.bytes[32] << 8) | d.bytes[33];
+  const dTagLen = d.bytes[34];
+  if (34 + dTagLen > d.bytes.length) return null;
   const dTagBytes = d.bytes.slice(35, 35 + dTagLen);
   const dTag = new TextDecoder().decode(new Uint8Array(dTagBytes));
-  // Parse remaining TLVs for relay hints (type 1 = relay)
   let idx = 35 + dTagLen;
   const hints = [];
   while (idx + 2 <= d.bytes.length) {
