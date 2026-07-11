@@ -1,4 +1,4 @@
-(function() {
+(function () {
     // ── DOM references ──
     const feedScreen = document.getElementById('feedScreen');
     const searchScreen = document.getElementById('searchScreen');
@@ -31,7 +31,19 @@
     window._cachedProfile = () => cachedProfile;
     window._setCachedProfile = (val) => { cachedProfile = val; };
 
-    function isLoggedIn() { return currentUser !== null; }
+    // scripts.js - update isLoggedIn
+    function isLoggedIn() {
+        // Check both local and global currentUser
+        if (currentUser !== null) return true;
+        if (typeof window._getCurrentUser === 'function') {
+            const globalUser = window._getCurrentUser();
+            if (globalUser !== null) {
+                currentUser = globalUser; // sync
+                return true;
+            }
+        }
+        return false;
+    }
 
     function safeToast(msg, type = 'info') {
         console.log(`[Toast ${type}] ${msg}`);
@@ -49,7 +61,7 @@
     window._safeToast = safeToast;
 
     // ── Screen switching ──
-    window.switchScreen = function(screenName) {
+    window.switchScreen = function (screenName) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         const screen = document.getElementById(screenName + 'Screen');
         if (screen) screen.classList.add('active');
@@ -61,7 +73,7 @@
     };
 
     // ── Extended profile cache (name + picture) ──
-    window.quickFetchProfile = function(pubkey) {
+    window.quickFetchProfile = function (pubkey) {
         if (profileCache.has(pubkey)) return Promise.resolve(profileCache.get(pubkey));
         if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
         const promise = new Promise((resolve) => {
@@ -101,7 +113,8 @@
     }
 
     // ── Login Persistence (improved) ──
-    window.processNsecLogin = function() {
+    // scripts.js - update processNsecLogin
+    window.processNsecLogin = function () {
         const nsecInput = document.getElementById('nsecInput');
         if (!nsecInput) { safeToast('Internal error.', 'error'); return; }
         const nsec = nsecInput.value.trim();
@@ -121,20 +134,23 @@
         try { publicKey = NostrTools.getPublicKey(privateKey); }
         catch (e1) { try { publicKey = NostrTools.getPublicKey(new Uint8Array(hexToBytes(privateKey))); } catch (e2) { safeToast('Cannot derive public key.', 'error'); return; } }
         if (!publicKey || !isValidHex64(publicKey)) { safeToast('Invalid public key.', 'error'); return; }
+
+        // Set both the local and global currentUser
         currentUser = { privateKey, publicKey };
-        // Save to localStorage for persistence
+        if (typeof window._setCurrentUser === 'function') {
+            window._setCurrentUser(currentUser);
+        }
+
         saveLogin(privateKey);
         updateUserUI();
-        // Attempt to load cached profile
         const cachedProfileData = localStorage.getItem('nostrscope_profile');
         if (cachedProfileData) {
             try { cachedProfile = { profile: JSON.parse(cachedProfileData), profileEvent: null }; } catch (e) { cachedProfile = null; }
         }
-        safeToast('✅ Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
+        safeToast('✅ Logged in as ' + npubFromHex(publicKey).substring(0, 12) + '...', 'success');
         const backdrop = document.getElementById('loginModalBackdrop');
         if (backdrop) backdrop.remove();
         renderMyProfile();
-        // Refresh feed to show boost buttons
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') setTimeout(() => loadFeed(), 300);
     };
 
@@ -160,10 +176,10 @@
     function logout() {
         currentUser = null;
         // Clear persisted login data
-        try { clearLogin(); } catch (e) {}
+        try { clearLogin(); } catch (e) { }
         updateUserUI();
         cachedProfile = null;
-        try { renderMyProfile(); } catch (e) {}
+        try { renderMyProfile(); } catch (e) { }
         safeToast('Logged out.', 'info');
         // Refresh feed to hide boost buttons
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
@@ -184,7 +200,7 @@
         // Fallback simple profile view
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
+            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) { } }
             if (!cachedProfile) {
                 profileContent.innerHTML = '<p style="padding:20px;color:var(--text2);">Loading profile…</p>';
                 try {
@@ -192,7 +208,7 @@
                     await upi.investigate(currentUser.publicKey, [], { silent: true });
                     cachedProfile = { profile: upi.profile || {}, profileEvent: upi.profileEvent };
                     localStorage.setItem('nostrscope_profile', JSON.stringify(cachedProfile.profile));
-                } catch (e) {}
+                } catch (e) { }
                 renderMyProfile();
                 return;
             }
@@ -210,7 +226,7 @@
                 </div>
                 <div>
                     <h3 style="font-size:1.2rem;margin:0;color:#e7e9ea;">${escapeHtml(name || 'Unnamed')}</h3>
-                    <p style="color:#71767b;font-size:0.8rem;margin:4px 0 0 0;">@${npub.substring(0,12)}...</p>
+                    <p style="color:#71767b;font-size:0.8rem;margin:4px 0 0 0;">@${npub.substring(0, 12)}...</p>
                 </div>
             </div>
             ${about ? `<p style="margin-bottom:16px;color:#e7e9ea;">${escapeHtml(about)}</p>` : ''}
@@ -231,7 +247,7 @@
         visited.add(eventId);
         const event = eventMap.get(eventId);
         if (!event && depth > 0) return '';
-        if (threadCollapsed.has(eventId) && depth > 0) return `<div class="tree-collapsed" onclick="window._expandThread('${eventId}')" style="margin-left:${depth*20}px;">[+] Show replies</div>`;
+        if (threadCollapsed.has(eventId) && depth > 0) return `<div class="tree-collapsed" onclick="window._expandThread('${eventId}')" style="margin-left:${depth * 20}px;">[+] Show replies</div>`;
         const isOriginal = eventId === investigationHexId;
         const { text, media } = renderMediaFromContent(event.content);
         const kindName = KNOWN_KINDS[event.kind] || `Kind ${event.kind}`;
@@ -240,7 +256,7 @@
         const contentId = 'c-' + event.id;
         const isLong = (event.content || '').length > 250;
         const boostBtn = isLoggedIn() ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${event.id}','${event.pubkey}','${event.kind}')">🚀 Boost</button>` : '';
-        let cardHtml = `<div class="tree-card" style="margin-left:${depth*20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none';this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${boostBtn}</div></div></div>`;
+        let cardHtml = `<div class="tree-card" style="margin-left:${depth * 20}px;"><div class="event-preview"><div class="event-header"><span class="event-kind-badge">${isOriginal ? '★ Original' : kindName}</span><span class="event-time">${time}</span><span class="event-author author-name" data-pubkey="${event.pubkey || ''}">${escapeHtml(authorShort)}</span></div><div class="event-content" id="${contentId}" style="${isLong ? 'max-height:80px;' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>${isLong ? `<span class="show-more-btn" onclick="document.getElementById('${contentId}').style.maxHeight='none';this.style.display='none';">Show more</span>` : ''}${media ? `<div class="media-preview">${media}</div>` : ''}<div class="thread-actions"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${event.id}')">JSON</button>${boostBtn}</div></div></div>`;
         let html = cardHtml;
         const children = childrenMap.get(eventId) || [];
         if (children.length > 0) { html += '<div class="tree-branch">'; for (const child of children) html += buildThreadCards(child.id, childrenMap, depth + 1, new Set(visited)); html += '</div>'; }
@@ -270,7 +286,7 @@
             let borderClass = 'reply-post';
             if (isOrig) borderClass = 'original-post'; else if (e.kind === 6) borderClass = 'repost-post';
             const boostBtn = isLoggedIn() ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀</button>` : '';
-            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0,10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${boostBtn}</div></div>`;
+            html += `<div class="timeline-card ${borderClass}"><span class="timeline-time">${time}</span><span class="timeline-kind"><span class="badge ${isOrig ? 'badge-green' : 'badge-purple'}">${kind}</span>${isOrig ? ' <span class="badge badge-green">★</span>' : ''}</span><div class="timeline-content"><code style="font-size:0.6rem;color:var(--text2);">${e.id.substring(0, 10)}...</code><div>${text || ''}</div>${media ? `<div style="margin-top:4px;">${media}</div>` : ''}</div><div class="timeline-actions" style="margin-top:4px;"><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>${boostBtn}</div></div>`;
         });
         html += '</div></div>';
         p.innerHTML = html;
@@ -281,7 +297,7 @@
         const tree = inv.getThreadTree();
         let nested = 0;
         if (tree && tree.childrenMap) { const count = (eid, d) => { let c = 0; for (const child of (tree.childrenMap.get(eid) || [])) { if (d >= 1) c++; c += count(child.id, d + 1); } return c; }; nested = count(tree.rootId, 0); }
-        const stats = [ { l: 'Original', v: originalEvent ? 1 : 0 }, { l: 'Replies', v: inv.getEventsByKind(1).filter(e => e.id !== investigationHexId && inv.getParentIds(e).includes(investigationHexId)).length }, { l: 'Nested', v: nested }, { l: 'Quotes', v: inv.events.filter(e => e.kind === 1 && e.content && e.content.includes(investigationHexId || '') && !inv.getParentIds(e).includes(investigationHexId || '')).length }, { l: 'Mentions', v: inv.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] === investigationHexId)).length }, { l: 'Reposts', v: inv.getEventsByKind(6).length }, { l: 'Reactions', v: inv.getEventsByKind(7).length }, { l: 'Zaps', v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length }, { l: 'BCH Tips', v: inv.getBchPaymentEvents().length }, { l: 'Unknown', v: inv.getUnknownEvents().length }, { l: 'Authors', v: inv.getUniqueAuthors() }, { l: 'Relays', v: [...relayStats.values()].filter(s => s.status === 'connected').length }, { l: 'Success', v: [...relayStats.values()].filter(s => s.events > 0).length }, { l: 'Failed', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status === 'disconnected').length }, { l: 'Images', v: inv.getMediaCounts().images }, { l: 'Videos', v: inv.getMediaCounts().videos }, { l: 'Files', v: inv.getMediaCounts().attachments }, { l: 'Hashtags', v: inv.getHashtags() }, { l: 'Links', v: inv.getLinks() }, { l: 'Total', v: inv.events.length } ];
+        const stats = [{ l: 'Original', v: originalEvent ? 1 : 0 }, { l: 'Replies', v: inv.getEventsByKind(1).filter(e => e.id !== investigationHexId && inv.getParentIds(e).includes(investigationHexId)).length }, { l: 'Nested', v: nested }, { l: 'Quotes', v: inv.events.filter(e => e.kind === 1 && e.content && e.content.includes(investigationHexId || '') && !inv.getParentIds(e).includes(investigationHexId || '')).length }, { l: 'Mentions', v: inv.events.filter(e => e.tags && e.tags.some(t => t[0] === 'e' && t[1] === investigationHexId)).length }, { l: 'Reposts', v: inv.getEventsByKind(6).length }, { l: 'Reactions', v: inv.getEventsByKind(7).length }, { l: 'Zaps', v: inv.getEventsByKind(9735).length + inv.getEventsByKind(9734).length }, { l: 'BCH Tips', v: inv.getBchPaymentEvents().length }, { l: 'Unknown', v: inv.getUnknownEvents().length }, { l: 'Authors', v: inv.getUniqueAuthors() }, { l: 'Relays', v: [...relayStats.values()].filter(s => s.status === 'connected').length }, { l: 'Success', v: [...relayStats.values()].filter(s => s.events > 0).length }, { l: 'Failed', v: [...relayStats.values()].filter(s => s.status === 'failed' || s.status === 'disconnected').length }, { l: 'Images', v: inv.getMediaCounts().images }, { l: 'Videos', v: inv.getMediaCounts().videos }, { l: 'Files', v: inv.getMediaCounts().attachments }, { l: 'Hashtags', v: inv.getHashtags() }, { l: 'Links', v: inv.getLinks() }, { l: 'Total', v: inv.events.length }];
         let h = '<div class="card"><div class="card-header"><span class="card-title">📊 Statistics</span></div><div class="stats-grid">';
         stats.forEach(s => h += `<div class="stat-card"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`);
         h += '</div></div>';
@@ -297,11 +313,17 @@
         h += '<h4 style="margin:16px 0 8px;">All Events (' + inv.events.length + ')</h4><input type="text" placeholder="Search JSON..." style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;margin-bottom:8px;font-family:var(--mono);font-size:0.8rem;" oninput="window._searchJson(this.value)"><div class="json-viewer" style="max-height:50vh;">';
         for (const e of inv.events) {
             const isOrig = e.id === investigationHexId;
-            h += `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0,12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-sm btn-outline" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
+            h += `<div><span style="color:${isOrig ? 'var(--green)' : 'var(--accent2)'};cursor:pointer;" onclick="window._toggleJsonBlock(this)" data-eid="${e.id}">${isOrig ? '★ ' : '▸ '}${e.id.substring(0, 12)}... [Kind ${e.kind}]</span><div style="display:none;margin-left:16px;border-left:2px solid var(--border);padding-left:8px;" class="json-block-content">${syntaxHighlight(JSON.stringify(e, null, 2))}<br><button class="btn btn-sm btn-outline" onclick="window._copyEventJson('${e.id}')">Copy</button> <button class="btn btn-sm btn-outline" onclick="window._downloadEventJson('${e.id}')">Download</button></div></div>`;
         }
         h += '</div></div>';
         p.innerHTML = h;
     }
+
+    // scripts.js - add this to fix JSON viewer
+    // Make eventMap globally accessible for inspection functions
+    window._getEventMap = function () { return eventMap; };
+    window._getOriginalEvent = function () { return originalEvent; };
+    window._getAllEvents = function () { return allEvents; };
 
     function renderRelays() {
         const p = document.getElementById('panel-relays');
@@ -328,7 +350,7 @@
             const amount = e.tags ? (e.tags.find(t => t[0] === 'amount')?.[1] || 'N/A') : 'N/A';
             const curr = e.paymentType === 'zap' ? 'BTC (Zap)' : e.paymentType === 'bch_tip' ? 'BCH' : '?';
             const txid = e.tags ? (e.tags.find(t => t[0] === 'txid' || t[0] === 'cashtoken')?.[1] || 'N/A') : 'N/A';
-            h += `<div class="bch-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at||0)*1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid!=='N/A'?`<div>TXID: <code style="word-break:break-all;">${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>`:''}<div>Memo: ${escapeHtml((e.content||'').substring(0,200))}</div><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;
+            h += `<div class="bch-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;"><div><strong>Type:</strong> <span class="badge badge-orange">${e.paymentType}</span> | ${new Date((e.created_at || 0) * 1000).toLocaleString()}</div><div>${sender} → ${recipient}</div><div>Amount: ${amount} ${curr}</div>${txid !== 'N/A' ? `<div>TXID: <code style="word-break:break-all;">${txid}</code> <a href="https://blockchair.com/bitcoin-cash/transaction/${txid}" target="_blank" style="color:var(--blue);">🔗 Explorer</a></div>` : ''}<div>Memo: ${escapeHtml((e.content || '').substring(0, 200))}</div><button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">View JSON</button></div>`;
         });
         h += '</div>';
         p.innerHTML = h;
@@ -343,8 +365,8 @@
         if (profile.about) html += `<p><strong>About:</strong> ${escapeHtml(profile.about)}</p>`;
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
         if (data.follows.length) {
-            if (data.follows.length <= 5) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
-            else html += `<details style="margin-top:8px;"><summary>👥 Follows (${data.follows.length})</summary><p style="word-break:break-all;">${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p></details>`;
+            if (data.follows.length <= 5) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0, 8)}...</code>`).join(', ')}</p>`;
+            else html += `<details style="margin-top:8px;"><summary>👥 Follows (${data.follows.length})</summary><p style="word-break:break-all;">${data.follows.map(f => `<code>${f.substring(0, 8)}...</code>`).join(', ')}</p></details>`;
         }
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
         if (data.otherEvents && data.otherEvents.length) {
@@ -391,18 +413,31 @@
         feedScreen.classList.remove('active');
     }
 
+    // scripts.js - update showEventModal
     function showEventModal(ev) {
         const json = JSON.stringify(ev, null, 2);
-        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind]||ev.kind} | ${new Date((ev.created_at||0)*1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
+        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind] || ev.kind} | ${new Date((ev.created_at || 0) * 1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
         const b = modalContainer.querySelector('.modal-backdrop');
-        b.querySelector('.copy-json-btn').addEventListener('click', () => { navigator.clipboard.writeText(JSON.stringify(eventMap.get(b.querySelector('.copy-json-btn').dataset.eventId), null, 2)).then(() => safeToast('Copied!')); });
-        b.querySelector('.download-json-btn').addEventListener('click', () => { downloadFile(JSON.stringify(eventMap.get(b.querySelector('.download-json-btn').dataset.eventId), null, 2), `nostr-event-${b.querySelector('.download-json-btn').dataset.eventId.substring(0,12)}.json`); });
+        b.querySelector('.copy-json-btn').addEventListener('click', () => {
+            const evMap = window._getEventMap ? window._getEventMap() : eventMap;
+            const eventData = evMap.get(b.querySelector('.copy-json-btn').dataset.eventId);
+            if (eventData) {
+                navigator.clipboard.writeText(JSON.stringify(eventData, null, 2)).then(() => safeToast('Copied!'));
+            }
+        });
+        b.querySelector('.download-json-btn').addEventListener('click', () => {
+            const evMap = window._getEventMap ? window._getEventMap() : eventMap;
+            const eventData = evMap.get(b.querySelector('.download-json-btn').dataset.eventId);
+            if (eventData) {
+                downloadFile(JSON.stringify(eventData, null, 2), `nostr-event-${eventData.id.substring(0, 12)}.json`);
+            }
+        });
     }
 
     function exportJSON(type) {
         let data, filename;
-        if (type === 'original' && originalEvent) { data = JSON.stringify(originalEvent, null, 2); filename = `nostrscope-original-${investigationHexId?.substring(0,12) || 'event'}.json`; }
-        else { data = JSON.stringify({ investigationHexId, originalEvent, allEvents, relayStats: [...relayStats.entries()].map(([u, s]) => ({ url: u, ...s })), exportedAt: new Date().toISOString(), totalEvents: allEvents.length }, null, 2); filename = `nostrscope-investigation-${investigationHexId?.substring(0,12) || 'all'}.json`; }
+        if (type === 'original' && originalEvent) { data = JSON.stringify(originalEvent, null, 2); filename = `nostrscope-original-${investigationHexId?.substring(0, 12) || 'event'}.json`; }
+        else { data = JSON.stringify({ investigationHexId, originalEvent, allEvents, relayStats: [...relayStats.entries()].map(([u, s]) => ({ url: u, ...s })), exportedAt: new Date().toISOString(), totalEvents: allEvents.length }, null, 2); filename = `nostrscope-investigation-${investigationHexId?.substring(0, 12) || 'all'}.json`; }
         downloadFile(data, filename, 'application/json');
         safeToast('Exported!');
     }
@@ -414,7 +449,7 @@
     window._toggleSortOrder = () => { sortOrder = sortOrder === 'oldest-first' ? 'newest-first' : 'oldest-first'; if (investigator) renderTimeline(investigator); };
     window._inspectEvent = eid => { if (eventMap.has(eid)) showEventModal(eventMap.get(eid)); };
     window._copyEventJson = eid => { if (eventMap.has(eid)) navigator.clipboard.writeText(JSON.stringify(eventMap.get(eid), null, 2)).then(() => safeToast('Copied!')); };
-    window._downloadEventJson = eid => { if (eventMap.has(eid)) downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0,12)}.json`); };
+    window._downloadEventJson = eid => { if (eventMap.has(eid)) downloadFile(JSON.stringify(eventMap.get(eid), null, 2), `nostr-event-${eid.substring(0, 12)}.json`); };
     window._copyAllJson = () => { if (allEvents.length) navigator.clipboard.writeText(JSON.stringify(allEvents, null, 2)).then(() => safeToast('Copied!')); };
     window._downloadAllJson = () => exportJSON('all');
     window._toggleJsonBlock = el => { const b = el.nextElementSibling; if (b?.classList.contains('json-block-content')) { const hidden = b.style.display === 'none'; b.style.display = hidden ? 'block' : 'none'; el.textContent = el.textContent.replace(hidden ? '▸' : '▾', hidden ? '▾' : '▸'); } };
@@ -423,11 +458,24 @@
     window._removeRelay = u => { activeRelays = activeRelays.filter(r => r !== u); if (relayManager) relayManager.relayUrls = activeRelays; renderRelays(); safeToast('Relay removed'); };
     window._addCustomRelay = () => { const url = prompt('Enter relay WebSocket URL:'); if (url && url.startsWith('ws') && !activeRelays.includes(url)) { activeRelays.push(url); if (relayManager) relayManager.relayUrls = activeRelays; renderRelays(); safeToast('Relay added'); } else if (url && activeRelays.includes(url)) safeToast('Already in list'); else if (url) safeToast('Invalid URL'); };
     window._exportJSON = exportJSON;
-    window._exportCSV = () => { let csv = 'Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n'; allEvents.forEach(e => { const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`; csv += `"${e.id}",${e.kind},"${kindName}","${e.pubkey || ''}","${new Date((e.created_at||0)*1000).toISOString()}","${(e.content||'').replace(/"/g,'""').substring(0,200)}","${e.id===investigationHexId?'Yes':'No'}"\n`; }); downloadFile(csv, `nostrscope-summary-${investigationHexId?.substring(0,12) || 'events'}.csv`, 'text/csv'); };
-    window._exportMarkdown = () => { let md = `# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId||'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent?1:0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e=>e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e=>e.kind===1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e=>e.kind===7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e=>e.kind===6).length} |\n| Zaps | ${allEvents.filter(e=>e.kind===9735||e.kind===9734).length} |\n\n## Timeline\n\n`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { md += `- **${new Date((e.created_at||0)*1000).toLocaleString()}** [${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}] \`${e.id.substring(0,12)}...\` - ${(e.content||'').substring(0,80).replace(/\n/g,' ')}\n`; }); downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.md`, 'text/markdown'); };
-    window._exportHTML = () => { let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h += `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`; }); h += '</tbody></table></body></html>'; downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); };
-    window.injectBoostedEvent = function(event) { if (!investigator || !investigator.eventMap) return; if (!eventMap.has(event.id)) { eventMap.set(event.id, event); allEvents.push(event); investigator.eventMap.set(event.id, event); investigator.events.push(event); } if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); } };
+    window._exportCSV = () => { let csv = 'Event ID,Kind,Kind Name,Author,Created At,Content Preview,Is Original\n'; allEvents.forEach(e => { const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`; csv += `"${e.id}",${e.kind},"${kindName}","${e.pubkey || ''}","${new Date((e.created_at || 0) * 1000).toISOString()}","${(e.content || '').replace(/"/g, '""').substring(0, 200)}","${e.id === investigationHexId ? 'Yes' : 'No'}"\n`; }); downloadFile(csv, `nostrscope-summary-${investigationHexId?.substring(0, 12) || 'events'}.csv`, 'text/csv'); };
+    window._exportMarkdown = () => { let md = `# NostrScope Investigation Report\n\n**Event ID:** \`${investigationHexId || 'N/A'}\`\n**Generated:** ${new Date().toISOString()}\n**Total Events:** ${allEvents.length}\n\n## Statistics\n\n| Metric | Value |\n|---|---|\n| Original Event | ${originalEvent ? 1 : 0} |\n| Total Events | ${allEvents.length} |\n| Unique Authors | ${new Set(allEvents.map(e => e.pubkey)).size} |\n| Replies (Kind 1) | ${allEvents.filter(e => e.kind === 1).length} |\n| Reactions (Kind 7) | ${allEvents.filter(e => e.kind === 7).length} |\n| Reposts (Kind 6) | ${allEvents.filter(e => e.kind === 6).length} |\n| Zaps | ${allEvents.filter(e => e.kind === 9735 || e.kind === 9734).length} |\n\n## Timeline\n\n`;[...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { md += `- **${new Date((e.created_at || 0) * 1000).toLocaleString()}** [${KNOWN_KINDS[e.kind] || `Kind ${e.kind}`}] \`${e.id.substring(0, 12)}...\` - ${(e.content || '').substring(0, 80).replace(/\n/g, ' ')}\n`; }); downloadFile(md, `nostrscope-report-${investigationHexId?.substring(0, 12) || 'events'}.md`, 'text/markdown'); };
+    window._exportHTML = () => { let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId || 'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`;[...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h += `<tr><td>${new Date((e.created_at || 0) * 1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind] || `Kind ${e.kind}`}</td><td><code>${e.id.substring(0, 14)}...</code></td><td>${escapeHtml((e.content || '').substring(0, 120))}</td></tr>`; }); h += '</tbody></table></body></html>'; downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0, 12) || 'events'}.html`, 'text/html'); };
+    window.injectBoostedEvent = function (event) { if (!investigator || !investigator.eventMap) return; if (!eventMap.has(event.id)) { eventMap.set(event.id, event); allEvents.push(event); investigator.eventMap.set(event.id, event); investigator.events.push(event); } if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); } };
     window.runAnalysis = runAnalysis;
+
+    // scripts.js - add this function
+    window.showEventJson = function (ev) {
+        // Add event to eventMap if it doesn't exist
+        if (!eventMap.has(ev.id)) {
+            eventMap.set(ev.id, ev);
+            if (!allEvents.find(e => e.id === ev.id)) {
+                allEvents.push(ev);
+            }
+        }
+        // Use the existing inspect function
+        showEventModal(ev);
+    };
 
     // ── Main analysis flow ──
     async function runAnalysis(inputValue) {
@@ -473,7 +521,7 @@
         analysisScreen.classList.add('active');
         renderThread(inv); renderTimeline(inv); renderStats(inv); renderJson(inv); renderRelays(); renderBch(inv);
         document.getElementById('panel-thread')?.classList.add('active');
-        ['timeline','stats','json','relays','bch','profile'].forEach(id => { const el = document.getElementById('panel-'+id); if(el) el.classList.remove('active'); });
+        ['timeline', 'stats', 'json', 'relays', 'bch', 'profile'].forEach(id => { const el = document.getElementById('panel-' + id); if (el) el.classList.remove('active'); });
     }
 
     // ── Event binding ──
@@ -483,7 +531,7 @@
         if (analysisBackBtn) analysisBackBtn.addEventListener('click', () => switchScreen('feed'));
         if (refreshFeedBtn) refreshFeedBtn.addEventListener('click', () => { if (typeof refreshNewPosts === 'function') refreshNewPosts(); });
         if (feedLoginBtn) {
-            feedLoginBtn.onclick = function(e) { e.preventDefault(); showLoginModal(); return false; };
+            feedLoginBtn.onclick = function (e) { e.preventDefault(); showLoginModal(); return false; };
         }
         if (feedAccountBtn) feedAccountBtn.addEventListener('click', () => switchScreen('profile'));
     }
@@ -495,11 +543,21 @@
         // Restore session
         if (loadLogin()) {
             console.log('🔓 Session restored from localStorage');
+            // Sync the local currentUser with the one from utils
+            if (typeof window._getCurrentUser === 'function') {
+                currentUser = window._getCurrentUser();
+            }
             updateUserUI();
             const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
+            if (cached) {
+                try {
+                    cachedProfile = { profile: JSON.parse(cached), profileEvent: null };
+                } catch (e) { }
+            }
         }
-        if (CONFIG && CONFIG.relays) CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
+        if (CONFIG && CONFIG.relays) {
+            CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
+        }
         bindEvents();
         switchScreen('feed');
         console.log('✅ NostrScope ready – login persists on refresh');
@@ -514,3 +572,4 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
     else initApp();
 })();
+

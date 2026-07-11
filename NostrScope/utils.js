@@ -1116,3 +1116,13 @@ function renderMediaFromContent(content) {
   });
   return { text: html, media: mediaHtml };
 }
+
+// utils.js - add this at the end of the file
+// ── Global currentUser access ──
+window._getCurrentUser = function() {
+    return currentUser;
+};
+
+window._setCurrentUser = function(user) {
+    currentUser = user;
+};
