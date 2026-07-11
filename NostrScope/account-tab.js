@@ -1,8 +1,9 @@
 (function() {
-    if (typeof window.showAccountModal === 'function') return; // already defined elsewhere? We'll override.
+    console.log('📄 account-tab.js loaded');
 
+    // ── Fetch events by kind for a pubkey ──
     async function fetchUserEvents(pubkey, kinds, limit = 50) {
-        console.log(`fetchUserEvents`);
+        console.log(`🔎 Fetching user events for ${pubkey.substring(0,8)}... kinds: ${kinds.join(',')}`);
         const relays = activeRelays.slice(0, 5);
         const rm = new RelayManager(relays);
         const events = [];
@@ -14,13 +15,18 @@
                 rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
                 setTimeout(resolve, 8000);
             });
+            console.log(`✅ Fetched ${events.length} events for kinds ${kinds.join(',')}`);
         } catch (e) { console.error('fetchUserEvents error:', e); }
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
+    // ── Load all tabs ──
     async function loadAccountTabs() {
-        console.log(`loadAccountTabs`);
-        if (!currentUser) return;
+        if (!currentUser) {
+            console.warn('⛔ loadAccountTabs: currentUser is null');
+            return;
+        }
+        console.log('📥 loadAccountTabs started for', currentUser.publicKey.substring(0,8));
         showLoading('Loading your content…');
         try {
             const notes = await fetchUserEvents(currentUser.publicKey, [1]);
@@ -36,8 +42,9 @@
         }
     }
 
+    // ── Render the full account modal ──
     function renderAccountModal(notes, articles, media) {
-        console.log(`renderAccountModal`);
+        console.log('🎨 Rendering account modal');
         const profile = cachedProfile ? cachedProfile.profile || {} : {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
         if (cachedProfile && cachedProfile.profileEvent && cachedProfile.profileEvent.tags) {
@@ -45,7 +52,15 @@
             badges = [...new Set([...badges, ...tTags])];
         }
         const jsonStr = JSON.stringify(profile, null, 2);
-        const fields = { name: profile.name||'', about: profile.about||'', picture: profile.picture||'', banner: profile.banner||'', nip05: profile.nip05||'', bch_address: profile.bch_address||'', bch_tip_wallet: profile.bch_tip_wallet||'' };
+        const fields = {
+            name: profile.name || '',
+            about: profile.about || '',
+            picture: profile.picture || '',
+            banner: profile.banner || '',
+            nip05: profile.nip05 || '',
+            bch_address: profile.bch_address || '',
+            bch_tip_wallet: profile.bch_tip_wallet || ''
+        };
 
         let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
         <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:20px;max-width:500px;width:95%;max-height:85vh;overflow-y:auto;color:#e7e9ea;">
@@ -60,8 +75,11 @@
             <div id="accountTabProfile">
                 <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
                 <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
-        for (const [key,val] of Object.entries(fields)) html += `<label>${key.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
-        html += `<div><strong>Badges:</strong> ${badges.length?badges.map(t=>`<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' '):'none'}</div>
+        for (const [key, val] of Object.entries(fields)) {
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            html += `<label>${label}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
+        }
+        html += `<div><strong>Badges:</strong> ${badges.length ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : 'none'}</div>
                 <div style="display:flex;gap:8px;margin-top:12px;">
                     <button class="btn btn-primary" id="saveProfileBtn">💾 Save</button>
                     <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
@@ -81,37 +99,53 @@
                 modalContainer.querySelectorAll('.account-tab').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const tab = btn.dataset.tab;
-                ['profile','notes','articles','media'].forEach(t => {
+                ['profile', 'notes', 'articles', 'media'].forEach(t => {
                     const el = document.getElementById('accountTab' + t.charAt(0).toUpperCase() + t.slice(1));
                     if (el) el.style.display = t === tab ? 'block' : 'none';
                 });
             });
         });
 
+        // Save profile
         document.getElementById('saveProfileBtn').addEventListener('click', () => {
             const newProfile = {};
-            for (const key of Object.keys(fields)) { const val = document.getElementById('edit_'+key)?.value?.trim(); if (val) newProfile[key] = val; }
+            for (const key of Object.keys(fields)) {
+                const val = document.getElementById('edit_' + key)?.value?.trim();
+                if (val) newProfile[key] = val;
+            }
             if (badges.length) newProfile.tags = badges;
-            const event = { kind:0, created_at:Math.floor(Date.now()/1000), tags:[], content:JSON.stringify(newProfile) };
-            if (typeof window._signNostrEvent!=='function') { safeToast('Signing not available.','error'); return; }
-            window._signNostrEvent(event,currentUser.privateKey).then(signed=>{ if(relayManager) relayManager.publish(signed); cachedProfile = { ...cachedProfile, profile:newProfile }; try { localStorage.setItem('nostrscope_profile',JSON.stringify(newProfile)); } catch(e) {} safeToast('Profile updated!','success'); }).catch(e=>safeToast('Error: '+e.message,'error'));
+            const event = { kind: 0, created_at: Math.floor(Date.now() / 1000), tags: [], content: JSON.stringify(newProfile) };
+            if (typeof window._signNostrEvent !== 'function') { safeToast('Signing not available.', 'error'); return; }
+            window._signNostrEvent(event, currentUser.privateKey).then(signed => {
+                if (relayManager) relayManager.publish(signed);
+                cachedProfile = { ...cachedProfile, profile: newProfile };
+                try { localStorage.setItem('nostrscope_profile', JSON.stringify(newProfile)); } catch (e) {}
+                safeToast('Profile updated!', 'success');
+            }).catch(e => safeToast('Error: ' + e.message, 'error'));
         });
-        document.getElementById('refreshProfileBtn').addEventListener('click', ()=>{ document.getElementById('accountModalBackdrop')?.remove(); loadAccountTabs(); });
+
+        // Refresh
+        document.getElementById('refreshProfileBtn').addEventListener('click', () => {
+            document.getElementById('accountModalBackdrop')?.remove();
+            loadAccountTabs();
+        });
     }
 
+    // ── Render a list of events (notes/articles/media) ──
     function renderEventList(events, title) {
-        console.log(`renderEventList`);
         if (!events.length) return `<p>No ${title.toLowerCase()} found.</p>`;
         return events.map(e => {
             const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
-            const time = new Date((e.created_at||0)*1000).toLocaleString();
-            const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn()) ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀 Boost</button>` : '';
+            const time = new Date((e.created_at || 0) * 1000).toLocaleString();
+            const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn())
+                ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀 Boost</button>`
+                : '';
             return `<div style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:10px;margin:8px 0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="badge badge-purple">${kindName}</span>
                     <span style="font-size:0.7rem;color:#71767b;">${time}</span>
                 </div>
-                <div style="margin-top:6px;font-size:0.85rem;">${escapeHtml((e.content||'').substring(0,200))}</div>
+                <div style="margin-top:6px;font-size:0.85rem;">${escapeHtml((e.content || '').substring(0, 200))}</div>
                 <div style="margin-top:8px;display:flex;gap:6px;">
                     ${boostBtn}
                     <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>
@@ -120,9 +154,16 @@
         }).join('');
     }
 
-    // Expose globally, override the one in scripts.js
+    // ── Override global showAccountModal ──
     window.showAccountModal = function(forceRefresh) {
-        if (!currentUser) return;
+        console.log('🌟 window.showAccountModal called');
+        if (!currentUser) {
+            console.warn('⛔ Not logged in');
+            safeToast('Please log in first.', 'info');
+            return;
+        }
         loadAccountTabs();
     };
+
+    console.log('✅ account-tab.js ready, showAccountModal defined:', typeof window.showAccountModal);
 })();
