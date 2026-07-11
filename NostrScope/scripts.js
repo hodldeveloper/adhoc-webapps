@@ -159,10 +159,18 @@
     // ── Profile Screen (simplified) ──
     async function renderMyProfile() {
         if (!profileContent) return;
-        if (!currentUser) {
-            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p>You are not logged in.</p><button class="btn btn-primary" onclick="window.showLoginModal();">🔑 Login</button></div>`;
-            return;
-        }
+
+
+        if (currentUser) {
+            if (typeof window.showAccountModal === 'function') {
+                window.showAccountModal();
+            } else {
+                // fallback
+                profileContent.innerHTML = '<p style="padding:20px;">Loading account…</p>';
+            }
+        }    
+
+        
         // Use cachedProfile if available, otherwise show loading
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
