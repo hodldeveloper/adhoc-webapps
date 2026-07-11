@@ -1616,6 +1616,33 @@
       }
       return;
     }
+
+    if (parsed.source === 'naddr') {
+      // Fetch replaceable event by coordinate
+      const filter = { kinds: [parsed.kind], authors: [parsed.pubkey], '#d': [parsed.dTag], limit: 1 };
+      const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
+      relayManager = new RelayManager(allUrls);
+      window._relayManager = relayManager;
+      investigator = new EventInvestigator(relayManager);
+      investigator.onComplete = inv => {
+          if (inv.events.length > 0) {
+            // Treat the first matching event as the original and continue investigation
+            const event = inv.events[0];
+            investigationHexId = event.id;
+            window._investigationHexId = event.id;
+            runAnalysis(event.id); // recursive call with the hex ID
+        } else {
+            showToast('No event found for this naddr.', 'error');
+            hideLoading();
+        }
+      };
+      showLoading('Fetching event by naddr...');
+      await investigator.rm.connectAll(CONFIG.relayConnectTimeout);
+      investigator.rm.subscribe([filter]);
+      return;
+    }
+
+    
     investigationHexId = parsed.hexId;
     window._investigationHexId = investigationHexId;
     allEvents = [];
