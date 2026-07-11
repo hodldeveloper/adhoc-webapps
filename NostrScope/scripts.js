@@ -4,6 +4,7 @@
     const searchScreen = document.getElementById('searchScreen');
     const profileScreen = document.getElementById('profileScreen');
     const analysisScreen = document.getElementById('analysisScreen');
+    const boostsScreen = document.getElementById('boostsScreen');
     const searchInput = document.getElementById('searchInput');
     const analyzeBtn = document.getElementById('analyzeBtn');
     const errorMsg = document.getElementById('errorMsg');
@@ -45,7 +46,9 @@
         const screen = document.getElementById(screenName + 'Screen');
         if (screen) screen.classList.add('active');
         if (typeof setActiveNav === 'function') setActiveNav(screenName);
+
         if (screenName === 'feed' && typeof loadFeed === 'function') loadFeed();
+        if (screenName === 'boosts' && typeof loadBoostsFeed === 'function') loadBoostsFeed();
         if (screenName === 'profile') renderMyProfile();
     };
 
@@ -153,27 +156,59 @@
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
     }
 
-    // ── Lightweight profile screen – delegates to account-tab.js ──
+    // ── Profile Screen (simplified) ──
     async function renderMyProfile() {
         if (!profileContent) return;
         if (!currentUser) {
             profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p>You are not logged in.</p><button class="btn btn-primary" onclick="window.showLoginModal();">🔑 Login</button></div>`;
             return;
         }
-        // Delegate to the external account-tab module
-        if (typeof window.loadProfileTabs === 'function') {
-            try {
-                await window.loadProfileTabs(profileContent, cachedProfile, currentUser);
-            } catch (e) {
-                profileContent.innerHTML = '<p style="padding:20px;color:var(--red);">Error loading profile.</p>';
+        // Use cachedProfile if available, otherwise show loading
+        if (!cachedProfile) {
+            const cached = localStorage.getItem('nostrscope_profile');
+            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
+            if (!cachedProfile) {
+                profileContent.innerHTML = '<p style="padding:20px;color:var(--text2);">Loading profile…</p>';
+                // Fetch in background then re-render
+                try {
+                    const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
+                    await upi.investigate(currentUser.publicKey, [], { silent: true });
+                    cachedProfile = { profile: upi.profile || {}, profileEvent: upi.profileEvent };
+                    localStorage.setItem('nostrscope_profile', JSON.stringify(cachedProfile.profile));
+                } catch (e) {}
+                renderMyProfile();
+                return;
             }
-        } else {
-            // Fallback (should not happen)
-            profileContent.innerHTML = '<p style="padding:20px;">Loading profile module…</p>';
         }
+        const profile = cachedProfile.profile || {};
+        const name = profile.name || '';
+        const about = profile.about || '';
+        const picture = profile.picture || '';
+        const npub = npubFromHex(currentUser.publicKey);
+        profileContent.innerHTML = `
+        <div style="padding:20px;">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+                <div style="width:60px;height:60px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                    ${picture ? `<img src="${picture}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}
+                </div>
+                <div>
+                    <h3 style="font-size:1.2rem;margin:0;color:#e7e9ea;">${escapeHtml(name || 'Unnamed')}</h3>
+                    <p style="color:#71767b;font-size:0.8rem;margin:4px 0 0 0;">@${npub.substring(0,12)}...</p>
+                </div>
+            </div>
+            ${about ? `<p style="margin-bottom:16px;color:#e7e9ea;">${escapeHtml(about)}</p>` : ''}
+            <div style="display:flex;gap:8px;">
+                <button class="btn" id="editProfileBtn" style="padding:8px 16px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">Edit Profile</button>
+                <button class="btn" id="logoutProfileBtn" style="padding:8px 16px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">Logout</button>
+            </div>
+        </div>`;
+        document.getElementById('editProfileBtn')?.addEventListener('click', () => {
+            if (typeof window.showAccountModal === 'function') window.showAccountModal();
+        });
+        document.getElementById('logoutProfileBtn')?.addEventListener('click', logout);
     }
 
-    // ── New posts indicator (global) ──
+    // ── New posts indicator ──
     window.showNewPostsIndicator = function(count) {
         const badge = document.getElementById('newPostsBadge');
         if (badge) {
