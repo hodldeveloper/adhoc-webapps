@@ -2,6 +2,7 @@
     if (typeof window.showAccountModal === 'function') return; // already defined elsewhere? We'll override.
 
     async function fetchUserEvents(pubkey, kinds, limit = 50) {
+        console.log(`fetchUserEvents`);
         const relays = activeRelays.slice(0, 5);
         const rm = new RelayManager(relays);
         const events = [];
@@ -18,6 +19,7 @@
     }
 
     async function loadAccountTabs() {
+        console.log(`loadAccountTabs`);
         if (!currentUser) return;
         showLoading('Loading your content…');
         try {
@@ -35,6 +37,7 @@
     }
 
     function renderAccountModal(notes, articles, media) {
+        console.log(`renderAccountModal`);
         const profile = cachedProfile ? cachedProfile.profile || {} : {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
         if (cachedProfile && cachedProfile.profileEvent && cachedProfile.profileEvent.tags) {
@@ -97,6 +100,7 @@
     }
 
     function renderEventList(events, title) {
+        console.log(`renderEventList`);
         if (!events.length) return `<p>No ${title.toLowerCase()} found.</p>`;
         return events.map(e => {
             const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
