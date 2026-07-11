@@ -35,7 +35,8 @@
         feedContent.innerHTML = '';
         feedContent.appendChild(sentinel);
 
-        const relays = CONFIG.relays.slice(0, 5);
+        //const relays = CONFIG.relays.slice(0, 5);
+        const relays = CONFIG.feedRelays || CONFIG.relays.slice(0, 3);
         const rm = new RelayManager(relays);
         try {
             await rm.connectAll(5000);
