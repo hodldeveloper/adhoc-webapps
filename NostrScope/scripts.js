@@ -46,7 +46,7 @@
             }
         } catch (e) { alert(msg); }
     }
-    window._safeToast = safeToast; // expose for other modules
+    window._safeToast = safeToast;
 
     // ── Screen switching ──
     window.switchScreen = function(screenName) {
@@ -100,7 +100,7 @@
         } catch (e) { console.error('updateUserUI error:', e); }
     }
 
-    // ── Login ──
+    // ── Login Persistence (improved) ──
     window.processNsecLogin = function() {
         const nsecInput = document.getElementById('nsecInput');
         if (!nsecInput) { safeToast('Internal error.', 'error'); return; }
@@ -122,8 +122,10 @@
         catch (e1) { try { publicKey = NostrTools.getPublicKey(new Uint8Array(hexToBytes(privateKey))); } catch (e2) { safeToast('Cannot derive public key.', 'error'); return; } }
         if (!publicKey || !isValidHex64(publicKey)) { safeToast('Invalid public key.', 'error'); return; }
         currentUser = { privateKey, publicKey };
-        try { saveLogin(privateKey); } catch (e) {}
+        // Save to localStorage for persistence
+        saveLogin(privateKey);
         updateUserUI();
+        // Attempt to load cached profile
         const cachedProfileData = localStorage.getItem('nostrscope_profile');
         if (cachedProfileData) {
             try { cachedProfile = { profile: JSON.parse(cachedProfileData), profileEvent: null }; } catch (e) { cachedProfile = null; }
@@ -132,6 +134,7 @@
         const backdrop = document.getElementById('loginModalBackdrop');
         if (backdrop) backdrop.remove();
         renderMyProfile();
+        // Refresh feed to show boost buttons
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') setTimeout(() => loadFeed(), 300);
     };
 
@@ -156,11 +159,13 @@
 
     function logout() {
         currentUser = null;
+        // Clear persisted login data
         try { clearLogin(); } catch (e) {}
         updateUserUI();
         cachedProfile = null;
         try { renderMyProfile(); } catch (e) {}
         safeToast('Logged out.', 'info');
+        // Refresh feed to hide boost buttons
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
     }
 
@@ -171,12 +176,12 @@
             profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p style="margin-bottom:12px;color:#71767b;">You are not logged in.</p><button class="btn btn-primary" style="padding:10px 20px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.showLoginModal();">🔑 Login</button></div>`;
             return;
         }
-        // Show account modal directly
+        // If account-tab.js is loaded, use its enhanced modal
         if (typeof window.showAccountModal === 'function') {
             window.showAccountModal();
             return;
         }
-        // Fallback
+        // Fallback simple profile view
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
             if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
@@ -483,15 +488,24 @@
         if (feedAccountBtn) feedAccountBtn.addEventListener('click', () => switchScreen('profile'));
     }
 
+    // ── Init: restore login from localStorage ──
     function initApp() {
+        console.log('🚀 Initializing NostrScope...');
         if (typeof NostrTools === 'undefined') { setTimeout(initApp, 500); return; }
-        if (loadLogin()) { updateUserUI(); const cached = localStorage.getItem('nostrscope_profile'); if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} } }
+        // Restore session
+        if (loadLogin()) {
+            console.log('🔓 Session restored from localStorage');
+            updateUserUI();
+            const cached = localStorage.getItem('nostrscope_profile');
+            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
+        }
         if (CONFIG && CONFIG.relays) CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
         bindEvents();
         switchScreen('feed');
-        console.log('✅ NostrScope ready');
+        console.log('✅ NostrScope ready – login persists on refresh');
     }
 
+    // Expose functions globally
     window.processNsecLogin = window.processNsecLogin;
     window.showLoginModal = showLoginModal;
     window.isLoggedIn = isLoggedIn;
