@@ -1,9 +1,16 @@
 (function() {
     console.log('📄 account-tab.js loaded');
 
+    // Ensure global safeToast helper
+    if (typeof window._safeToast !== 'function') {
+        window._safeToast = function(msg, type) {
+            if (typeof window.showToast === 'function') window.showToast(msg, type);
+            else console.log('[Toast]', msg);
+        };
+    }
+
     // ── Fetch events by kind for a pubkey ──
     async function fetchUserEvents(pubkey, kinds, limit = 50) {
-        console.log(`🔎 Fetching user events for ${pubkey.substring(0,8)}... kinds: ${kinds.join(',')}`);
         const relays = activeRelays.slice(0, 5);
         const rm = new RelayManager(relays);
         const events = [];
@@ -15,18 +22,16 @@
                 rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
                 setTimeout(resolve, 8000);
             });
-            console.log(`✅ Fetched ${events.length} events for kinds ${kinds.join(',')}`);
         } catch (e) { console.error('fetchUserEvents error:', e); }
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
-    // ── Load all tabs ──
+    // ── Load all tabs content ──
     async function loadAccountTabs() {
         if (!currentUser) {
-            console.warn('⛔ loadAccountTabs: currentUser is null');
+            window._safeToast('Please log in first.', 'info');
             return;
         }
-        console.log('📥 loadAccountTabs started for', currentUser.publicKey.substring(0,8));
         showLoading('Loading your content…');
         try {
             const notes = await fetchUserEvents(currentUser.publicKey, [1]);
@@ -36,15 +41,14 @@
             renderAccountModal(notes, articles, media);
         } catch (e) {
             console.error(e);
-            if (window._safeToast) window._safeToast('Failed to load content.', 'error');
+            window._safeToast('Failed to load content.', 'error');
         } finally {
             hideLoading();
         }
     }
 
-    // ── Render the full account modal ──
+    // ── Render the full account modal with tabs ──
     function renderAccountModal(notes, articles, media) {
-        console.log('🎨 Rendering account modal');
         const cachedProfile = window._cachedProfile ? window._cachedProfile() : null;
         const profile = cachedProfile ? cachedProfile.profile || {} : {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
@@ -77,10 +81,9 @@
                 <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
                 <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
         for (const [key, val] of Object.entries(fields)) {
-            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            html += `<label>${label}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
+            html += `<label>${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
         }
-        html += `<div><strong>Badges:</strong> ${badges.length ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : 'none'}</div>
+        html += `<div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : 'none'}</div>
                 <div style="display:flex;gap:8px;margin-top:12px;">
                     <button class="btn btn-primary" id="saveProfileBtn">💾 Save</button>
                     <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
@@ -116,13 +119,13 @@
             }
             if (badges.length) newProfile.tags = badges;
             const event = { kind: 0, created_at: Math.floor(Date.now() / 1000), tags: [], content: JSON.stringify(newProfile) };
-            if (typeof window._signNostrEvent !== 'function') { safeToast('Signing not available.', 'error'); return; }
+            if (typeof window._signNostrEvent !== 'function') { window._safeToast('Signing not available.', 'error'); return; }
             window._signNostrEvent(event, currentUser.privateKey).then(signed => {
                 if (relayManager) relayManager.publish(signed);
                 if (window._setCachedProfile) window._setCachedProfile({ ...cachedProfile, profile: newProfile });
                 try { localStorage.setItem('nostrscope_profile', JSON.stringify(newProfile)); } catch (e) {}
-                if (window._safeToast) window._safeToast('Profile updated!', 'success');
-            }).catch(e => { if (window._safeToast) window._safeToast('Error: ' + e.message, 'error'); });
+                window._safeToast('Profile updated!', 'success');
+            }).catch(e => window._safeToast('Error: ' + e.message, 'error'));
         });
 
         // Refresh
@@ -157,10 +160,8 @@
 
     // ── Override global showAccountModal ──
     window.showAccountModal = function(forceRefresh) {
-        console.log('🌟 window.showAccountModal called');
         if (!currentUser) {
-            console.warn('⛔ Not logged in');
-            if (window._safeToast) window._safeToast('Please log in first.', 'info');
+            window._safeToast('Please log in first.', 'info');
             return;
         }
         loadAccountTabs();
