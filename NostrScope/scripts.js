@@ -18,11 +18,18 @@
     const feedAccountBtn = document.getElementById('feedAccountBtn');
     const profileContent = document.getElementById('profileContent');
 
+    // 🌐 Make modalContainer globally accessible for account-tab.js
+    window.modalContainer = modalContainer;
+
     // ── State ──
     let currentUser = null;
     let cachedProfile = null;               // { profile, profileEvent }
     const profileCache = new Map();          // pubkey -> { name, picture }
     const pendingFetches = new Map();
+
+    // 🔧 Global helpers for account-tab.js
+    window._cachedProfile = () => cachedProfile;
+    window._setCachedProfile = (val) => { cachedProfile = val; };
 
     function isLoggedIn() { return currentUser !== null; }
 
@@ -39,6 +46,7 @@
             }
         } catch (e) { alert(msg); }
     }
+    window._safeToast = safeToast; // expose for other modules
 
     // ── Screen switching ──
     window.switchScreen = function(screenName) {
@@ -160,9 +168,15 @@
     async function renderMyProfile() {
         if (!profileContent) return;
         if (!currentUser) {
-            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p>You are not logged in.</p><button class="btn btn-primary" onclick="window.showLoginModal();">🔑 Login</button></div>`;
+            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p style="margin-bottom:12px;color:#71767b;">You are not logged in.</p><button class="btn btn-primary" style="padding:10px 20px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.showLoginModal();">🔑 Login</button></div>`;
             return;
         }
+        // Show account modal directly
+        if (typeof window.showAccountModal === 'function') {
+            window.showAccountModal();
+            return;
+        }
+        // Fallback
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
             if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
@@ -205,19 +219,6 @@
         });
         document.getElementById('logoutProfileBtn')?.addEventListener('click', logout);
     }
-
-    // ── New posts indicator ──
-    window.showNewPostsIndicator = function(count) {
-        const badge = document.getElementById('newPostsBadge');
-        if (badge) {
-            badge.textContent = count > 0 ? `${count} new` : '';
-            badge.style.display = count > 0 ? 'inline-block' : 'none';
-        }
-    };
-    window.loadNewPosts = function() {
-        if (typeof refreshNewPosts === 'function') refreshNewPosts();
-        window.showNewPostsIndicator(0);
-    };
 
     // ── Analysis functions (unchanged) ──
     function buildThreadCards(eventId, childrenMap, depth, visited) {
@@ -422,7 +423,6 @@
     window._exportHTML = () => { let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h += `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`; }); h += '</tbody></table></body></html>'; downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); };
     window.injectBoostedEvent = function(event) { if (!investigator || !investigator.eventMap) return; if (!eventMap.has(event.id)) { eventMap.set(event.id, event); allEvents.push(event); investigator.eventMap.set(event.id, event); investigator.events.push(event); } if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); } };
     window.runAnalysis = runAnalysis;
-    window.loadNewPosts = loadNewPosts;
 
     // ── Main analysis flow ──
     async function runAnalysis(inputValue) {
@@ -489,13 +489,8 @@
         if (CONFIG && CONFIG.relays) CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
         bindEvents();
         switchScreen('feed');
-        console.log('✅ NostrScope ready (slim)');
+        console.log('✅ NostrScope ready');
     }
-
-    // Expose for other modules
-    window._cachedProfile = () => cachedProfile;
-    window._setCachedProfile = (cp) => { cachedProfile = cp; };
-    window._safeToast = safeToast;
 
     window.processNsecLogin = window.processNsecLogin;
     window.showLoginModal = showLoginModal;
