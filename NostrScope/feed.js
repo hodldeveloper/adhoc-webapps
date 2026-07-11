@@ -1,73 +1,116 @@
 (function() {
-    let feedPosts = [], oldestTimestamp = Infinity, newestTimestamp = 0, isLoadingOlder = false;
-    let commentCache = new Map(), pendingFetches = new Map(), lastConnectedRelays = [];
+    let feedPosts = [];
+    let oldestTimestamp = Infinity;
+    let newestTimestamp = 0;
+    let isLoadingOlder = false;
+    let lastConnectedRelays = [];
+    const commentCache = new Map();
+    const pendingFetches = new Map();
     const feedContent = document.getElementById('feedContent');
+
     if (!feedContent) return;
 
-    const sentinel = document.createElement('div'); sentinel.id = 'feed-sentinel'; sentinel.style.height = '1px';
+    // Sentinel for infinite scroll
+    const sentinel = document.createElement('div');
+    sentinel.id = 'feed-sentinel';
+    sentinel.style.height = '1px';
     feedContent.appendChild(sentinel);
 
     const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !isLoadingOlder && oldestTimestamp < Infinity && lastConnectedRelays.length > 0) loadOlderPosts();
+        if (entries[0].isIntersecting && !isLoadingOlder && oldestTimestamp < Infinity && lastConnectedRelays.length > 0) {
+            loadOlderPosts();
+        }
     }, { root: feedContent, rootMargin: '200px', threshold: 0.1 });
     observer.observe(sentinel);
 
-    // Add “New posts” button to the feed header
-    function injectNewPostsIndicator() {
-        const header = document.querySelector('.feed-header');
-        if (!header) return;
-        if (!document.getElementById('newPostsBadge')) {
-            const badge = document.createElement('span');
-            badge.id = 'newPostsBadge';
-            badge.style.cssText = 'background:#1d9bf0;color:#fff;border-radius:12px;padding:2px 8px;font-size:0.75rem;margin-left:8px;cursor:pointer;display:none;';
-            badge.onclick = () => { if (typeof window.loadNewPosts === 'function') window.loadNewPosts(); };
-            header.appendChild(badge);
-        }
-    }
-
+    // Initial feed load
     window.loadFeed = async function() {
         showLoading('Loading BCH feed...');
-        feedPosts = []; oldestTimestamp = Infinity; newestTimestamp = 0; lastConnectedRelays = [];
-        feedContent.innerHTML = ''; feedContent.appendChild(sentinel);
-        injectNewPostsIndicator();
+        feedPosts = [];
+        oldestTimestamp = Infinity;
+        newestTimestamp = 0;
+        lastConnectedRelays = [];
+        feedContent.innerHTML = '';
+        feedContent.appendChild(sentinel);
+
         const relays = CONFIG.feedRelays || CONFIG.relays.slice(0, 3);
         const rm = new RelayManager(relays);
         try {
             await rm.connectAll(5000);
-            const connected = [...rm.connections.keys()].filter(u => { const c = rm.connections.get(u); return c && c.ws && c.ws.readyState === WebSocket.OPEN; });
+            const connected = [...rm.connections.keys()].filter(u => {
+                const conn = rm.connections.get(u);
+                return conn && conn.ws && conn.ws.readyState === WebSocket.OPEN;
+            });
             lastConnectedRelays = connected;
-            if (connected.length === 0) { feedContent.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--red);">No relays available.</div>'; return; }
+            if (connected.length === 0) {
+                feedContent.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--red);">No relays available.</div>';
+                return;
+            }
+
             const subId = rm.subscribe([{ kinds: [1], '#t': ['bch'], limit: 20 }]);
             const postsMap = new Map();
-            rm.onEvent = (ev) => { if (ev.kind === 1) { postsMap.set(ev.id, ev); const ts = ev.created_at||0; if (ts < oldestTimestamp) oldestTimestamp = ts; if (ts > newestTimestamp) newestTimestamp = ts; } };
-            await new Promise(resolve => { rm.onEOSE = sid => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } }; setTimeout(resolve, 10000); });
-            feedPosts = [...postsMap.values()].sort((a, b) => (b.created_at||0) - (a.created_at||0));
-            if (feedPosts.length > 0) { oldestTimestamp = feedPosts[feedPosts.length-1].created_at; newestTimestamp = feedPosts[0].created_at; }
+            rm.onEvent = (ev) => {
+                if (ev.kind === 1) {
+                    postsMap.set(ev.id, ev);
+                    const ts = ev.created_at || 0;
+                    if (ts < oldestTimestamp) oldestTimestamp = ts;
+                    if (ts > newestTimestamp) newestTimestamp = ts;
+                }
+            };
+            await new Promise(resolve => {
+                rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
+                setTimeout(resolve, 10000);
+            });
+            feedPosts = [...postsMap.values()].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+            if (feedPosts.length > 0) {
+                oldestTimestamp = feedPosts[feedPosts.length - 1].created_at;
+                newestTimestamp = feedPosts[0].created_at;
+            }
             renderFeed(true);
-        } catch (err) { feedContent.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--red);">Failed to load feed.</div>'; }
-        finally { hideLoading(); }
+        } catch (err) {
+            console.error('Feed load error:', err);
+            feedContent.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--red);">Failed to load feed.</div>';
+        } finally {
+            hideLoading();
+        }
     };
 
+    // Refresh new posts
     window.refreshNewPosts = async function() {
         if (newestTimestamp === 0 || lastConnectedRelays.length === 0) return;
         showLoading('Checking for new posts...');
         const rm = new RelayManager(lastConnectedRelays);
+        let newPosts = [];
         try {
             await rm.connectAll(5000);
             const subId = rm.subscribe([{ kinds: [1], '#t': ['bch'], since: newestTimestamp, limit: 20 }]);
-            const newPosts = [];
-            rm.onEvent = (ev) => { if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) { newPosts.push(ev); if (ev.created_at > newestTimestamp) newestTimestamp = ev.created_at; } };
-            await new Promise(resolve => { rm.onEOSE = sid => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } }; setTimeout(resolve, 8000); });
+            rm.onEvent = (ev) => {
+                if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) {
+                    newPosts.push(ev);
+                    if (ev.created_at > newestTimestamp) newestTimestamp = ev.created_at;
+                }
+            };
+            await new Promise(resolve => {
+                rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
+                setTimeout(resolve, 8000);
+            });
             if (newPosts.length > 0) {
-                newPosts.sort((a, b) => (b.created_at||0) - (a.created_at||0));
+                newPosts.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
                 feedPosts = [...newPosts, ...feedPosts];
                 renderFeed(false);
-                if (typeof window.showNewPostsIndicator === 'function') window.showNewPostsIndicator(0);
+                // Show toast notification
+                if (typeof window.showNewPostsIndicator === 'function') {
+                    window.showNewPostsIndicator(newPosts.length);
+                }
+                if (typeof safeToast === 'function') {
+                    safeToast(`${newPosts.length} new post(s) loaded!`, 'info');
+                }
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error('Refresh error:', err); }
         finally { hideLoading(); }
     };
 
+    // Load older posts (infinite scroll)
     async function loadOlderPosts() {
         if (isLoadingOlder || oldestTimestamp === Infinity || lastConnectedRelays.length === 0) return;
         isLoadingOlder = true;
@@ -76,42 +119,61 @@
             await rm.connectAll(5000);
             const subId = rm.subscribe([{ kinds: [1], '#t': ['bch'], until: oldestTimestamp - 1, limit: 20 }]);
             const olderPosts = [];
-            rm.onEvent = (ev) => { if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) { olderPosts.push(ev); const ts = ev.created_at||0; if (ts < oldestTimestamp) oldestTimestamp = ts; } };
-            await new Promise(resolve => { rm.onEOSE = sid => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } }; setTimeout(resolve, 8000); });
-            if (olderPosts.length > 0) { olderPosts.sort((a, b) => (b.created_at||0) - (a.created_at||0)); feedPosts = [...feedPosts, ...olderPosts]; renderFeed(false); }
-        } catch (err) { console.error(err); }
+            rm.onEvent = (ev) => {
+                if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) {
+                    olderPosts.push(ev);
+                    if (ev.created_at < oldestTimestamp) oldestTimestamp = ev.created_at;
+                }
+            };
+            await new Promise(resolve => {
+                rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
+                setTimeout(resolve, 8000);
+            });
+            if (olderPosts.length > 0) {
+                olderPosts.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+                feedPosts = [...feedPosts, ...olderPosts];
+                renderFeed(false);
+            }
+        } catch (err) { console.error('Load older error:', err); }
         finally { isLoadingOlder = false; }
     }
 
     function renderFeed(clear = true) {
-        if (!feedContent) return;
         if (clear) feedContent.innerHTML = '';
         let html = '';
-        for (const post of feedPosts) html += buildPostCard(post);
+        for (const post of feedPosts) {
+            html += buildPostCard(post);
+        }
         feedContent.innerHTML = html;
         feedContent.appendChild(sentinel);
         observer.observe(sentinel);
-        resolveAuthorNamesInFeed();
+        resolveAuthorNamesAndAvatars();
         attachFeedListeners();
     }
 
     function buildPostCard(event) {
         const { text, media } = renderMediaFromContent(event.content);
-        const time = new Date((event.created_at||0)*1000).toLocaleString();
-        const authorShort = event.pubkey ? event.pubkey.substring(0,10)+'...' : 'unknown';
-        const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn()) ? `<button class="post-action-btn boost-btn" data-event-id="${event.id}" data-pubkey="${event.pubkey}" data-kind="${event.kind}">🚀</button>` : '';
+        const time = new Date((event.created_at || 0) * 1000).toLocaleString();
+        const isLong = (event.content || '').length > 300;
+        const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn())
+            ? `<button class="post-action-btn boost-btn" data-event-id="${event.id}" data-pubkey="${event.pubkey}" data-kind="${event.kind}">🚀</button>`
+            : '';
+        const pubkey = event.pubkey || '';
+        // Avatar placeholder – will be replaced by resolveAuthorNamesAndAvatars()
         return `
         <div class="post-card">
-            <div class="post-avatar author-avatar" data-pubkey="${event.pubkey||''}" style="width:40px;height:40px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">👤</div>
+            <div class="post-avatar" data-pubkey="${pubkey}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${pubkey}')">
+                <div class="avatar-placeholder" style="width:40px;height:40px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">👤</div>
+            </div>
             <div class="post-body">
                 <div class="post-header">
-                    <span class="post-name author-name" data-pubkey="${event.pubkey||''}" style="cursor:pointer;">${escapeHtml(authorShort)}</span>
-                    <span class="post-username">@${event.pubkey?.substring(0,8)||'unknown'}</span>
+                    <span class="post-name author-name" data-pubkey="${pubkey}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${pubkey}')">${escapeHtml(pubkey.substring(0, 10) + '...')}</span>
+                    <span class="post-username">@${pubkey.substring(0,8)}</span>
                     <span class="post-time">· ${time}</span>
                 </div>
-                <div class="post-content ${(event.content||'').length>300?'truncated':''}">${text||'<span style="color:var(--text2);">(no text)</span>'}</div>
-                ${(event.content||'').length>300?'<span class="show-more-btn">Show more</span>':''}
-                ${media?`<div class="post-media">${media}</div>`:''}
+                <div class="post-content ${isLong ? 'truncated' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
+                ${isLong ? '<span class="show-more-btn">Show more</span>' : ''}
+                ${media ? `<div class="post-media">${media}</div>` : ''}
                 <div class="post-actions">
                     <button class="post-action-btn like-btn" data-event-id="${event.id}">❤️</button>
                     <button class="post-action-btn comment-toggle-btn" data-event-id="${event.id}">💬</button>
@@ -123,31 +185,168 @@
         </div>`;
     }
 
-    async function loadComments(postId) { /* unchanged */ }
-    function renderComments(container, replies, parentPostId) { /* unchanged */ }
-    async function likePost(postId, postPubkey, postKind) { /* unchanged */ }
-    async function submitComment(parentPostId, content, parentPubkey, parentKind) { /* unchanged */ }
-    function attachFeedListeners() { /* unchanged */ }
-
-    function resolveAuthorNamesInFeed() {
-        const elements = feedContent.querySelectorAll('.author-name:not(.resolved), .author-avatar:not(.resolved)');
-        elements.forEach(el => {
-            const pubkey = el.dataset.pubkey;
-            if (!pubkey) return;
+    // Resolve author names and avatars
+    function resolveAuthorNamesAndAvatars() {
+        const cards = feedContent.querySelectorAll('.post-card');
+        cards.forEach(card => {
+            const avatarEl = card.querySelector('.post-avatar');
+            const nameEl = card.querySelector('.author-name');
+            if (!avatarEl || !nameEl) return;
+            const pubkey = avatarEl.dataset.pubkey;
+            if (!pubkey || nameEl.classList.contains('resolved')) return;
             if (typeof window.quickFetchProfile === 'function') {
                 window.quickFetchProfile(pubkey).then(data => {
-                    if (el.classList.contains('author-name')) {
-                        el.textContent = data?.name || pubkey.substring(0,10)+'...';
-                    } else if (el.classList.contains('author-avatar')) {
-                        if (data?.picture) el.innerHTML = `<img src="${data.picture}" style="width:100%;height:100%;object-fit:cover;">`;
+                    if (!data) return;
+                    // Update name
+                    if (data.name) {
+                        nameEl.textContent = data.name;
+                    } else {
+                        nameEl.textContent = pubkey.substring(0, 10) + '...';
                     }
-                    el.classList.add('resolved');
+                    nameEl.classList.add('resolved');
+                    // Update avatar
+                    if (data.picture) {
+                        const placeholder = avatarEl.querySelector('.avatar-placeholder');
+                        if (placeholder) {
+                            placeholder.innerHTML = `<img src="${data.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';">`;
+                        }
+                    }
                 });
             }
         });
     }
 
-    function initFeed() { console.log('📰 BCH Feed ready'); injectNewPostsIndicator(); }
+    // (loadComments, renderComments, likePost, submitComment, attachFeedListeners – unchanged)
+    // ... (include all remaining functions from the latest feed.js – they are identical to the previous full version)
+
+    function attachFeedListeners() {
+        // toggle comments
+        document.querySelectorAll('.toggle-comments-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const container = document.getElementById(`comments-${postId}`);
+                if (container) {
+                    const hidden = container.style.display === 'none';
+                    container.style.display = hidden ? 'block' : 'none';
+                    if (hidden) loadComments(postId);
+                }
+            });
+        });
+        // like, boost, analyze
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const post = feedPosts.find(p => p.id === postId);
+                if (post) likePost(post.id, post.pubkey, post.kind);
+            });
+        });
+        document.querySelectorAll('.boost-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const post = feedPosts.find(p => p.id === postId);
+                if (post && window.boostEvent) window.boostEvent(post.id, post.pubkey, post.kind);
+            });
+        });
+        document.querySelectorAll('.analyze-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                if (typeof runAnalysis === 'function') runAnalysis(postId);
+            });
+        });
+        // submit comment
+        document.getElementById('feedContent').addEventListener('click', (e) => {
+            if (e.target.classList.contains('submit-comment-btn')) {
+                const parentId = e.target.dataset.parentId;
+                const input = document.getElementById(`comment-input-${parentId}`);
+                if (input && input.value.trim()) {
+                    const parentPost = feedPosts.find(p => p.id === parentId);
+                    if (parentPost) submitComment(parentId, input.value.trim(), parentPost.pubkey, parentPost.kind);
+                }
+            }
+        });
+    }
+
+    async function loadComments(postId) {
+        const container = document.getElementById(`comments-${postId}`);
+        if (!container) return;
+        if (commentCache.has(postId)) {
+            renderComments(container, commentCache.get(postId), postId);
+            return;
+        }
+        container.innerHTML = '<p style="color:var(--text2);">Loading comments…</p>';
+        if (pendingFetches.has(postId)) return;
+        const promise = (async () => {
+            const relays = lastConnectedRelays.length > 0 ? lastConnectedRelays : CONFIG.relays.slice(0, 3);
+            const rm = new RelayManager(relays);
+            await rm.connectAll(4000);
+            const subId = rm.subscribe([{ kinds: [1], '#e': [postId], limit: 50 }]);
+            const replies = [];
+            rm.onEvent = (ev) => { if (ev.kind === 1) replies.push(ev); };
+            await new Promise(resolve => {
+                rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
+                setTimeout(resolve, 8000);
+            });
+            replies.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+            commentCache.set(postId, replies);
+            return replies;
+        })();
+        pendingFetches.set(postId, promise);
+        const replies = await promise;
+        pendingFetches.delete(postId);
+        renderComments(container, replies, postId);
+    }
+
+    function renderComments(container, replies, parentPostId) {
+        if (!replies.length) {
+            container.innerHTML = '<p style="color:var(--text2);">No comments yet.</p>';
+            return;
+        }
+        let html = '';
+        for (const reply of replies) {
+            const { text, media } = renderMediaFromContent(reply.content);
+            const time = new Date((reply.created_at || 0) * 1000).toLocaleString();
+            const authorShort = reply.pubkey ? reply.pubkey.substring(0, 10) + '...' : 'unknown';
+            html += `
+            <div style="border-left:2px solid var(--border); padding-left:8px; margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
+                    <span class="event-author author-name" data-pubkey="${reply.pubkey || ''}">${escapeHtml(authorShort)}</span>
+                    <span style="color:var(--text2);">${time}</span>
+                </div>
+                <div style="font-size:0.8rem; margin-top:4px;">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
+                ${media ? `<div style="margin-top:4px;">${media}</div>` : ''}
+            </div>`;
+        }
+        html += `
+        <div style="margin-top:8px; display:flex; gap:6px;">
+            <input type="text" class="comment-input" id="comment-input-${parentPostId}" placeholder="Write a comment…" style="flex:1; padding:6px; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+            <button class="btn btn-sm btn-primary submit-comment-btn" data-parent-id="${parentPostId}">Send</button>
+        </div>`;
+        container.innerHTML = html;
+    }
+
+    async function likePost(postId, postPubkey, postKind) {
+        if (!currentUser) { window.showToast('Please login first.', 'info'); if (typeof window.showLoginModal === 'function') window.showLoginModal(); return; }
+        const eventTemplate = { kind: 7, created_at: Math.floor(Date.now() / 1000), tags: [['e', postId], ['p', postPubkey], ['k', String(postKind || 1)]], content: '❤️' };
+        try {
+            const signed = await window._signNostrEvent(eventTemplate, currentUser.privateKey);
+            if (relayManager) relayManager.publish(signed);
+            window.showToast('❤️ Liked!', 'success');
+        } catch (e) { window.showToast('Like error: ' + e.message, 'error'); }
+    }
+
+    async function submitComment(parentPostId, content, parentPubkey, parentKind) {
+        if (!currentUser) { window.showToast('Please login first.', 'info'); if (typeof window.showLoginModal === 'function') window.showLoginModal(); return; }
+        const eventTemplate = { kind: 1, created_at: Math.floor(Date.now() / 1000), tags: [['e', parentPostId], ['p', parentPubkey], ['k', String(parentKind || 1)]], content: content.trim() };
+        try {
+            const signed = await window._signNostrEvent(eventTemplate, currentUser.privateKey);
+            if (relayManager) relayManager.publish(signed);
+            window.showToast('Comment posted!', 'success');
+            const post = feedPosts.find(p => p.id === parentPostId);
+            if (post) { commentCache.delete(parentPostId); loadComments(parentPostId); }
+        } catch (e) { window.showToast('Comment error: ' + e.message, 'error'); }
+    }
+
+    function initFeed() { console.log('📰 BCH Feed ready'); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFeed);
     else initFeed();
 })();
