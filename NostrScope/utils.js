@@ -170,13 +170,10 @@ function bytesToHex(bytes) {
   return h;
 }
 function ensureHexKey(key) {
-  // If key is already a valid 64-char hex string, return it.
   if (typeof key === "string" && /^[0-9a-fA-F]{64}$/.test(key)) return key;
-  // If key is an array of bytes (e.g., from legacy storage), convert to hex.
   if (Array.isArray(key) && key.length === 32) {
     return bytesToHex(key);
   }
-  // If key is an array-like string (comma separated numbers), parse and convert.
   if (typeof key === "string" && key.includes(",")) {
     const nums = key.split(",").map(Number);
     if (
@@ -186,7 +183,7 @@ function ensureHexKey(key) {
       return bytesToHex(nums);
     }
   }
-  return null; // Invalid
+  return null;
 }
 function getPrivateKeyVariants(privateKeyHex) {
   const hex = ensureHexKey(privateKeyHex);
@@ -271,7 +268,7 @@ window.getActiveRelays = () => [...activeRelays];
 window.setActiveRelays = saveActiveRelays;
 window.resetActiveRelays = resetActiveRelays;
 
-// ── Input Parser ──────────────────
+// ── Input Parser (now with naddr support) ──
 function parseInput(input) {
   const t = input.trim();
   if (!t) return { error: "Please enter an event or user identifier." };
@@ -306,8 +303,21 @@ function parseInput(input) {
       };
     return { error: "Invalid nprofile identifier." };
   }
+  // ── naddr1 (replaceable event coordinate) ──
+  if (t.startsWith("naddr1")) {
+    const r = decodeNaddr(t);
+    if (r && r.kind && r.pubkey && r.dTag)
+      return {
+        source: "naddr",
+        kind: r.kind,
+        pubkey: r.pubkey,
+        dTag: r.dTag,
+        relayHints: r.relayHints || [],
+      };
+    return { error: "Invalid naddr identifier." };
+  }
   const nostrUri = t.match(
-    /^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nprofile1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i,
+    /^nostr:(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|npub1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nprofile1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|naddr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)$/i,
   );
   if (nostrUri) return parseInput(nostrUri[1]);
   let m;
@@ -320,6 +330,11 @@ function parseInput(input) {
   );
   if (m) return parseInput(m[1]);
   m = t.match(/https?:\/\/bchnostr\.com\/note\/([0-9a-fA-F]{64})/i);
+  if (m) return parseInput(m[1]);
+  // BCHNostr blog URL with naddr
+  m = t.match(
+    /https?:\/\/bchnostr\.com\/blog\/(naddr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
+  );
   if (m) return parseInput(m[1]);
   m = t.match(
     /https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
@@ -338,7 +353,7 @@ function parseInput(input) {
   );
   if (m) return parseInput(m[1]);
   m = t.match(
-    /https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,})/i,
+    /https?:\/\/[^\s]*(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{40,}|naddr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
   );
   if (m) return parseInput(m[1]);
   m = t.match(/https?:\/\/[^\s]*\/([0-9a-fA-F]{64})(?:\/|\?|#|$)/i);
@@ -394,6 +409,34 @@ function decodeNevent1(s) {
     .filter((t) => t.type === 1 || t.type === 2)
     .map((t) => new TextDecoder().decode(new Uint8Array(t.value)));
   return { eventId: eid, relayHints: hints };
+}
+// New: decode naddr1 (replaceable event coordinate)
+function decodeNaddr(s) {
+  const d = bech32Decode(s);
+  if (!d || d.hrp !== "naddr" || d.bytes.length < 38) return null; // 38 = 32 (pubkey) + 2 (kind) + 1 (d-tag length) + ... minimum
+  const pubkey = bytesToHex(d.bytes.slice(0, 32));
+  const kind = (d.bytes[32] << 8) | d.bytes[33]; // big-endian 2-byte kind
+  const dTagLen = d.bytes[34]; // length of d-tag (max 128)
+  if (34 + dTagLen > d.bytes.length) return null; // safety check
+  const dTagBytes = d.bytes.slice(35, 35 + dTagLen);
+  const dTag = new TextDecoder().decode(new Uint8Array(dTagBytes));
+  // Parse remaining TLVs for relay hints (type 1 = relay)
+  let idx = 35 + dTagLen;
+  const hints = [];
+  while (idx + 2 <= d.bytes.length) {
+    const tlvType = d.bytes[idx];
+    const tlvLen = d.bytes[idx + 1];
+    idx += 2;
+    if (idx + tlvLen > d.bytes.length) break;
+    if (tlvType === 1) {
+      const relayUrl = new TextDecoder().decode(
+        new Uint8Array(d.bytes.slice(idx, idx + tlvLen)),
+      );
+      hints.push(relayUrl);
+    }
+    idx += tlvLen;
+  }
+  return { kind, pubkey, dTag, relayHints: hints };
 }
 
 // ── Toast / Loading ────────────────
@@ -1002,7 +1045,6 @@ class UserProfileInvestigator {
 
 // ── Login Persistence (improved) ──
 function saveLogin(privateKey) {
-  // Always store as clean hex string
   const hexKey =
     typeof privateKey === "string" ? privateKey : bytesToHex(privateKey);
   localStorage.setItem("nostrscope_privkey", hexKey);
