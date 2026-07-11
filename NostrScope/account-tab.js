@@ -47,8 +47,16 @@
         }
     }
 
-    // ── Render the full account modal with tabs ──
+    // ── Render the full account modal ──
     function renderAccountModal(notes, articles, media) {
+        // Use global modalContainer
+        const mc = window.modalContainer;
+        if (!mc) {
+            console.error('modalContainer not available');
+            window._safeToast('UI error. Please refresh.', 'error');
+            return;
+        }
+
         const cachedProfile = window._cachedProfile ? window._cachedProfile() : null;
         const profile = cachedProfile ? cachedProfile.profile || {} : {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
@@ -95,12 +103,12 @@
             <div id="accountTabMedia" style="display:none;">${renderEventList(media, 'Media')}</div>
         </div></div>`;
 
-        modalContainer.innerHTML = html;
+        mc.innerHTML = html;
 
         // Tab switching
-        modalContainer.querySelectorAll('.account-tab').forEach(btn => {
+        mc.querySelectorAll('.account-tab').forEach(btn => {
             btn.addEventListener('click', () => {
-                modalContainer.querySelectorAll('.account-tab').forEach(b => b.classList.remove('active'));
+                mc.querySelectorAll('.account-tab').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const tab = btn.dataset.tab;
                 ['profile', 'notes', 'articles', 'media'].forEach(t => {
