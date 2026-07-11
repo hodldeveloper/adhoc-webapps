@@ -47,9 +47,8 @@
         }
     }
 
-    // ── Render the full account modal ──
+    // ── Render the full account modal with enhanced tabs ──
     function renderAccountModal(notes, articles, media) {
-        // Use global modalContainer
         const mc = window.modalContainer;
         if (!mc) {
             console.error('modalContainer not available');
@@ -75,8 +74,9 @@
             bch_tip_wallet: profile.bch_tip_wallet || ''
         };
 
+        // ── Build modal HTML ──
         let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
-        <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:20px;max-width:500px;width:95%;max-height:85vh;overflow-y:auto;color:#e7e9ea;">
+        <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:20px;max-width:550px;width:95%;max-height:85vh;overflow-y:auto;color:#e7e9ea;">
             <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('accountModalBackdrop').remove();">✕</button>
             <h3>👤 My Account</h3>
             <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
@@ -87,13 +87,19 @@
             </div>
             <div id="accountTabProfile">
                 <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
-                <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
-        for (const [key, val] of Object.entries(fields)) {
-            html += `<label>${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
-        }
-        html += `<div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : 'none'}</div>
+                <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr><td style="padding:6px 0;color:#71767b;">Name</td><td style="color:#e7e9ea;">${escapeHtml(fields.name) || '—'}</td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">About</td><td style="color:#e7e9ea;max-width:300px;word-break:break-word;">${escapeHtml(fields.about) || '—'}</td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">Picture</td><td style="color:#e7e9ea;"><a href="${fields.picture}" target="_blank" style="color:#1d9bf0;">${fields.picture ? 'View' : '—'}</a></td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">Banner</td><td style="color:#e7e9ea;"><a href="${fields.banner}" target="_blank" style="color:#1d9bf0;">${fields.banner ? 'View' : '—'}</a></td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">NIP‑05</td><td style="color:#e7e9ea;">${escapeHtml(fields.nip05) || '—'}</td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">BCH Address</td><td style="color:#e7e9ea;">${escapeHtml(fields.bch_address) || '—'}</td></tr>
+                    <tr><td style="padding:6px 0;color:#71767b;">Tip Wallet</td><td style="color:#e7e9ea;">${escapeHtml(fields.bch_tip_wallet) || '—'}</td></tr>
+                </table>
+                <div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : 'none'}</div>
                 <div style="display:flex;gap:8px;margin-top:12px;">
-                    <button class="btn btn-primary" id="saveProfileBtn">💾 Save</button>
+                    <button class="btn btn-primary" id="editProfileBtn">✏️ Edit</button>
                     <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
                 </div>
                 <details style="margin-top:12px;"><summary>📄 Full JSON</summary><div class="json-viewer" style="max-height:200px;margin-top:8px;background:#000;padding:8px;border-radius:8px;font-size:0.75rem;">${syntaxHighlight(jsonStr)}</div></details>
@@ -118,14 +124,69 @@
             });
         });
 
-        // Save profile
-        document.getElementById('saveProfileBtn').addEventListener('click', () => {
+        // Edit profile button → open edit popup
+        document.getElementById('editProfileBtn').addEventListener('click', () => {
+            showEditProfilePopup(profile, badges, cachedProfile);
+        });
+
+        // Refresh button
+        document.getElementById('refreshProfileBtn').addEventListener('click', () => {
+            document.getElementById('accountModalBackdrop')?.remove();
+            loadAccountTabs();
+        });
+    }
+
+    // ── Profile edit popup ──
+    function showEditProfilePopup(profile, badges, cachedProfile) {
+        const mc = window.modalContainer;
+        const fields = {
+            name: profile.name || '',
+            about: profile.about || '',
+            picture: profile.picture || '',
+            banner: profile.banner || '',
+            nip05: profile.nip05 || '',
+            bch_address: profile.bch_address || '',
+            bch_tip_wallet: profile.bch_tip_wallet || ''
+        };
+
+        let formHtml = '<div class="modal-backdrop" id="editProfilePopupBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10001;">';
+        formHtml += '<div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:20px;max-width:400px;width:95%;max-height:80vh;overflow-y:auto;color:#e7e9ea;">';
+        formHtml += '<button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById(\'editProfilePopupBackdrop\').remove();">✕</button>';
+        formHtml += '<h3>✏️ Edit Profile</h3>';
+        for (const [key, val] of Object.entries(fields)) {
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            formHtml += `<label>${label}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
+        }
+        // Tags as JSON field
+        formHtml += `<label>Badges (JSON array):</label><br/><textarea id="edit_tags" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;height:60px;">${escapeHtml(JSON.stringify(badges, null, 2))}</textarea><br/>`;
+        formHtml += '<div style="display:flex;gap:8px;margin-top:12px;">';
+        formHtml += '<button class="btn btn-primary" id="saveEditProfileBtn">💾 Save</button>';
+        formHtml += '<button class="btn btn-outline" onclick="document.getElementById(\'editProfilePopupBackdrop\').remove();">Cancel</button>';
+        formHtml += '</div></div></div>';
+
+        // Append to modal container (could overlay, so just replace inner content temporarily)
+        // Since we have the main account modal already open, we'll append the popup after the existing content.
+        const currentContent = mc.innerHTML;
+        mc.innerHTML += formHtml;
+
+        document.getElementById('saveEditProfileBtn').addEventListener('click', () => {
             const newProfile = {};
             for (const key of Object.keys(fields)) {
                 const val = document.getElementById('edit_' + key)?.value?.trim();
                 if (val) newProfile[key] = val;
             }
-            if (badges.length) newProfile.tags = badges;
+            // Parse badges JSON
+            let newBadges = [];
+            try {
+                const tagsStr = document.getElementById('edit_tags')?.value?.trim() || '[]';
+                newBadges = JSON.parse(tagsStr);
+                if (!Array.isArray(newBadges)) newBadges = [];
+            } catch (e) {
+                window._safeToast('Invalid JSON for badges.', 'error');
+                return;
+            }
+            if (newBadges.length) newProfile.tags = newBadges;
+
             const event = { kind: 0, created_at: Math.floor(Date.now() / 1000), tags: [], content: JSON.stringify(newProfile) };
             if (typeof window._signNostrEvent !== 'function') { window._safeToast('Signing not available.', 'error'); return; }
             window._signNostrEvent(event, currentUser.privateKey).then(signed => {
@@ -133,31 +194,46 @@
                 if (window._setCachedProfile) window._setCachedProfile({ ...cachedProfile, profile: newProfile });
                 try { localStorage.setItem('nostrscope_profile', JSON.stringify(newProfile)); } catch (e) {}
                 window._safeToast('Profile updated!', 'success');
+                // Remove popup and refresh main modal
+                document.getElementById('editProfilePopupBackdrop')?.remove();
+                document.getElementById('accountModalBackdrop')?.remove();
+                loadAccountTabs();
             }).catch(e => window._safeToast('Error: ' + e.message, 'error'));
-        });
-
-        // Refresh
-        document.getElementById('refreshProfileBtn').addEventListener('click', () => {
-            document.getElementById('accountModalBackdrop')?.remove();
-            loadAccountTabs();
         });
     }
 
-    // ── Render a list of events ──
+    // ── Render a list of events with rich content ──
     function renderEventList(events, title) {
-        if (!events.length) return `<p>No ${title.toLowerCase()} found.</p>`;
+        if (!events.length) return `<p style="color:#71767b;">No ${title.toLowerCase()} found.</p>`;
         return events.map(e => {
             const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
             const time = new Date((e.created_at || 0) * 1000).toLocaleString();
+            // Use renderMediaFromContent for full rendering
+            const { text, media } = renderMediaFromContent(e.content);
             const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn())
                 ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀 Boost</button>`
                 : '';
-            return `<div style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:10px;margin:8px 0;">
+            // For articles, try to show title/summary/image if possible
+            let articlePreview = '';
+            if (e.kind === 30023) {
+                try {
+                    const article = JSON.parse(e.content);
+                    const title = article.title || 'Untitled';
+                    const summary = article.summary || (article.content || '').substring(0, 150) + '...';
+                    const image = article.image || '';
+                    articlePreview = `<div style="margin-top:4px;"><strong>${escapeHtml(title)}</strong></div>
+                        ${image ? `<img src="${image}" style="max-width:100%;max-height:120px;border-radius:6px;margin:4px 0;">` : ''}
+                        <div style="font-size:0.8rem;color:#b0b3b8;">${escapeHtml(summary)}</div>`;
+                } catch (ex) {}
+            }
+            return `<div style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:12px;margin:8px 0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="badge badge-purple">${kindName}</span>
                     <span style="font-size:0.7rem;color:#71767b;">${time}</span>
                 </div>
-                <div style="margin-top:6px;font-size:0.85rem;">${escapeHtml((e.content || '').substring(0, 200))}</div>
+                ${articlePreview}
+                <div style="margin-top:6px;font-size:0.85rem;white-space:pre-wrap;word-break:break-word;">${text || '<span style="color:#71767b;">(no text)</span>'}</div>
+                ${media ? `<div style="margin-top:6px;">${media}</div>` : ''}
                 <div style="margin-top:8px;display:flex;gap:6px;">
                     ${boostBtn}
                     <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>
