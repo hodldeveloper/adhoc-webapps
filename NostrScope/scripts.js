@@ -496,7 +496,8 @@
                 '#d': [parsed.dTag],
                 limit: 1
             };
-            const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
+            //const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
+            const allUrls = [...new Set([CONFIG.primaryRelay, ...activeRelays, ...(parsed.relayHints || []), ...(CONFIG.analysisRelayHints || [])])];
             const tempRm = new RelayManager(allUrls);
             window._relayManager = tempRm;
             const tempInvestigator = new EventInvestigator(tempRm);
