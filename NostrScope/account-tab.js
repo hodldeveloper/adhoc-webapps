@@ -36,7 +36,7 @@
             renderAccountModal(notes, articles, media);
         } catch (e) {
             console.error(e);
-            safeToast('Failed to load content.', 'error');
+            if (window._safeToast) window._safeToast('Failed to load content.', 'error');
         } finally {
             hideLoading();
         }
@@ -45,6 +45,7 @@
     // ── Render the full account modal ──
     function renderAccountModal(notes, articles, media) {
         console.log('🎨 Rendering account modal');
+        const cachedProfile = window._cachedProfile ? window._cachedProfile() : null;
         const profile = cachedProfile ? cachedProfile.profile || {} : {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
         if (cachedProfile && cachedProfile.profileEvent && cachedProfile.profileEvent.tags) {
@@ -118,10 +119,10 @@
             if (typeof window._signNostrEvent !== 'function') { safeToast('Signing not available.', 'error'); return; }
             window._signNostrEvent(event, currentUser.privateKey).then(signed => {
                 if (relayManager) relayManager.publish(signed);
-                cachedProfile = { ...cachedProfile, profile: newProfile };
+                if (window._setCachedProfile) window._setCachedProfile({ ...cachedProfile, profile: newProfile });
                 try { localStorage.setItem('nostrscope_profile', JSON.stringify(newProfile)); } catch (e) {}
-                safeToast('Profile updated!', 'success');
-            }).catch(e => safeToast('Error: ' + e.message, 'error'));
+                if (window._safeToast) window._safeToast('Profile updated!', 'success');
+            }).catch(e => { if (window._safeToast) window._safeToast('Error: ' + e.message, 'error'); });
         });
 
         // Refresh
@@ -131,7 +132,7 @@
         });
     }
 
-    // ── Render a list of events (notes/articles/media) ──
+    // ── Render a list of events ──
     function renderEventList(events, title) {
         if (!events.length) return `<p>No ${title.toLowerCase()} found.</p>`;
         return events.map(e => {
@@ -159,7 +160,7 @@
         console.log('🌟 window.showAccountModal called');
         if (!currentUser) {
             console.warn('⛔ Not logged in');
-            safeToast('Please log in first.', 'info');
+            if (window._safeToast) window._safeToast('Please log in first.', 'info');
             return;
         }
         loadAccountTabs();
