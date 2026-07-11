@@ -156,28 +156,18 @@
         if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
     }
 
-    // ── Profile Screen (simplified) ──
+    // ── Profile Screen ──
     async function renderMyProfile() {
         if (!profileContent) return;
-
-
-        if (currentUser) {
-            if (typeof window.showAccountModal === 'function') {
-                window.showAccountModal();
-            } else {
-                // fallback
-                profileContent.innerHTML = '<p style="padding:20px;">Loading account…</p>';
-            }
-        }    
-
-        
-        // Use cachedProfile if available, otherwise show loading
+        if (!currentUser) {
+            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p>You are not logged in.</p><button class="btn btn-primary" onclick="window.showLoginModal();">🔑 Login</button></div>`;
+            return;
+        }
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
             if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
             if (!cachedProfile) {
                 profileContent.innerHTML = '<p style="padding:20px;color:var(--text2);">Loading profile…</p>';
-                // Fetch in background then re-render
                 try {
                     const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
                     await upi.investigate(currentUser.publicKey, [], { silent: true });
@@ -501,6 +491,11 @@
         switchScreen('feed');
         console.log('✅ NostrScope ready (slim)');
     }
+
+    // Expose for other modules
+    window._cachedProfile = () => cachedProfile;
+    window._setCachedProfile = (cp) => { cachedProfile = cp; };
+    window._safeToast = safeToast;
 
     window.processNsecLogin = window.processNsecLogin;
     window.showLoginModal = showLoginModal;
