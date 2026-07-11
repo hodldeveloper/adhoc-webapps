@@ -25,6 +25,25 @@
 
     function isLoggedIn() { return currentUser !== null; }
 
+    // ── Safe toast function (with fallback) ──
+    function safeToast(msg, type = 'info') {
+        try {
+            if (typeof window.showToast === 'function') {
+                window.showToast(msg, type);
+            } else if (toastContainer) {
+                const t = document.createElement('div');
+                t.className = `toast toast-${type}`;
+                t.textContent = msg;
+                toastContainer.appendChild(t);
+                setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+            } else {
+                console.log(`[Toast] ${type}: ${msg}`);
+            }
+        } catch (e) {
+            console.log(`[Toast fallback] ${msg}`);
+        }
+    }
+
     // ── Screen switching ──
     window.switchScreen = function(screenName) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -62,14 +81,18 @@
 
     // ── UI Updates ──
     function updateUserUI() {
-        if (currentUser) {
-            window._currentUser = currentUser;
-            if (feedLoginBtn) feedLoginBtn.style.display = 'none';
-            if (feedAccountBtn) feedAccountBtn.style.display = 'inline-block';
-        } else {
-            window._currentUser = null;
-            if (feedLoginBtn) feedLoginBtn.style.display = 'inline-block';
-            if (feedAccountBtn) feedAccountBtn.style.display = 'none';
+        try {
+            if (currentUser) {
+                window._currentUser = currentUser;
+                if (feedLoginBtn) feedLoginBtn.style.display = 'none';
+                if (feedAccountBtn) feedAccountBtn.style.display = 'inline-block';
+            } else {
+                window._currentUser = null;
+                if (feedLoginBtn) feedLoginBtn.style.display = 'inline-block';
+                if (feedAccountBtn) feedAccountBtn.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('updateUserUI error:', e);
         }
     }
 
@@ -79,29 +102,26 @@
             const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
             await upi.investigate(currentUser.publicKey, [], { silent: true });
             cachedProfile = { profile: upi.profile || {}, profileEvent: upi.profileEvent };
-            if (cachedProfile.profile) localStorage.setItem('nostrscope_profile', JSON.stringify(cachedProfile.profile));
-        } catch (e) { 
-            console.error('Profile fetch error:', e);
-            // Don't block - profile fetch is optional
+            if (cachedProfile.profile) {
+                try { localStorage.setItem('nostrscope_profile', JSON.stringify(cachedProfile.profile)); } catch (e) {}
+            }
+        } catch (e) {
+            console.error('Profile fetch error (non-blocking):', e);
         }
     }
 
     // ── Login Modal ──
     function showLoginModal() {
         console.log('🔐 Opening login modal...');
-        
         if (typeof NostrTools === 'undefined') {
-            console.error('NostrTools not loaded');
-            showToast('Nostr tools not loaded. Please refresh the page.', 'error');
+            alert('Nostr tools not loaded. Please refresh the page.');
             return;
         }
-        
-        // Clear any existing modal
         if (modalContainer) modalContainer.innerHTML = '';
         
         const modalHTML = `
-            <div class="modal-backdrop" id="loginModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:1000;">
-                <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto;color:#e7e9ea;">
+            <div class="modal-backdrop" id="loginModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
+                <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;color:#e7e9ea;">
                     <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('loginModalBackdrop').remove();">✕</button>
                     <h3 style="margin-bottom:16px;">🔐 Login with nsec</h3>
                     <div style="color:#f4212e;font-size:0.75rem;margin-bottom:12px;">⚠️ Your private key never leaves this browser.</div>
@@ -112,7 +132,6 @@
                     </div>
                 </div>
             </div>`;
-        
         modalContainer.innerHTML = modalHTML;
         
         const backdrop = document.getElementById('loginModalBackdrop');
@@ -125,38 +144,29 @@
             return;
         }
         
-        cancelBtn.addEventListener('click', () => {
-            console.log('Login cancelled');
-            backdrop.remove();
-        });
-        
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) {
-                backdrop.remove();
-            }
-        });
+        cancelBtn.addEventListener('click', () => { backdrop.remove(); });
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.remove(); });
         
         confirmBtn.addEventListener('click', async () => {
             const nsec = nsecInput.value.trim();
             console.log('Login attempt with nsec length:', nsec.length);
             
             if (!nsec) {
-                showToast('Please enter your nsec key.', 'error');
+                safeToast('Please enter your nsec key.', 'error');
                 return;
             }
             
             let privateKey;
-            
             try {
                 const { type, data } = NostrTools.nip19.decode(nsec);
                 if (type !== 'nsec') throw new Error('Not an nsec');
                 privateKey = typeof data === 'string' ? data : bytesToHex(data);
-                console.log('Decoded via nip19');
+                console.log('Decoded via nip19, privateKey length:', privateKey.length);
             } catch (nip19Error) {
                 console.warn('nip19 decode failed, trying manual bech32');
                 const decoded = bech32Decode(nsec);
                 if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) {
-                    showToast('Invalid nsec format. Please check your key.', 'error');
+                    safeToast('Invalid nsec format. Please check your key.', 'error');
                     return;
                 }
                 privateKey = bytesToHex(decoded.bytes);
@@ -164,74 +174,81 @@
             }
             
             if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
-                showToast('Invalid private key format.', 'error');
+                safeToast('Invalid private key format.', 'error');
                 return;
             }
             
+            console.log('Deriving public key...');
             let publicKey;
             try {
                 publicKey = NostrTools.getPublicKey(privateKey);
+                console.log('Public key derived:', publicKey.substring(0,12)+'...');
                 if (!isValidHex64(publicKey)) throw new Error('Invalid public key');
             } catch (e) {
-                showToast('Unable to derive public key. Check your nsec.', 'error');
+                console.error('Public key derivation error:', e);
+                safeToast('Unable to derive public key. Check your nsec.', 'error');
                 return;
             }
             
-            // Success - set user
+            // ── Success – set user ──
+            console.log('Setting currentUser...');
             currentUser = { privateKey, publicKey };
-            saveLogin(privateKey);
+            try {
+                saveLogin(privateKey);
+                console.log('Login saved to localStorage');
+            } catch (e) {
+                console.error('saveLogin error:', e);
+            }
+            
+            // Update UI (safe)
             updateUserUI();
             
             // Load cached profile if available
-            const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) {
-                try { 
-                    cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; 
-                } catch (e) {
-                    cachedProfile = null;
+            try {
+                const cached = localStorage.getItem('nostrscope_profile');
+                if (cached) {
+                    try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {}
                 }
-            }
+            } catch (e) {}
             
             const npub = npubFromHex(publicKey);
-            showToast('✅ Logged in as ' + npub.substring(0, 12) + '...', 'success');
-            console.log('✅ Login successful');
+            console.log('Login success, npub:', npub.substring(0,12)+'...');
+            safeToast('✅ Logged in as ' + npub.substring(0,12) + '...', 'success');
             
             // Close modal
             backdrop.remove();
             
-            // Update UI
-            renderMyProfile();
+            // Update profile screen
+            try { renderMyProfile(); } catch (e) {}
             
-            // Try to fetch profile in background (don't block)
-            setTimeout(() => fetchAndCacheProfile(), 500);
+            // Fetch fresh profile in background (non-blocking)
+            setTimeout(() => { fetchAndCacheProfile().catch(() => {}); }, 500);
             
             // Refresh feed to show boost buttons
             if (feedScreen && feedScreen.classList.contains('active') && typeof loadFeed === 'function') {
-                setTimeout(() => loadFeed(), 300);
+                setTimeout(() => { try { loadFeed(); } catch (e) {} }, 300);
             }
+            
+            console.log('✅ Login flow complete');
         });
         
-        // Focus the input field
-        setTimeout(() => {
-            if (nsecInput) nsecInput.focus();
-        }, 200);
-        
+        setTimeout(() => { if (nsecInput) nsecInput.focus(); }, 200);
         console.log('✅ Login modal displayed');
     }
 
     function logout() {
         currentUser = null;
-        clearLogin();
+        try { clearLogin(); } catch (e) {}
         updateUserUI();
         cachedProfile = null;
-        renderMyProfile();
-        showToast('Logged out.', 'info');
+        try { renderMyProfile(); } catch (e) {}
+        safeToast('Logged out.', 'info');
         if (feedScreen && feedScreen.classList.contains('active') && typeof loadFeed === 'function') {
             loadFeed();
         }
     }
 
-    // ── Account Modal ──
+    // ── Account Modal (unchanged, just uses safeToast) ──
     function showAccountModal(forceRefresh) {
         if (!currentUser) return;
         if (forceRefresh || !cachedProfile) {
@@ -251,29 +268,16 @@
             badges = [...new Set([...badges, ...tTags])];
         }
         const jsonStr = JSON.stringify(profile, null, 2);
-        const fields = {
-            name: profile.name || '',
-            about: profile.about || '',
-            picture: profile.picture || '',
-            banner: profile.banner || '',
-            nip05: profile.nip05 || '',
-            bch_address: profile.bch_address || '',
-            bch_tip_wallet: profile.bch_tip_wallet || ''
-        };
-        
-        let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:1000;">
-        <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto;color:#e7e9ea;">
+        const fields = { name: profile.name||'', about: profile.about||'', picture: profile.picture||'', banner: profile.banner||'', nip05: profile.nip05||'', bch_address: profile.bch_address||'', bch_tip_wallet: profile.bch_tip_wallet||'' };
+        let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
+        <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;color:#e7e9ea;">
             <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('accountModalBackdrop').remove();">✕</button>
             <h3>👤 My Account</h3>
             <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
             <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
-        
-        for (const [key, val] of Object.entries(fields)) {
-            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            html += `<label>${label}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
-        }
-        
-        html += `<div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length > 0 ? badges.map(t => `<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:var(--text2);">none</span>'}</div>
+        for (const [key,val] of Object.entries(fields))
+            html += `<label>${key.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
+        html += `<div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length?badges.map(t=>`<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' '):'<span style="color:#71767b;">none</span>'}</div>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary" id="saveProfileBtn" style="padding:10px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Save</button>
             <button class="btn btn-outline" id="refreshProfileBtn" style="padding:10px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">🔄 Refresh</button>
@@ -281,28 +285,25 @@
         <details style="margin-top:12px;"><summary style="cursor:pointer;color:#1d9bf0;">📄 Full JSON</summary>
         <div class="json-viewer" style="max-height:200px;margin-top:8px;background:#000;padding:8px;border-radius:8px;font-size:0.75rem;">${syntaxHighlight(jsonStr)}</div></details>
         </div></div>`;
-        
         modalContainer.innerHTML = html;
-        
         document.getElementById('saveProfileBtn').addEventListener('click', () => {
             const newProfile = {};
             for (const key of Object.keys(fields)) {
-                const val = document.getElementById('edit_' + key)?.value?.trim();
+                const val = document.getElementById('edit_'+key)?.value?.trim();
                 if (val) newProfile[key] = val;
             }
-            if (badges.length > 0) newProfile.tags = badges;
-            const event = { kind: 0, created_at: Math.floor(Date.now()/1000), tags: [], content: JSON.stringify(newProfile) };
-            if (typeof window._signNostrEvent !== 'function') { showToast('Signing not available.', 'error'); return; }
-            window._signNostrEvent(event, currentUser.privateKey).then(signed => {
-                if (relayManager) relayManager.publish(signed);
-                cachedProfile = { profile: newProfile, profileEvent: null };
-                localStorage.setItem('nostrscope_profile', JSON.stringify(newProfile));
-                showToast('Profile updated!', 'success');
+            if (badges.length) newProfile.tags = badges;
+            const event = { kind:0, created_at:Math.floor(Date.now()/1000), tags:[], content:JSON.stringify(newProfile) };
+            if (typeof window._signNostrEvent!=='function') { safeToast('Signing not available.','error'); return; }
+            window._signNostrEvent(event,currentUser.privateKey).then(signed=>{
+                if(relayManager) relayManager.publish(signed);
+                cachedProfile = { profile:newProfile, profileEvent:null };
+                try { localStorage.setItem('nostrscope_profile',JSON.stringify(newProfile)); } catch(e) {}
+                safeToast('Profile updated!','success');
                 document.getElementById('accountModalBackdrop')?.remove();
-            }).catch(e => showToast('Error: ' + e.message, 'error'));
+            }).catch(e=>safeToast('Error: '+e.message,'error'));
         });
-        
-        document.getElementById('refreshProfileBtn').addEventListener('click', () => {
+        document.getElementById('refreshProfileBtn').addEventListener('click',()=>{
             document.getElementById('accountModalBackdrop')?.remove();
             showAccountModal(true);
         });
@@ -321,7 +322,7 @@
         }
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) { cachedProfile = null; } }
+            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
             if (!cachedProfile) {
                 profileContent.innerHTML = '<p style="padding:20px;color:#71767b;">Loading profile…</p>';
                 fetchAndCacheProfile().then(renderMyProfile);
@@ -354,74 +355,35 @@
         document.getElementById('logoutProfileBtn')?.addEventListener('click', logout);
     }
 
-    // ── Event listeners ──
+    // ── Event binding ──
     function bindEvents() {
-        console.log('Binding events...');
-        
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', () => runAnalysis());
-        }
-        
-        if (searchInput) {
-            searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
-        }
-        
-        if (analysisBackBtn) {
-            analysisBackBtn.addEventListener('click', () => switchScreen('feed'));
-        }
-        
-        if (refreshFeedBtn) {
-            refreshFeedBtn.addEventListener('click', () => { if (typeof refreshNewPosts === 'function') refreshNewPosts(); });
-        }
-        
+        if (analyzeBtn) analyzeBtn.addEventListener('click', () => runAnalysis());
+        if (searchInput) searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+        if (analysisBackBtn) analysisBackBtn.addEventListener('click', () => switchScreen('feed'));
+        if (refreshFeedBtn) refreshFeedBtn.addEventListener('click', () => { if (typeof refreshNewPosts === 'function') refreshNewPosts(); });
         if (feedLoginBtn) {
-            feedLoginBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showLoginModal();
-            });
+            feedLoginBtn.addEventListener('click', (e) => { e.preventDefault(); showLoginModal(); });
             feedLoginBtn.onclick = () => { showLoginModal(); return false; };
         }
-        
-        if (feedAccountBtn) {
-            feedAccountBtn.addEventListener('click', () => showAccountModal());
-        }
+        if (feedAccountBtn) feedAccountBtn.addEventListener('click', () => showAccountModal());
     }
 
     // ── Init ──
     function initApp() {
         console.log('🚀 Initializing NostrScope...');
-        
-        if (typeof NostrTools === 'undefined') {
-            setTimeout(initApp, 500);
-            return;
-        }
-        
-        // Restore session
-        if (loadLogin()) {
-            updateUserUI();
-            const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) { cachedProfile = null; } }
-        }
-        
-        if (CONFIG && CONFIG.relays) {
-            CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
-        }
-        
+        if (typeof NostrTools === 'undefined') { setTimeout(initApp, 500); return; }
+        if (loadLogin()) { updateUserUI(); const cached = localStorage.getItem('nostrscope_profile'); if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} } }
+        if (CONFIG && CONFIG.relays) CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
         bindEvents();
         switchScreen('feed');
-        
         console.log('✅ NostrScope ready');
     }
 
-    // Expose functions globally
     window.showLoginModal = showLoginModal;
     window.showAccountModal = showAccountModal;
     window.isLoggedIn = isLoggedIn;
     window.logout = logout;
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initApp);
-    } else {
-        initApp();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
+    else initApp();
 })();
