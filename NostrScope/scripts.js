@@ -17,10 +17,12 @@
     const feedAccountBtn = document.getElementById('feedAccountBtn');
     const profileContent = document.getElementById('profileContent');
 
+    // ── State ──
     let currentUser = null;
-    let cachedProfile = null;
-    const profileCache = new Map();
-    const pendingFetches = new Map();
+    let cachedProfile = null;               // { profile, profileEvent }
+    const profileCache = new Map();          // pubkey -> { name, picture }
+    const pendingFetches = new Map();        // pubkey -> Promise
+    let newPostCount = 0;                   // for “New posts” indicator
 
     function isLoggedIn() { return currentUser !== null; }
 
@@ -47,6 +49,7 @@
         if (screenName === 'profile') renderMyProfile();
     };
 
+    // ── Extended profile cache (name + picture) ──
     window.quickFetchProfile = function(pubkey) {
         if (profileCache.has(pubkey)) return Promise.resolve(profileCache.get(pubkey));
         if (pendingFetches.has(pubkey)) return pendingFetches.get(pubkey);
@@ -56,18 +59,25 @@
             let resolved = false;
             rm.connectAll(4000).then(() => {
                 const subId = rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
-                const timeout = setTimeout(() => { if (!resolved) { resolved = true; rm.closeAll(); resolve(null); } }, CONFIG.quickProfileTimeout);
+                const timeout = setTimeout(() => { if (!resolved) { resolved = true; rm.closeAll(); resolve({ name: null, picture: null }); } }, CONFIG.quickProfileTimeout);
                 rm.onEvent = (ev) => {
                     if (ev.pubkey === pubkey && ev.kind === 0) {
                         clearTimeout(timeout);
-                        if (!resolved) { resolved = true; rm.closeAll(); try { const p = JSON.parse(ev.content); resolve(p.name || p.display_name || null); } catch (e) { resolve(null); } }
+                        if (!resolved) {
+                            resolved = true;
+                            rm.closeAll();
+                            try {
+                                const p = JSON.parse(ev.content);
+                                resolve({ name: p.name || p.display_name || null, picture: p.picture || null });
+                            } catch (e) { resolve({ name: null, picture: null }); }
+                        }
                     }
                 };
-                rm.onEOSE = () => { if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve(null); } };
-            }).catch(() => { if (!resolved) { resolved = true; resolve(null); } });
+                rm.onEOSE = () => { if (!resolved) { clearTimeout(timeout); resolved = true; rm.closeAll(); resolve({ name: null, picture: null }); } };
+            }).catch(() => { if (!resolved) { resolved = true; resolve({ name: null, picture: null }); } });
         });
         pendingFetches.set(pubkey, promise);
-        promise.then(name => { profileCache.set(pubkey, name); pendingFetches.delete(pubkey); });
+        promise.then(data => { profileCache.set(pubkey, data); pendingFetches.delete(pubkey); });
         return promise;
     };
 
@@ -90,87 +100,76 @@
         try {
             const upi = new UserProfileInvestigator(new RelayManager(activeRelays));
             await upi.investigate(currentUser.publicKey, [], { silent: true });
-            cachedProfile = { profile: upi.profile || {}, profileEvent: upi.profileEvent };
+            cachedProfile = { profile: upi.profile || {}, profileEvent: upi.profileEvent, otherEvents: upi.otherEvents };
             if (cachedProfile.profile) {
                 try { localStorage.setItem('nostrscope_profile', JSON.stringify(cachedProfile.profile)); } catch (e) {}
+            }
+            if (cachedProfile.otherEvents) {
+                try { localStorage.setItem('nostrscope_otherevents', JSON.stringify(cachedProfile.otherEvents)); } catch (e) {}
             }
         } catch (e) { console.error('Profile fetch error:', e); }
     }
 
-    // ── Global login handler ──
+    // ── Login ──
     window.processNsecLogin = function() {
-        console.log('🟢 processNsecLogin CALLED');
         const nsecInput = document.getElementById('nsecInput');
-        if (!nsecInput) { safeToast('Internal error. Please refresh.', 'error'); return; }
+        if (!nsecInput) { safeToast('Internal error.', 'error'); return; }
         const nsec = nsecInput.value.trim();
         if (!nsec) { safeToast('Please enter your nsec key.', 'error'); return; }
-
         let privateKey;
         try {
             const { type, data } = NostrTools.nip19.decode(nsec);
             if (type !== 'nsec') throw new Error('Not an nsec');
-            privateKey = data;
-            if (privateKey instanceof Uint8Array) privateKey = bytesToHex(privateKey);
+            privateKey = typeof data === 'string' ? data : bytesToHex(data);
         } catch (nip19Error) {
             const decoded = bech32Decode(nsec);
             if (!decoded || decoded.hrp !== 'nsec' || decoded.bytes.length !== 32) { safeToast('Invalid nsec format.', 'error'); return; }
             privateKey = bytesToHex(decoded.bytes);
         }
-
         if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) { safeToast('Invalid private key.', 'error'); return; }
-
         let publicKey;
         try {
             publicKey = NostrTools.getPublicKey(privateKey);
         } catch (e1) {
             try {
-                const keyArray = new Uint8Array(hexToBytes(privateKey));
-                publicKey = NostrTools.getPublicKey(keyArray);
+                publicKey = NostrTools.getPublicKey(new Uint8Array(hexToBytes(privateKey)));
             } catch (e2) {
-                safeToast('Cannot derive public key: ' + (e2.message || e1.message), 'error');
-                return;
+                safeToast('Cannot derive public key.', 'error'); return;
             }
         }
-
         if (!publicKey || !isValidHex64(publicKey)) { safeToast('Invalid public key.', 'error'); return; }
-
         currentUser = { privateKey, publicKey };
         try { saveLogin(privateKey); } catch (e) {}
         updateUserUI();
-
-        const cached = localStorage.getItem('nostrscope_profile');
-        if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) { cachedProfile = null; } }
-
+        const cachedProfileData = localStorage.getItem('nostrscope_profile');
+        const cachedOtherEvents = localStorage.getItem('nostrscope_otherevents');
+        if (cachedProfileData) {
+            try { cachedProfile = { profile: JSON.parse(cachedProfileData), profileEvent: null, otherEvents: cachedOtherEvents ? JSON.parse(cachedOtherEvents) : [] }; } catch (e) { cachedProfile = null; }
+        }
+        if (!cachedProfile) fetchAndCacheProfile();
         safeToast('✅ Logged in as ' + npubFromHex(publicKey).substring(0,12) + '...', 'success');
-        console.log('🎉 LOGIN SUCCESS');
-
         const backdrop = document.getElementById('loginModalBackdrop');
         if (backdrop) backdrop.remove();
-
         renderMyProfile();
-        setTimeout(() => { fetchAndCacheProfile().catch(() => {}); }, 500);
-        if (feedScreen && feedScreen.classList.contains('active') && typeof loadFeed === 'function') {
-            setTimeout(() => { try { loadFeed(); } catch (e) {} }, 300);
-        }
+        if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') setTimeout(() => loadFeed(), 300);
     };
 
     function showLoginModal() {
         if (typeof NostrTools === 'undefined') { safeToast('Nostr tools not loaded.', 'error'); return; }
         if (modalContainer) modalContainer.innerHTML = '';
-        const modalHTML = `
+        modalContainer.innerHTML = `
             <div class="modal-backdrop" id="loginModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
                 <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;color:#e7e9ea;">
                     <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('loginModalBackdrop').remove();">✕</button>
-                    <h3 style="margin-bottom:16px;">🔐 Login with nsec</h3>
+                    <h3>🔐 Login with nsec</h3>
                     <div style="color:#f4212e;font-size:0.75rem;margin-bottom:12px;">⚠️ Your private key never leaves this browser.</div>
                     <input type="password" id="nsecInput" placeholder="nsec1..." autocomplete="off" style="width:100%;padding:12px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-size:0.9rem;margin-bottom:16px;">
                     <div style="display:flex;gap:12px;">
-                        <button class="btn btn-primary" id="loginConfirmBtn" style="flex:1;padding:10px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.processNsecLogin();">Login</button>
-                        <button class="btn btn-outline" id="loginCancelBtn" style="flex:1;padding:10px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;" onclick="document.getElementById('loginModalBackdrop').remove();">Cancel</button>
+                        <button class="btn btn-primary" style="flex:1;padding:10px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.processNsecLogin();">Login</button>
+                        <button class="btn btn-outline" style="flex:1;padding:10px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;" onclick="document.getElementById('loginModalBackdrop').remove();">Cancel</button>
                     </div>
                 </div>
             </div>`;
-        modalContainer.innerHTML = modalHTML;
         setTimeout(() => { const inp = document.getElementById('nsecInput'); if (inp) inp.focus(); }, 200);
     }
 
@@ -181,20 +180,20 @@
         cachedProfile = null;
         try { renderMyProfile(); } catch (e) {}
         safeToast('Logged out.', 'info');
-        if (feedScreen && feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
+        if (feedScreen.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
     }
 
     // ── Profile Screen ──
     function renderMyProfile() {
         if (!profileContent) return;
         if (!currentUser) {
-            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p style="margin-bottom:12px;color:#71767b;">You are not logged in.</p><button class="btn btn-primary" style="padding:10px 20px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.showLoginModal();">🔑 Login</button></div>`;
+            profileContent.innerHTML = `<div style="padding:20px;text-align:center;"><p>You are not logged in.</p><button class="btn btn-primary" onclick="window.showLoginModal();">🔑 Login</button></div>`;
             return;
         }
         if (!cachedProfile) {
             const cached = localStorage.getItem('nostrscope_profile');
-            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} }
-            if (!cachedProfile) { profileContent.innerHTML = '<p style="padding:20px;color:#71767b;">Loading profile…</p>'; fetchAndCacheProfile().then(renderMyProfile); return; }
+            if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null, otherEvents: JSON.parse(localStorage.getItem('nostrscope_otherevents')||'[]') }; } catch (e) {} }
+            if (!cachedProfile) { profileContent.innerHTML = '<p style="padding:20px;">Loading profile…</p>'; fetchAndCacheProfile().then(renderMyProfile); return; }
         }
         const profile = cachedProfile.profile || {};
         const name = profile.name || ''; const about = profile.about || ''; const picture = profile.picture || '';
@@ -203,47 +202,128 @@
         <div style="padding:20px;">
             <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
                 <div style="width:60px;height:60px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;overflow:hidden;">${picture ? `<img src="${picture}" style="width:100%;height:100%;object-fit:cover;">` : '👤'}</div>
-                <div><h3 style="font-size:1.2rem;margin:0;color:#e7e9ea;">${escapeHtml(name || 'Unnamed')}</h3><p style="color:#71767b;font-size:0.8rem;margin:4px 0 0 0;">@${npub.substring(0,12)}...</p></div>
+                <div><h3>${escapeHtml(name || 'Unnamed')}</h3><p style="color:#71767b;font-size:0.8rem;">@${npub.substring(0,12)}...</p></div>
             </div>
-            ${about ? `<p style="margin-bottom:16px;color:#e7e9ea;">${escapeHtml(about)}</p>` : ''}
+            ${about ? `<p style="margin-bottom:16px;">${escapeHtml(about)}</p>` : ''}
             <div style="display:flex;gap:8px;">
-                <button class="btn" id="editProfileBtn" style="padding:8px 16px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">Edit Profile</button>
-                <button class="btn" id="logoutProfileBtn" style="padding:8px 16px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">Logout</button>
+                <button class="btn" id="editProfileBtn">Edit Profile</button>
+                <button class="btn" id="logoutProfileBtn">Logout</button>
             </div>
         </div>`;
         document.getElementById('editProfileBtn')?.addEventListener('click', () => showAccountModal());
         document.getElementById('logoutProfileBtn')?.addEventListener('click', logout);
     }
 
-    // ── Account Modal ──
+    // ── Account Modal (tabbed) ──
     function showAccountModal(forceRefresh) {
         if (!currentUser) return;
-        if (forceRefresh || !cachedProfile) { fetchAndCacheProfile().then(() => { if (cachedProfile) renderAccountModal(cachedProfile.profile, cachedProfile.profileEvent); }); }
-        else { renderAccountModal(cachedProfile.profile, cachedProfile.profileEvent); }
+        if (forceRefresh || !cachedProfile) {
+            fetchAndCacheProfile().then(() => { if (cachedProfile) renderAccountModal(cachedProfile.profile, cachedProfile.profileEvent, cachedProfile.otherEvents); });
+        } else {
+            renderAccountModal(cachedProfile.profile, cachedProfile.profileEvent, cachedProfile.otherEvents);
+        }
     }
 
-    function renderAccountModal(profile, profileEvent) {
+    function renderAccountModal(profile, profileEvent, otherEvents = []) {
         profile = profile || {};
         let badges = (profile.tags && Array.isArray(profile.tags)) ? [...profile.tags] : [];
         if (profileEvent && profileEvent.tags) { const tTags = profileEvent.tags.filter(t => t[0] === 't' && t[1]).map(t => t[1]); badges = [...new Set([...badges, ...tTags])]; }
         const jsonStr = JSON.stringify(profile, null, 2);
         const fields = { name: profile.name||'', about: profile.about||'', picture: profile.picture||'', banner: profile.banner||'', nip05: profile.nip05||'', bch_address: profile.bch_address||'', bch_tip_wallet: profile.bch_tip_wallet||'' };
-        let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;"><div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:24px;max-width:360px;width:90%;color:#e7e9ea;"><button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('accountModalBackdrop').remove();">✕</button><h3>👤 My Account</h3><p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p><p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
+
+        // Separate events by kind
+        const notes = otherEvents.filter(e => e.kind === 1);
+        const articles = otherEvents.filter(e => e.kind === 30023);
+        const media = otherEvents.filter(e => [30311, 1311, 30024].includes(e.kind));
+
+        let html = `<div class="modal-backdrop" id="accountModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;">
+        <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:20px;max-width:500px;width:95%;max-height:85vh;overflow-y:auto;color:#e7e9ea;">
+            <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('accountModalBackdrop').remove();">✕</button>
+            <h3>👤 My Account</h3>
+            <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-outline account-tab active" data-tab="profile">Profile</button>
+                <button class="btn btn-sm btn-outline account-tab" data-tab="notes">Notes (${notes.length})</button>
+                <button class="btn btn-sm btn-outline account-tab" data-tab="articles">Articles (${articles.length})</button>
+                <button class="btn btn-sm btn-outline account-tab" data-tab="media">Media (${media.length})</button>
+            </div>
+            <div id="accountTabProfile">
+                <p><strong>Public Key:</strong> <code style="font-size:0.7rem;word-break:break-all;">${currentUser.publicKey}</code></p>
+                <p><strong>npub:</strong> <code>${npubFromHex(currentUser.publicKey)}</code></p><hr/>`;
         for (const [key,val] of Object.entries(fields)) html += `<label>${key.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}:</label><br/><input type="text" id="edit_${key}" value="${escapeHtml(val)}" style="width:100%;margin-bottom:8px;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;"/><br/>`;
-        html += `<div style="margin-top:8px;"><strong>Badges:</strong> ${badges.length?badges.map(t=>`<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' '):'<span style="color:#71767b;">none</span>'}</div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-primary" id="saveProfileBtn" style="padding:10px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Save</button><button class="btn btn-outline" id="refreshProfileBtn" style="padding:10px;background:transparent;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;font-weight:600;cursor:pointer;">🔄 Refresh</button></div><hr/><details style="margin-top:12px;"><summary style="cursor:pointer;color:#1d9bf0;">📄 Full JSON</summary><div class="json-viewer" style="max-height:200px;margin-top:8px;background:#000;padding:8px;border-radius:8px;font-size:0.75rem;">${syntaxHighlight(jsonStr)}</div></details></div></div>`;
+        html += `<div><strong>Badges:</strong> ${badges.length?badges.map(t=>`<span class="badge badge-blue">${escapeHtml(t)}</span>`).join(' '):'none'}</div>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn btn-primary" id="saveProfileBtn">💾 Save</button>
+                    <button class="btn btn-outline btn-sm" id="refreshProfileBtn">🔄 Refresh</button>
+                </div>
+                <details style="margin-top:12px;"><summary>📄 Full JSON</summary><div class="json-viewer" style="max-height:200px;margin-top:8px;background:#000;padding:8px;border-radius:8px;font-size:0.75rem;">${syntaxHighlight(jsonStr)}</div></details>
+            </div>
+            <div id="accountTabNotes" style="display:none;">${renderEventList(notes, 'Notes')}</div>
+            <div id="accountTabArticles" style="display:none;">${renderEventList(articles, 'Articles')}</div>
+            <div id="accountTabMedia" style="display:none;">${renderEventList(media, 'Media')}</div>
+        </div></div>`;
         modalContainer.innerHTML = html;
+
+        // Tab switching
+        modalContainer.querySelectorAll('.account-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modalContainer.querySelectorAll('.account-tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tab = btn.dataset.tab;
+                ['profile','notes','articles','media'].forEach(t => {
+                    const el = document.getElementById('accountTab' + t.charAt(0).toUpperCase() + t.slice(1));
+                    if (el) el.style.display = t === tab ? 'block' : 'none';
+                });
+            });
+        });
+
         document.getElementById('saveProfileBtn').addEventListener('click', () => {
             const newProfile = {};
             for (const key of Object.keys(fields)) { const val = document.getElementById('edit_'+key)?.value?.trim(); if (val) newProfile[key] = val; }
             if (badges.length) newProfile.tags = badges;
             const event = { kind:0, created_at:Math.floor(Date.now()/1000), tags:[], content:JSON.stringify(newProfile) };
             if (typeof window._signNostrEvent!=='function') { safeToast('Signing not available.','error'); return; }
-            window._signNostrEvent(event,currentUser.privateKey).then(signed=>{ if(relayManager) relayManager.publish(signed); cachedProfile = { profile:newProfile, profileEvent:null }; try { localStorage.setItem('nostrscope_profile',JSON.stringify(newProfile)); } catch(e) {} safeToast('Profile updated!','success'); document.getElementById('accountModalBackdrop')?.remove(); }).catch(e=>safeToast('Error: '+e.message,'error'));
+            window._signNostrEvent(event,currentUser.privateKey).then(signed=>{ if(relayManager) relayManager.publish(signed); cachedProfile = { profile:newProfile, profileEvent:null, otherEvents: cachedProfile?.otherEvents || [] }; try { localStorage.setItem('nostrscope_profile',JSON.stringify(newProfile)); } catch(e) {} safeToast('Profile updated!','success'); }).catch(e=>safeToast('Error: '+e.message,'error'));
         });
         document.getElementById('refreshProfileBtn').addEventListener('click',()=>{ document.getElementById('accountModalBackdrop')?.remove(); showAccountModal(true); });
     }
 
-    // ── ANALYSIS FUNCTIONS ──
+    function renderEventList(events, title) {
+        if (!events.length) return `<p>No ${title.toLowerCase()} found.</p>`;
+        return events.map(e => {
+            const kindName = KNOWN_KINDS[e.kind] || `Kind ${e.kind}`;
+            const time = new Date((e.created_at||0)*1000).toLocaleString();
+            const boostBtn = isLoggedIn() ? `<button class="btn btn-sm btn-primary" onclick="window.boostEvent('${e.id}','${e.pubkey}','${e.kind}')">🚀 Boost</button>` : '';
+            return `<div style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:10px;margin:8px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="badge badge-purple">${kindName}</span>
+                    <span style="font-size:0.7rem;color:#71767b;">${time}</span>
+                </div>
+                <div style="margin-top:6px;font-size:0.85rem;">${escapeHtml((e.content||'').substring(0,200))}</div>
+                <div style="margin-top:8px;display:flex;gap:6px;">
+                    ${boostBtn}
+                    <button class="btn btn-sm btn-outline" onclick="window._inspectEvent('${e.id}')">JSON</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── New posts indicator (global) ──
+    window.showNewPostsIndicator = function(count) {
+        newPostCount = count;
+        const badge = document.getElementById('newPostsBadge');
+        if (badge) {
+            badge.textContent = count > 0 ? `${count} new` : '';
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    };
+
+    window.loadNewPosts = function() {
+        if (typeof refreshNewPosts === 'function') refreshNewPosts();
+        newPostCount = 0;
+        window.showNewPostsIndicator(0);
+    };
+
+    // ── Analysis functions (full set) ──
     function buildThreadCards(eventId, childrenMap, depth, visited) {
         if (visited.has(eventId) && depth > 0) return '';
         visited.add(eventId);
@@ -362,11 +442,11 @@
         if (profile.picture) html += `<p><img src="${profile.picture}" alt="Profile" style="max-width:80px;border-radius:50%;"/></p>`;
         if (data.follows.length) {
             if (data.follows.length <= 5) html += `<p><strong>Follows (${data.follows.length}):</strong> ${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p>`;
-            else html += `<details style="margin-top:8px;"><summary style="cursor:pointer;color:var(--accent2);">👥 Follows (${data.follows.length})</summary><p style="word-break:break-all;">${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p></details>`;
+            else html += `<details style="margin-top:8px;"><summary>👥 Follows (${data.follows.length})</summary><p style="word-break:break-all;">${data.follows.map(f => `<code>${f.substring(0,8)}...</code>`).join(', ')}</p></details>`;
         }
         if (data.relays.length) html += `<p><strong>Relays:</strong> ${data.relays.map(r => `<code>${escapeHtml(r)}</code>`).join(', ')}</p>`;
         if (data.otherEvents && data.otherEvents.length) {
-            html += `<details style="margin-top:12px;"><summary style="cursor:pointer;color:var(--accent2);">📦 Other Events (${data.otherEvents.length})</summary>`;
+            html += `<details style="margin-top:12px;"><summary>📦 Other Events (${data.otherEvents.length})</summary>`;
             data.otherEvents.forEach(ev => {
                 const kindName = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
                 const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
@@ -446,6 +526,7 @@
     window._exportHTML = () => { let h = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NostrScope Report</title><style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto;}h1{color:#a78bfa;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #30363d;padding:8px;}</style></head><body><h1>🔍 NostrScope Report</h1><p><strong>Event ID:</strong> <code>${investigationHexId||'N/A'}</code></p><p><strong>Total Events:</strong> ${allEvents.length}</p><table><thead><tr><th>Time</th><th>Kind</th><th>ID</th><th>Content</th></tr></thead><tbody>`; [...allEvents].sort((a, b) => (a.created_at || 0) - (b.created_at || 0)).forEach(e => { h += `<tr><td>${new Date((e.created_at||0)*1000).toLocaleString()}</td><td>${KNOWN_KINDS[e.kind]||`Kind ${e.kind}`}</td><td><code>${e.id.substring(0,14)}...</code></td><td>${escapeHtml((e.content||'').substring(0,120))}</td></tr>`; }); h += '</tbody></table></body></html>'; downloadFile(h, `nostrscope-report-${investigationHexId?.substring(0,12) || 'events'}.html`, 'text/html'); };
     window.injectBoostedEvent = function(event) { if (!investigator || !investigator.eventMap) return; if (!eventMap.has(event.id)) { eventMap.set(event.id, event); allEvents.push(event); investigator.eventMap.set(event.id, event); investigator.events.push(event); } if (investigator) { renderThread(investigator); renderTimeline(investigator); renderStats(investigator); renderJson(investigator); } };
     window.runAnalysis = runAnalysis;
+    window.loadNewPosts = loadNewPosts;
 
     // ── Main analysis flow ──
     async function runAnalysis(inputValue) {
@@ -508,7 +589,7 @@
 
     function initApp() {
         if (typeof NostrTools === 'undefined') { setTimeout(initApp, 500); return; }
-        if (loadLogin()) { updateUserUI(); const cached = localStorage.getItem('nostrscope_profile'); if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null }; } catch (e) {} } }
+        if (loadLogin()) { updateUserUI(); const cached = localStorage.getItem('nostrscope_profile'); if (cached) { try { cachedProfile = { profile: JSON.parse(cached), profileEvent: null, otherEvents: JSON.parse(localStorage.getItem('nostrscope_otherevents')||'[]') }; } catch (e) {} } }
         if (CONFIG && CONFIG.relays) CONFIG.relays.forEach(u => relayStats.set(u, { status: 'pending', events: 0, errors: 0, responseTime: null }));
         bindEvents();
         switchScreen('feed');
