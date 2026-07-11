@@ -198,9 +198,16 @@
                 <button class="btn btn-outline" id="logoutProfileBtn" style="padding:8px 16px;">Logout</button>
             </div>
         </div>`;
+        
         document.getElementById('editProfileBtn')?.addEventListener('click', () => {
-            if (typeof window.showAccountModal === 'function') window.showAccountModal();
+            console.log('🟡 Edit Profile button clicked');
+            if (typeof window.showAccountModal === 'function') {
+                window.showAccountModal();
+            } else {
+                console.error('❌ window.showAccountModal not available');
+            }
         });
+        
         document.getElementById('logoutProfileBtn')?.addEventListener('click', logout);
     }
 
@@ -473,6 +480,8 @@
     }
 
     // ── Event binding ──
+    
+
     function bindEvents() {
         if (analyzeBtn) analyzeBtn.addEventListener('click', () => runAnalysis());
         if (searchInput) searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
@@ -481,10 +490,26 @@
         if (feedLoginBtn) {
             feedLoginBtn.onclick = function(e) { e.preventDefault(); showLoginModal(); return false; };
         }
-        if (feedAccountBtn) feedAccountBtn.addEventListener('click', () => {
-            if (typeof window.showAccountModal === 'function') window.showAccountModal();
-        });
+        if (feedAccountBtn) {
+            console.log('📌 Attaching account button click handler');
+            feedAccountBtn.addEventListener('click', (e) => {
+                console.log('🟡 Account button clicked');
+                console.log('window.showAccountModal type:', typeof window.showAccountModal);
+                if (typeof window.showAccountModal === 'function') {
+                    window.showAccountModal();
+                } else {
+                    console.error('❌ window.showAccountModal is not a function');
+                    safeToast('Account tab not loaded.', 'error');
+                }
+            });
+        }
     }
+
+
+
+
+
+    
 
     function initApp() {
         if (typeof NostrTools === 'undefined') { setTimeout(initApp, 500); return; }
