@@ -3,11 +3,10 @@
     let oldestTimestamp = Infinity;
     let newestTimestamp = 0;
     let isLoadingOlder = false;
+    let commentCache = new Map();
+    let pendingFetches = new Map();
     let lastConnectedRelays = [];
-    const commentCache = new Map();
-    const pendingFetches = new Map();
     const feedContent = document.getElementById('feedContent');
-
     if (!feedContent) return;
 
     // Sentinel for infinite scroll
@@ -23,7 +22,16 @@
     }, { root: feedContent, rootMargin: '200px', threshold: 0.1 });
     observer.observe(sentinel);
 
-    // Initial feed load
+    // ── New posts indicator (badge) ──
+    function updateNewPostsBadge(count) {
+        const badge = document.getElementById('newPostsBadge');
+        if (badge) {
+            badge.textContent = count > 0 ? `${count} new` : '';
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    }
+
+    // ── Load initial feed ──
     window.loadFeed = async function() {
         showLoading('Loading BCH feed...');
         feedPosts = [];
@@ -43,10 +51,9 @@
             });
             lastConnectedRelays = connected;
             if (connected.length === 0) {
-                feedContent.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--red);">No relays available.</div>';
+                feedContent.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--red);">No relays available. Please check your connection.</div>';
                 return;
             }
-
             const subId = rm.subscribe([{ kinds: [1], '#t': ['bch'], limit: 20 }]);
             const postsMap = new Map();
             rm.onEvent = (ev) => {
@@ -57,7 +64,7 @@
                     if (ts > newestTimestamp) newestTimestamp = ts;
                 }
             };
-            await new Promise(resolve => {
+            await new Promise((resolve) => {
                 rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
                 setTimeout(resolve, 10000);
             });
@@ -68,29 +75,31 @@
             }
             renderFeed(true);
         } catch (err) {
-            console.error('Feed load error:', err);
-            feedContent.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--red);">Failed to load feed.</div>';
+            feedContent.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--red);">Failed to load feed. Please try again.</div>';
         } finally {
             hideLoading();
+            updateNewPostsBadge(0);
         }
     };
 
-    // Refresh new posts
+    // ── Refresh new posts (called by the 🔄 button) ──
     window.refreshNewPosts = async function() {
         if (newestTimestamp === 0 || lastConnectedRelays.length === 0) return;
         showLoading('Checking for new posts...');
         const rm = new RelayManager(lastConnectedRelays);
-        let newPosts = [];
+        let newCount = 0;
         try {
             await rm.connectAll(5000);
             const subId = rm.subscribe([{ kinds: [1], '#t': ['bch'], since: newestTimestamp, limit: 20 }]);
+            const newPosts = [];
             rm.onEvent = (ev) => {
                 if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) {
                     newPosts.push(ev);
                     if (ev.created_at > newestTimestamp) newestTimestamp = ev.created_at;
+                    newCount++;
                 }
             };
-            await new Promise(resolve => {
+            await new Promise((resolve) => {
                 rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
                 setTimeout(resolve, 8000);
             });
@@ -98,19 +107,16 @@
                 newPosts.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
                 feedPosts = [...newPosts, ...feedPosts];
                 renderFeed(false);
-                // Show toast notification
-                if (typeof window.showNewPostsIndicator === 'function') {
-                    window.showNewPostsIndicator(newPosts.length);
-                }
-                if (typeof safeToast === 'function') {
-                    safeToast(`${newPosts.length} new post(s) loaded!`, 'info');
-                }
             }
-        } catch (err) { console.error('Refresh error:', err); }
-        finally { hideLoading(); }
+        } catch (err) {
+            console.error('Refresh error:', err);
+        } finally {
+            hideLoading();
+            updateNewPostsBadge(0);
+        }
     };
 
-    // Load older posts (infinite scroll)
+    // ── Load older posts (infinite scroll) ──
     async function loadOlderPosts() {
         if (isLoadingOlder || oldestTimestamp === Infinity || lastConnectedRelays.length === 0) return;
         isLoadingOlder = true;
@@ -122,10 +128,11 @@
             rm.onEvent = (ev) => {
                 if (ev.kind === 1 && !feedPosts.find(p => p.id === ev.id)) {
                     olderPosts.push(ev);
-                    if (ev.created_at < oldestTimestamp) oldestTimestamp = ev.created_at;
+                    const ts = ev.created_at || 0;
+                    if (ts < oldestTimestamp) oldestTimestamp = ts;
                 }
             };
-            await new Promise(resolve => {
+            await new Promise((resolve) => {
                 rm.onEOSE = (sid) => { if (sid === subId) { rm.closeSubscription(subId); resolve(); } };
                 setTimeout(resolve, 8000);
             });
@@ -134,10 +141,14 @@
                 feedPosts = [...feedPosts, ...olderPosts];
                 renderFeed(false);
             }
-        } catch (err) { console.error('Load older error:', err); }
-        finally { isLoadingOlder = false; }
+        } catch (err) {
+            console.error('Load older posts error:', err);
+        } finally {
+            isLoadingOlder = false;
+        }
     }
 
+    // ── Render feed ──
     function renderFeed(clear = true) {
         if (clear) feedContent.innerHTML = '';
         let html = '';
@@ -155,20 +166,19 @@
         const { text, media } = renderMediaFromContent(event.content);
         const time = new Date((event.created_at || 0) * 1000).toLocaleString();
         const isLong = (event.content || '').length > 300;
-        const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn())
+        const authorShort = event.pubkey ? event.pubkey.substring(0, 10) + '...' : 'unknown';
+        // Use a placeholder avatar initially; resolved after render
+        const avatarHtml = `<div class="post-avatar avatar-placeholder" data-pubkey="${event.pubkey || ''}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${event.pubkey}')">👤</div>`;
+        const boostBtn = (typeof isLoggedIn === 'function' && isLoggedIn()) 
             ? `<button class="post-action-btn boost-btn" data-event-id="${event.id}" data-pubkey="${event.pubkey}" data-kind="${event.kind}">🚀</button>`
             : '';
-        const pubkey = event.pubkey || '';
-        // Avatar placeholder – will be replaced by resolveAuthorNamesAndAvatars()
         return `
         <div class="post-card">
-            <div class="post-avatar" data-pubkey="${pubkey}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${pubkey}')">
-                <div class="avatar-placeholder" style="width:40px;height:40px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">👤</div>
-            </div>
+            ${avatarHtml}
             <div class="post-body">
                 <div class="post-header">
-                    <span class="post-name author-name" data-pubkey="${pubkey}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${pubkey}')">${escapeHtml(pubkey.substring(0, 10) + '...')}</span>
-                    <span class="post-username">@${pubkey.substring(0,8)}</span>
+                    <span class="post-name author-name" data-pubkey="${event.pubkey || ''}" style="cursor:pointer;" onclick="if(typeof investigateUser==='function') investigateUser('${event.pubkey}')">${escapeHtml(authorShort)}</span>
+                    <span class="post-username">@${event.pubkey?.substring(0,8) || 'unknown'}</span>
                     <span class="post-time">· ${time}</span>
                 </div>
                 <div class="post-content ${isLong ? 'truncated' : ''}">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
@@ -185,87 +195,44 @@
         </div>`;
     }
 
-    // Resolve author names and avatars
+    // ── Resolve author names and avatars ──
     function resolveAuthorNamesAndAvatars() {
-        const cards = feedContent.querySelectorAll('.post-card');
-        cards.forEach(card => {
-            const avatarEl = card.querySelector('.post-avatar');
-            const nameEl = card.querySelector('.author-name');
-            if (!avatarEl || !nameEl) return;
-            const pubkey = avatarEl.dataset.pubkey;
-            if (!pubkey || nameEl.classList.contains('resolved')) return;
+        const elements = feedContent.querySelectorAll('.author-name:not(.resolved), .avatar-placeholder:not(.resolved)');
+        const fetched = new Map();
+        elements.forEach(el => {
+            const pubkey = el.dataset.pubkey;
+            if (!pubkey) return;
+            if (fetched.has(pubkey)) {
+                const data = fetched.get(pubkey);
+                updateElement(el, data);
+                return;
+            }
             if (typeof window.quickFetchProfile === 'function') {
                 window.quickFetchProfile(pubkey).then(data => {
-                    if (!data) return;
-                    // Update name
-                    if (data.name) {
-                        nameEl.textContent = data.name;
-                    } else {
-                        nameEl.textContent = pubkey.substring(0, 10) + '...';
-                    }
-                    nameEl.classList.add('resolved');
-                    // Update avatar
-                    if (data.picture) {
-                        const placeholder = avatarEl.querySelector('.avatar-placeholder');
-                        if (placeholder) {
-                            placeholder.innerHTML = `<img src="${data.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';">`;
-                        }
-                    }
+                    fetched.set(pubkey, data);
+                    updateElement(el, data);
                 });
             }
         });
     }
 
-    // (loadComments, renderComments, likePost, submitComment, attachFeedListeners – unchanged)
-    // ... (include all remaining functions from the latest feed.js – they are identical to the previous full version)
-
-    function attachFeedListeners() {
-        // toggle comments
-        document.querySelectorAll('.toggle-comments-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const postId = btn.dataset.eventId;
-                const container = document.getElementById(`comments-${postId}`);
-                if (container) {
-                    const hidden = container.style.display === 'none';
-                    container.style.display = hidden ? 'block' : 'none';
-                    if (hidden) loadComments(postId);
-                }
-            });
-        });
-        // like, boost, analyze
-        document.querySelectorAll('.like-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const postId = btn.dataset.eventId;
-                const post = feedPosts.find(p => p.id === postId);
-                if (post) likePost(post.id, post.pubkey, post.kind);
-            });
-        });
-        document.querySelectorAll('.boost-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const postId = btn.dataset.eventId;
-                const post = feedPosts.find(p => p.id === postId);
-                if (post && window.boostEvent) window.boostEvent(post.id, post.pubkey, post.kind);
-            });
-        });
-        document.querySelectorAll('.analyze-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const postId = btn.dataset.eventId;
-                if (typeof runAnalysis === 'function') runAnalysis(postId);
-            });
-        });
-        // submit comment
-        document.getElementById('feedContent').addEventListener('click', (e) => {
-            if (e.target.classList.contains('submit-comment-btn')) {
-                const parentId = e.target.dataset.parentId;
-                const input = document.getElementById(`comment-input-${parentId}`);
-                if (input && input.value.trim()) {
-                    const parentPost = feedPosts.find(p => p.id === parentId);
-                    if (parentPost) submitComment(parentId, input.value.trim(), parentPost.pubkey, parentPost.kind);
-                }
+    function updateElement(el, data) {
+        if (!data) return;
+        if (el.classList.contains('author-name')) {
+            if (data.name) el.textContent = data.name;
+            else el.textContent = el.dataset.pubkey.substring(0, 10) + '...';
+            el.classList.add('resolved');
+        } else if (el.classList.contains('avatar-placeholder')) {
+            if (data.picture) {
+                el.innerHTML = `<img src="${data.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            } else {
+                el.innerHTML = '👤';
             }
-        });
+            el.classList.add('resolved');
+        }
     }
 
+    // ── Comments (unchanged) ──
     async function loadComments(postId) {
         const container = document.getElementById(`comments-${postId}`);
         if (!container) return;
@@ -305,19 +272,16 @@
         for (const reply of replies) {
             const { text, media } = renderMediaFromContent(reply.content);
             const time = new Date((reply.created_at || 0) * 1000).toLocaleString();
-            const authorShort = reply.pubkey ? reply.pubkey.substring(0, 10) + '...' : 'unknown';
-            html += `
-            <div style="border-left:2px solid var(--border); padding-left:8px; margin-bottom:8px;">
+            html += `<div style="border-left:2px solid var(--border); padding-left:8px; margin-bottom:8px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                    <span class="event-author author-name" data-pubkey="${reply.pubkey || ''}">${escapeHtml(authorShort)}</span>
+                    <span class="author-name" data-pubkey="${reply.pubkey || ''}">${escapeHtml(reply.pubkey?.substring(0,10) + '...')}</span>
                     <span style="color:var(--text2);">${time}</span>
                 </div>
                 <div style="font-size:0.8rem; margin-top:4px;">${text || '<span style="color:var(--text2);">(no text)</span>'}</div>
                 ${media ? `<div style="margin-top:4px;">${media}</div>` : ''}
             </div>`;
         }
-        html += `
-        <div style="margin-top:8px; display:flex; gap:6px;">
+        html += `<div style="margin-top:8px; display:flex; gap:6px;">
             <input type="text" class="comment-input" id="comment-input-${parentPostId}" placeholder="Write a comment…" style="flex:1; padding:6px; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px;">
             <button class="btn btn-sm btn-primary submit-comment-btn" data-parent-id="${parentPostId}">Send</button>
         </div>`;
@@ -346,7 +310,51 @@
         } catch (e) { window.showToast('Comment error: ' + e.message, 'error'); }
     }
 
-    function initFeed() { console.log('📰 BCH Feed ready'); }
+    function attachFeedListeners() {
+        document.querySelectorAll('.toggle-comments-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const container = document.getElementById(`comments-${postId}`);
+                if (container) {
+                    const isHidden = container.style.display === 'none';
+                    container.style.display = isHidden ? 'block' : 'none';
+                    if (isHidden) loadComments(postId);
+                }
+            });
+        });
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const post = feedPosts.find(p => p.id === postId);
+                if (post) likePost(post.id, post.pubkey, post.kind);
+            });
+        });
+        document.querySelectorAll('.boost-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                const post = feedPosts.find(p => p.id === postId);
+                if (post && window.boostEvent) window.boostEvent(post.id, post.pubkey, post.kind);
+            });
+        });
+        document.querySelectorAll('.analyze-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const postId = btn.dataset.eventId;
+                if (typeof runAnalysis === 'function') runAnalysis(postId);
+            });
+        });
+        document.getElementById('feedContent').addEventListener('click', (e) => {
+            if (e.target.classList.contains('submit-comment-btn')) {
+                const parentId = e.target.dataset.parentId;
+                const input = document.getElementById(`comment-input-${parentId}`);
+                if (input && input.value.trim()) {
+                    const parentPost = feedPosts.find(p => p.id === parentId);
+                    if (parentPost) submitComment(parentId, input.value.trim(), parentPost.pubkey, parentPost.kind);
+                }
+            }
+        });
+    }
+
+    function initFeed() { console.log('📰 BCH Feed with profile pictures ready'); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFeed);
     else initFeed();
 })();
