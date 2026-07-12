@@ -2,6 +2,11 @@
  * NostrScope Boost Module
  * Shows a boost form modal and publishes a kind 30078 boost event.
  * Works with NostrTools global (v2.23.9+).
+ * 
+ * Supports two boost formats:
+ * - Generic (for any event): uses tags: bch-boost, amount, expires, d: bchnostr/{eventId}/{ts}
+ * - Music track (kind 1808): uses BCH Radio format with content: { type:"song", trackId, expiresAt, paidSats, txid }
+ *   and tags: bch-radio-promo, bch-radio, d: bchnostr/radio-promo/song-{eventId}-{ts}
  */
 (function () {
     const FALLBACK_ONE_USD_SATS = 1655;
@@ -11,7 +16,6 @@
     function toSatsPerUsd(bchUsd) {
         const price = Number(bchUsd);
         if (!Number.isFinite(price) || price <= 0) return 0;
-        // 1 BCH = 100,000,000 sats.
         return Math.max(1, Math.round(100000000 / price));
     }
 
@@ -53,7 +57,6 @@
         const cached = readUsdSatsCache();
         if (cached) return cached;
 
-        // Primary: CoinGecko simple price API (BCH/USD).
         try {
             const cg = await fetchJsonWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin-cash&vs_currencies=usd');
             const sats = toSatsPerUsd(cg?.['bitcoin-cash']?.usd);
@@ -63,7 +66,6 @@
             }
         } catch (e) {}
 
-        // Fallback: Coinbase spot price API (BCH/USD).
         try {
             const cb = await fetchJsonWithTimeout('https://api.coinbase.com/v2/prices/BCH-USD/spot');
             const sats = toSatsPerUsd(cb?.data?.amount);
@@ -84,7 +86,6 @@
         return [privateKey];
     }
 
-    // Robust signing function that tries multiple methods available in nostr-tools
     async function signNostrEvent(event, privateKey) {
         if (typeof NostrTools === 'undefined') {
             throw new Error('Nostr tools not loaded');
@@ -92,7 +93,6 @@
 
         const keyVariants = getKeyVariants(privateKey);
 
-        // Method 1: signEvent (works in many recent versions)
         if (typeof NostrTools.signEvent === 'function') {
             for (const key of keyVariants) {
                 try {
@@ -101,9 +101,7 @@
             }
         }
 
-        // Method 2: finalizeEvent (used in some builds)
         if (typeof NostrTools.finalizeEvent === 'function') {
-            // finalizeEvent modifies the event and returns it
             for (const key of keyVariants) {
                 try {
                     return NostrTools.finalizeEvent(event, key);
@@ -111,7 +109,6 @@
             }
         }
 
-        // Method 3: manual signing using getEventHash and getSignature
         if (typeof NostrTools.getEventHash === 'function' && typeof NostrTools.getSignature === 'function') {
             const id = NostrTools.getEventHash(event);
             for (const key of keyVariants) {
@@ -127,10 +124,8 @@
         throw new Error('No signing method available in this version of nostr-tools');
     }
 
-    // Expose the signing function globally so scripts.js can use it
     window._signNostrEvent = signNostrEvent;
 
-    // Free boost function – publishes a kind 6 repost with no payment
     async function ensureRelayManagerForBoost() {
         if (window._relayManager) return window._relayManager;
         if (typeof RelayManager !== 'function') return null;
@@ -150,15 +145,17 @@
         return rm;
     }
 
+    // ── Main boost modal ──
     function showBoostModal(eventId, eventPubkey, eventKind) {
         const modalHost = document.getElementById('modalContainer') || document.body;
         const now = Math.floor(Date.now() / 1000);
         const defaultHours = 24;
         const defaultAmount = readUsdSatsCache() || FALLBACK_ONE_USD_SATS;
+
         modalHost.innerHTML = `
             <div class="modal-backdrop" id="boostModalBackdrop">
                 <div class="modal" style="max-width:460px;">
-                    <h3>Boost this post</h3>
+                    <h3>Boost this ${eventKind === 1808 ? 'track' : 'post'}</h3>
                     <div class="warning">Set how much sats and how long the boost stays active.</div>
                     <label style="font-size:0.75rem;color:var(--text2);">Target event</label>
                     <input id="boostEventId" type="text" value="${eventId}" readonly>
@@ -171,7 +168,7 @@
                     <input id="boostDurationHours" type="number" min="1" max="720" step="1" value="${defaultHours}">
 
                     <label style="font-size:0.75rem;color:var(--text2);">Optional note</label>
-                    <textarea id="boostNote" rows="3" placeholder="Why this post should be boosted..."></textarea>
+                    <textarea id="boostNote" rows="3" placeholder="Why this should be boosted..."></textarea>
 
                     <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
                         <button class="btn btn-outline" id="boostCancelBtn">Cancel</button>
@@ -222,8 +219,6 @@
             const nextMin = Math.max(1, Number(liveSats) || FALLBACK_ONE_USD_SATS);
             minBoostSats = nextMin;
             amountInput.min = String(nextMin);
-
-            // If user has not changed the default yet, keep it synced to live rate.
             const currentVal = Number(amountInput.value || 0);
             if (!Number.isFinite(currentVal) || currentVal <= defaultAmount) {
                 amountInput.value = String(nextMin);
@@ -264,18 +259,35 @@
             const nowTs = Math.floor(Date.now() / 1000);
             const expiresAt = nowTs + safeHours * 3600;
             const note = (noteInput?.value || '').trim();
-            const payload = {
-                eventId,
-                priceSats: safeAmount,
-                expiresAt,
-                client: 'BCHNostr',
-            };
-            if (note) payload.note = note;
 
-            const eventTemplate = {
-                kind: 30078,
-                created_at: nowTs,
-                tags: [
+            // ── Build the boost event ──
+            let tags = [];
+            let contentObj = {};
+
+            // Check if it's a music track (kind 1808)
+            const isMusic = (eventKind === 1808);
+
+            if (isMusic) {
+                // ── Music boost format (BCH Radio style) ──
+                tags = [
+                    ['e', eventId],
+                    ['p', eventPubkey],
+                    ['k', String(eventKind)],
+                    ['t', 'bch-radio-promo'],
+                    ['t', 'bch-radio'],
+                    ['d', `bchnostr/radio-promo/song-${eventId}-${nowTs}`],
+                ];
+                contentObj = {
+                    type: 'song',
+                    trackId: eventId,
+                    expiresAt: expiresAt,
+                    paidSats: safeAmount,
+                    txid: '', // empty; we don't have a real txid
+                };
+                if (note) contentObj.note = note;
+            } else {
+                // ── Generic boost format ──
+                tags = [
                     ['e', eventId],
                     ['p', eventPubkey],
                     ['k', String(eventKind || 1)],
@@ -284,8 +296,16 @@
                     ['d', `bchnostr/${eventId}/${nowTs}`],
                     ['amount', String(safeAmount)],
                     ['expires', String(expiresAt)],
-                ],
-                content: JSON.stringify(payload)
+                ];
+                contentObj = { eventId, priceSats: safeAmount, expiresAt, client: 'BCHNostr' };
+                if (note) contentObj.note = note;
+            }
+
+            const eventTemplate = {
+                kind: 30078,
+                created_at: nowTs,
+                tags: tags,
+                content: JSON.stringify(contentObj),
             };
 
             try {
@@ -296,7 +316,7 @@
                 const signedEvent = await signNostrEvent(eventTemplate, window._currentUser.privateKey);
                 relayManager.publish(signedEvent);
                 closeModal();
-                window.showToast('Boost published.', 'success');
+                window.showToast(`Boost published${isMusic ? ' for track' : ''}.`, 'success');
                 if (typeof window.loadBoostedFeed === 'function') {
                     setTimeout(() => window.loadBoostedFeed(true), 1200);
                 }
@@ -332,7 +352,6 @@
         showBoostModal(eventId, eventPubkey, eventKind);
     }
 
-    // Expose boost functions globally
     window.boostEvent = publishBoost;
     window.boostOriginalEvent = async () => {
         if (!window._originalEvent) {
