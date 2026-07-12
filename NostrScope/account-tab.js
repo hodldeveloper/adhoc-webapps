@@ -1206,11 +1206,11 @@
         let client = '';
 
         // ── CLEAN UP CONTENT: Remove excessive newlines ──
-        content = content
-            .replace(/\n{4,}/g, '\n\n')
-            .trim()
-            .replace(/\n(#+)/g, '\n\n$1')
-            .replace(/([^\n])(\n#)/g, '$1\n\n$2');
+        //content = content
+        //    .replace(/\n{4,}/g, '\n\n')
+        //    .trim()
+        //    .replace(/\n(#+)/g, '\n\n$1')
+        //    .replace(/([^\n])(\n#)/g, '$1\n\n$2');
 
         if (ev.tags) {
             const titleTag = ev.tags.find(t => t[0] === 'title');
