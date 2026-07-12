@@ -148,10 +148,16 @@
         const defaultAmount = readUsdSatsCache() || FALLBACK_ONE_USD_SATS;
         const isMusic = (eventKind === 1808);
 
-        modalHost.innerHTML = `
+        const modalHtml = `
             <div class="modal-backdrop" id="boostModalBackdrop">
                 <div class="modal" style="max-width:460px;">
-                    <h3>Boost this ${isMusic ? 'track' : 'post'}</h3>
+                    <h3>${isMusic ? '🎵 Boost this Track' : '📝 Boost this Post'}</h3>
+                    ${isMusic ? `
+                        <div style="background:#162132;border:1px solid #4da3ff33;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:0.7rem;color:#a0b0c0;">
+                            🎵 Music boost – will be published as a <code>bch-radio-promo</code> event for the radio client.
+                            <span style="display:block;margin-top:4px;font-size:0.6rem;color:#71767b;">(txid placeholder: "free")</span>
+                        </div>
+                    ` : ''}
                     <div class="warning">Set how much sats and how long the boost stays active.</div>
                     <label style="font-size:0.75rem;color:var(--text2);">Target event</label>
                     <input id="boostEventId" type="text" value="${eventId}" readonly>
@@ -168,7 +174,7 @@
 
                     <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
                         <button class="btn btn-outline" id="boostCancelBtn">Cancel</button>
-                        <button class="btn btn-primary" id="boostSubmitBtn">Publish Boost</button>
+                        <button class="btn btn-primary" id="boostSubmitBtn">${isMusic ? 'Boost Track' : 'Boost Post'}</button>
                     </div>
                     <div style="font-size:0.72rem;color:var(--text2);margin-top:10px;">
                         Expires at: <span id="boostExpiresPreview">${new Date((now + defaultHours * 3600) * 1000).toLocaleString()}</span>
@@ -176,6 +182,8 @@
                 </div>
             </div>
         `;
+
+        modalHost.innerHTML = modalHtml;
 
         const backdrop = document.getElementById('boostModalBackdrop');
         const amountInput = document.getElementById('boostAmountSats');
@@ -313,7 +321,7 @@
             } catch (e) {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Publish Boost';
+                    submitBtn.textContent = isMusic ? 'Boost Track' : 'Boost Post';
                 }
                 window.showToast('Boost error: ' + e.message, 'error');
             }
