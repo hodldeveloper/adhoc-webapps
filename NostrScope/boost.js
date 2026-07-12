@@ -1,12 +1,6 @@
 /**
  * NostrScope Boost Module
- * Shows a boost form modal and publishes a kind 30078 boost event.
- * Works with NostrTools global (v2.23.9+).
- * 
- * Supports two boost formats:
- * - Generic (for any event): uses tags: bch-boost, amount, expires, d: bchnostr/{eventId}/{ts}
- * - Music track (kind 1808): uses BCH Radio format with content: { type:"song", trackId, expiresAt, paidSats, txid }
- *   and tags: bch-radio-promo, bch-radio, d: bchnostr/radio-promo/song-{eventId}-{ts}
+ * Supports generic boosts and music‑specific boosts (kind 1808)
  */
 (function () {
     const FALLBACK_ONE_USD_SATS = 1655;
@@ -145,17 +139,17 @@
         return rm;
     }
 
-    // ── Main boost modal ──
     function showBoostModal(eventId, eventPubkey, eventKind) {
         const modalHost = document.getElementById('modalContainer') || document.body;
         const now = Math.floor(Date.now() / 1000);
         const defaultHours = 24;
         const defaultAmount = readUsdSatsCache() || FALLBACK_ONE_USD_SATS;
+        const isMusic = (eventKind === 1808);
 
         modalHost.innerHTML = `
             <div class="modal-backdrop" id="boostModalBackdrop">
                 <div class="modal" style="max-width:460px;">
-                    <h3>Boost this ${eventKind === 1808 ? 'track' : 'post'}</h3>
+                    <h3>Boost this ${isMusic ? 'track' : 'post'}</h3>
                     <div class="warning">Set how much sats and how long the boost stays active.</div>
                     <label style="font-size:0.75rem;color:var(--text2);">Target event</label>
                     <input id="boostEventId" type="text" value="${eventId}" readonly>
@@ -260,19 +254,13 @@
             const expiresAt = nowTs + safeHours * 3600;
             const note = (noteInput?.value || '').trim();
 
-            // ── Build the boost event ──
             let tags = [];
             let contentObj = {};
-
-            // Check if it's a music track (kind 1808)
-            const isMusic = (eventKind === 1808);
 
             if (isMusic) {
                 // ── Music boost format (BCH Radio style) ──
                 tags = [
                     ['e', eventId],
-                    ['p', eventPubkey],
-                    ['k', String(eventKind)],
                     ['t', 'bch-radio-promo'],
                     ['t', 'bch-radio'],
                     ['d', `bchnostr/radio-promo/song-${eventId}-${nowTs}`],
@@ -282,7 +270,7 @@
                     trackId: eventId,
                     expiresAt: expiresAt,
                     paidSats: safeAmount,
-                    txid: '', // empty; we don't have a real txid
+                    txid: '', // we don't have a real txid
                 };
                 if (note) contentObj.note = note;
             } else {
