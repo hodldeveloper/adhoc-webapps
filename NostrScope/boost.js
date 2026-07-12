@@ -124,17 +124,19 @@
         if (window._relayManager) return window._relayManager;
         if (typeof RelayManager !== 'function') return null;
 
-        const relays = Array.isArray(window.activeRelays) && window.activeRelays.length > 0
+        const primary = 'wss://relay.bchnostr.com';
+        let relays = Array.isArray(window.activeRelays) && window.activeRelays.length > 0
             ? window.activeRelays
             : (window.CONFIG?.relays || []);
-        if (!relays.length) return null;
+        if (!relays.includes(primary)) {
+            relays = [primary, ...relays];
+        }
+        relays = [...new Set(relays)].slice(0, 6);
 
-        const rm = new RelayManager(relays.slice(0, 6));
+        const rm = new RelayManager(relays);
         window._relayManager = rm;
         try {
-            if (typeof rm.connectAll === 'function') {
-                await rm.connectAll(4000);
-            }
+            await rm.connectAll(4000);
         } catch (e) {}
         return rm;
     }
@@ -270,7 +272,7 @@
                     trackId: eventId,
                     expiresAt: expiresAt,
                     paidSats: safeAmount,
-                    txid: '', // we don't have a real txid
+                    txid: 'free'  // placeholder – no real payment
                 };
                 if (note) contentObj.note = note;
             } else {
