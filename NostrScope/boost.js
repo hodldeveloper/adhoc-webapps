@@ -142,11 +142,13 @@
     }
 
     function showBoostModal(eventId, eventPubkey, eventKind) {
+        const kindNum = Number(eventKind);          // <- convert to number
+        const isMusic = (kindNum === 1808);
+
         const modalHost = document.getElementById('modalContainer') || document.body;
         const now = Math.floor(Date.now() / 1000);
         const defaultHours = 24;
         const defaultAmount = readUsdSatsCache() || FALLBACK_ONE_USD_SATS;
-        const isMusic = (eventKind === 1808);
 
         const modalHtml = `
             <div class="modal-backdrop" id="boostModalBackdrop">
@@ -288,7 +290,7 @@
                 tags = [
                     ['e', eventId],
                     ['p', eventPubkey],
-                    ['k', String(eventKind || 1)],
+                    ['k', String(kindNum || 1)],
                     ['t', 'bch-boost'],
                     ['client', 'BCHNostr'],
                     ['d', `bchnostr/${eventId}/${nowTs}`],
