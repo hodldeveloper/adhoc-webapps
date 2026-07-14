@@ -1190,20 +1190,11 @@
         let hashtags = [];
         let client = '';
 
-<<<<<<< HEAD
         content = content
             .replace(/\n{4,}/g, '\n\n')
             .trim()
             .replace(/\n(#+)/g, '\n\n$1')
             .replace(/([^\n])(\n#)/g, '$1\n\n$2');
-=======
-        // ── CLEAN UP CONTENT: Remove excessive newlines ──
-        //content = content
-        //    .replace(/\n{4,}/g, '\n\n')
-        //    .trim()
-        //    .replace(/\n(#+)/g, '\n\n$1')
-        //    .replace(/([^\n])(\n#)/g, '$1\n\n$2');
->>>>>>> 727e16f2de2f1d7f9ffa3b4f91b8e845fd384f24
 
         if (ev.tags) {
             const titleTag = ev.tags.find(t => t[0] === 'title');
@@ -2053,10 +2044,5 @@
     // ── Initialize registry load ──
     loadKindRegistry();
 
-<<<<<<< HEAD
-    console.log('✅ account-tab.js with article editor integration');
-})();
-=======
     console.log('✅ account-tab.js with collapsible table and kind tabs');
 })();
->>>>>>> 727e16f2de2f1d7f9ffa3b4f91b8e845fd384f24
