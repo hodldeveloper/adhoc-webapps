@@ -426,7 +426,7 @@
         }
     }
 
-    async function fetchKindEvents(pubkey, kind, limit = 100) {
+    async function fetchKindEvents(pubkey, kind, limit = 200) {
         const relays = CONFIG.relays.slice(0, 5);
         const rm = new RelayManager(relays);
         const events = [];
@@ -1021,9 +1021,13 @@
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
 
         try {
+
+            let limit = 200; // default
+            if (kind === 30023) limit = 500; // fetch up to 500 articles
+
             let events = getCachedKindData(currentUser.publicKey, kind);
             if (!events) {
-                events = await fetchKindEvents(currentUser.publicKey, kind);
+                events = await fetchKindEvents(currentUser.publicKey, kind, limit);
                 setCachedKindData(currentUser.publicKey, kind, events);
             }
 
