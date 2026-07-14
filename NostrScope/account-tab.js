@@ -426,7 +426,7 @@
         }
     }
 
-    async function fetchKindEvents(pubkey, kind, limit = 20, until = null, relays = null) {
+    async function fetchKindEvents(pubkey, kind, limit = 20, until = null, since = null, relays = null) {
         // Use activeRelays if available, otherwise fallback to CONFIG.relays
         const relayList = relays || (window.activeRelays && window.activeRelays.length ? window.activeRelays : CONFIG.relays.slice(0, 5));
         const rm = new RelayManager(relayList);
@@ -438,6 +438,7 @@
             limit: limit
         };
         if (until) filter.until = until;
+        if (since) filter.since = since;
     
         try {
             await rm.connectAll(CONFIG.relayConnectTimeout || 5000);
@@ -1246,14 +1247,15 @@
     // ── Helper to check for new articles (kind 30023) ──
     async function checkForNewArticles(kind, currentEvents, container, listWrapper) {
         if (!currentEvents || currentEvents.length === 0) return;
-        const latest = currentEvents[0]?.created_at;
+        const latest = currentEvents[0]?.created_at; // newest we have
         if (!latest) return;
     
-        // Fetch events newer than the latest one we have
-        const newEvents = await fetchKindEvents(currentUser.publicKey, kind, 50, null, null, latest);
+        // Fetch events newer than the latest one we have (since = latest + 1)
+        // Use `since: latest + 1` to avoid fetching the same event again
+        const since = latest + 1;
+        const newEvents = await fetchKindEvents(currentUser.publicKey, kind, 50, null, since);
         if (newEvents.length === 0) {
             console.log('📭 No new articles found.');
-            // Show a subtle toast or nothing
             window._safeToast('No new articles.', 'info');
             return;
         }
