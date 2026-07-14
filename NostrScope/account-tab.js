@@ -1004,100 +1004,107 @@
         `;
     }
 
-    window.loadKindTab = async function (kind) {
-        if (!currentUser) {
-            window._safeToast('Please log in first.', 'info');
+window.loadKindTab = async function (kind) {
+    if (!currentUser) {
+        window._safeToast('Please log in first.', 'info');
+        return;
+    }
+
+    const container = document.getElementById('tabContent');
+    const loading = document.getElementById('tabLoading');
+    if (!container) return;
+
+    if (loading) loading.style.display = 'block';
+    container.innerHTML = '';
+
+    const registry = KIND_REGISTRY || getFallbackRegistry();
+    const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
+
+    try {
+        let events = null;
+
+        // ── For kind 30023, ALWAYS fetch fresh (skip cache) ──
+        if (kind === 30023) {
+            // Force a fresh fetch with a high limit (e.g., 500)
+            events = await fetchKindEvents(currentUser.publicKey, kind, 500);
+            // Update the cache with the fresh data
+            setCachedKindData(currentUser.publicKey, kind, events);
+        } else {
+            // For other kinds, use cache if available
+            events = getCachedKindData(currentUser.publicKey, kind);
+            if (!events) {
+                events = await fetchKindEvents(currentUser.publicKey, kind, 200);
+                setCachedKindData(currentUser.publicKey, kind, events);
+            }
+        }
+
+        if (loading) loading.style.display = 'none';
+
+        // ── Add "New Article" button for kind 30023 ──
+        if (kind === 30023) {
+            const newBtnWrap = document.createElement('div');
+            newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
+            newBtnWrap.innerHTML = `<button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
+            container.prepend(newBtnWrap);
+            newBtnWrap.querySelector('#newArticleBtn').addEventListener('click', function () {
+                if (typeof window.openArticleEditor === 'function') {
+                    window.openArticleEditor();
+                } else {
+                    window._safeToast('Editor not loaded. Please refresh.', 'error');
+                }
+            });
+        }
+
+        if (events.length === 0) {
+            container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
             return;
         }
 
-        const container = document.getElementById('tabContent');
-        const loading = document.getElementById('tabLoading');
-        if (!container) return;
+        let html = '';
+        if (kind === 1) {
+            html = renderKind1Events(events);
+        } else if (kind === 30023) {
+            html = renderKind30023Events(events);
+        } else if (kind === 1808) {
+            html = renderKind1808Events(events);
+        } else if (kind === 9735) {
+            html = renderKind9735Events(events);
+        } else if (kind === 30078) {
+            html = renderKind30078Events(events);
+        } else {
+            html = renderGenericKindEvents(events, kindInfo);
+        }
 
-        if (loading) loading.style.display = 'block';
-        container.innerHTML = '';
+        container.insertAdjacentHTML('beforeend', html);
 
-        const registry = KIND_REGISTRY || getFallbackRegistry();
-        const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
-
-        try {
-
-            let limit = 200; // default
-            if (kind === 30023) limit = 500; // fetch up to 500 articles
-
-            let events = getCachedKindData(currentUser.publicKey, kind);
-            if (!events) {
-                events = await fetchKindEvents(currentUser.publicKey, kind, limit);
-                setCachedKindData(currentUser.publicKey, kind, events);
-            }
-
-            if (loading) loading.style.display = 'none';
-
-            // ── Add "New Article" button for kind 30023 ──
-            if (kind === 30023) {
-                const newBtnWrap = document.createElement('div');
-                newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
-                newBtnWrap.innerHTML = `<button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
-                container.prepend(newBtnWrap);
-                newBtnWrap.querySelector('#newArticleBtn').addEventListener('click', function () {
-                    if (typeof window.openArticleEditor === 'function') {
-                        window.openArticleEditor();
-                    } else {
-                        window._safeToast('Editor not loaded. Please refresh.', 'error');
+        // ── Attach edit button listeners (kind 30023) ──
+        if (kind === 30023) {
+            container.querySelectorAll('.edit-article-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    try {
+                        const idx = Number(this.dataset.index);
+                        const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                        if (!ev) {
+                            throw new Error('Invalid article selection');
+                        }
+                        if (typeof window.openArticleEditor === 'function') {
+                            window.openArticleEditor(ev);
+                        } else {
+                            window._safeToast('Editor not loaded. Please refresh.', 'error');
+                        }
+                    } catch (e) {
+                        window._safeToast('Error parsing event data.', 'error');
                     }
                 });
-            }
-
-            if (events.length === 0) {
-                container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
-                return;
-            }
-
-            let html = '';
-            if (kind === 1) {
-                html = renderKind1Events(events);
-            } else if (kind === 30023) {
-                html = renderKind30023Events(events);
-            } else if (kind === 1808) {
-                html = renderKind1808Events(events);
-            } else if (kind === 9735) {
-                html = renderKind9735Events(events);
-            } else if (kind === 30078) {
-                html = renderKind30078Events(events);
-            } else {
-                html = renderGenericKindEvents(events, kindInfo);
-            }
-
-            container.insertAdjacentHTML('beforeend', html);
-
-            // ── Attach edit button listeners (kind 30023) ──
-            if (kind === 30023) {
-                container.querySelectorAll('.edit-article-btn').forEach(btn => {
-                    btn.addEventListener('click', function () {
-                        try {
-                            const idx = Number(this.dataset.index);
-                            const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
-                            if (!ev) {
-                                throw new Error('Invalid article selection');
-                            }
-                            if (typeof window.openArticleEditor === 'function') {
-                                window.openArticleEditor(ev);
-                            } else {
-                                window._safeToast('Editor not loaded. Please refresh.', 'error');
-                            }
-                        } catch (e) {
-                            window._safeToast('Error parsing event data.', 'error');
-                        }
-                    });
-                });
-            }
-
-        } catch (e) {
-            console.error('Error loading kind tab:', e);
-            if (loading) loading.style.display = 'none';
-            container.innerHTML = `<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`;
+            });
         }
-    };
+
+    } catch (e) {
+        console.error('Error loading kind tab:', e);
+        if (loading) loading.style.display = 'none';
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`;
+    }
+};
 
     // ── Render Kind 1 (Posts) ──
     function renderKind1Events(events) {
