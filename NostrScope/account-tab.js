@@ -426,20 +426,24 @@
         }
     }
 
-    async function fetchKindEvents(pubkey, kind, limit = 200) {
+    async function fetchKindEvents(pubkey, kind, limit = 20, until = null) {
         const relays = CONFIG.relays.slice(0, 5);
         const rm = new RelayManager(relays);
         const events = [];
-
+    
+        const filter = {
+            kinds: [kind],
+            authors: [pubkey],
+            limit: limit
+        };
+        if (until) filter.until = until;
+    
         try {
             await rm.connectAll(CONFIG.relayConnectTimeout || 5000);
-            const subId = rm.subscribe([{
-                kinds: [kind],
-                authors: [pubkey],
-                limit: limit
-            }]);
-
+            const subId = rm.subscribe([filter]);
+    
             await new Promise(resolve => {
+                let resolved = false;
                 rm.onEvent = (ev) => {
                     if (ev.kind === kind && ev.pubkey === pubkey) {
                         if (!events.find(e => e.id === ev.id)) {
@@ -448,17 +452,26 @@
                     }
                 };
                 rm.onEOSE = (sid) => {
-                    if (sid === subId) {
+                    if (sid === subId && !resolved) {
+                        resolved = true;
                         rm.closeSubscription(subId);
+                        console.log(`📊 fetchKindEvents: kind ${kind}, fetched ${events.length} events (limit ${limit})`);
                         resolve();
                     }
                 };
-                setTimeout(resolve, CONFIG.profileInvestigationTimeout || 8000);
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        rm.closeSubscription(subId);
+                        console.warn(`⏱️ fetchKindEvents timeout for kind ${kind}, got ${events.length} events`);
+                        resolve();
+                    }
+                }, CONFIG.profileInvestigationTimeout || 8000);
             });
         } catch (e) {
             console.error('Fetch kind events error:', e);
         }
-
+    
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
@@ -1004,107 +1017,191 @@
         `;
     }
 
-window.loadKindTab = async function (kind) {
-    if (!currentUser) {
-        window._safeToast('Please log in first.', 'info');
-        return;
-    }
-
-    const container = document.getElementById('tabContent');
-    const loading = document.getElementById('tabLoading');
-    if (!container) return;
-
-    if (loading) loading.style.display = 'block';
-    container.innerHTML = '';
-
-    const registry = KIND_REGISTRY || getFallbackRegistry();
-    const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
-
-    try {
-        let events = null;
-
-        // ── For kind 30023, ALWAYS fetch fresh (skip cache) ──
-        if (kind === 30023) {
-            // Force a fresh fetch with a high limit (e.g., 500)
-            events = await fetchKindEvents(currentUser.publicKey, kind, 500);
-            // Update the cache with the fresh data
-            setCachedKindData(currentUser.publicKey, kind, events);
-        } else {
-            // For other kinds, use cache if available
-            events = getCachedKindData(currentUser.publicKey, kind);
-            if (!events) {
-                events = await fetchKindEvents(currentUser.publicKey, kind, 200);
-                setCachedKindData(currentUser.publicKey, kind, events);
-            }
-        }
-
-        if (loading) loading.style.display = 'none';
-
-        // ── Add "New Article" button for kind 30023 ──
-        if (kind === 30023) {
-            const newBtnWrap = document.createElement('div');
-            newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
-            newBtnWrap.innerHTML = `<button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
-            container.prepend(newBtnWrap);
-            newBtnWrap.querySelector('#newArticleBtn').addEventListener('click', function () {
-                if (typeof window.openArticleEditor === 'function') {
-                    window.openArticleEditor();
-                } else {
-                    window._safeToast('Editor not loaded. Please refresh.', 'error');
-                }
-            });
-        }
-
-        if (events.length === 0) {
-            container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
+    window.loadKindTab = async function (kind, page = 1) {
+        if (!currentUser) {
+            window._safeToast('Please log in first.', 'info');
             return;
         }
-
-        let html = '';
-        if (kind === 1) {
-            html = renderKind1Events(events);
-        } else if (kind === 30023) {
-            html = renderKind30023Events(events);
-        } else if (kind === 1808) {
-            html = renderKind1808Events(events);
-        } else if (kind === 9735) {
-            html = renderKind9735Events(events);
-        } else if (kind === 30078) {
-            html = renderKind30078Events(events);
-        } else {
-            html = renderGenericKindEvents(events, kindInfo);
-        }
-
-        container.insertAdjacentHTML('beforeend', html);
-
-        // ── Attach edit button listeners (kind 30023) ──
-        if (kind === 30023) {
-            container.querySelectorAll('.edit-article-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    try {
-                        const idx = Number(this.dataset.index);
-                        const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
-                        if (!ev) {
-                            throw new Error('Invalid article selection');
-                        }
-                        if (typeof window.openArticleEditor === 'function') {
-                            window.openArticleEditor(ev);
-                        } else {
-                            window._safeToast('Editor not loaded. Please refresh.', 'error');
-                        }
-                    } catch (e) {
-                        window._safeToast('Error parsing event data.', 'error');
+    
+        const container = document.getElementById('tabContent');
+        const loading = document.getElementById('tabLoading');
+        if (!container) return;
+    
+        if (loading) loading.style.display = 'block';
+        container.innerHTML = '';
+    
+        const registry = KIND_REGISTRY || getFallbackRegistry();
+        const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
+    
+        try {
+            const PAGE_SIZE = 20; // Number of articles per page
+            let events = [];
+    
+            // ── For kind 30023, use cache if available, else fetch ──
+            if (kind === 30023) {
+                // Try to get cached events
+                const cached = getCachedKindData(currentUser.publicKey, kind);
+                if (cached && cached.length > 0) {
+                    events = cached;
+                    console.log(`📦 Using cached ${events.length} articles`);
+                } else {
+                    // First page fetch
+                    events = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE);
+                    setCachedKindData(currentUser.publicKey, kind, events);
+                }
+            } else {
+                // For other kinds, use cache if available
+                events = getCachedKindData(currentUser.publicKey, kind);
+                if (!events) {
+                    events = await fetchKindEvents(currentUser.publicKey, kind, 200);
+                    setCachedKindData(currentUser.publicKey, kind, events);
+                }
+            }
+    
+            if (loading) loading.style.display = 'none';
+    
+            // ── Add "New Article" button for kind 30023 ──
+            if (kind === 30023) {
+                const newBtnWrap = document.createElement('div');
+                newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
+                newBtnWrap.innerHTML = `<button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
+                container.prepend(newBtnWrap);
+                newBtnWrap.querySelector('#newArticleBtn').addEventListener('click', function () {
+                    if (typeof window.openArticleEditor === 'function') {
+                        window.openArticleEditor();
+                    } else {
+                        window._safeToast('Editor not loaded. Please refresh.', 'error');
                     }
                 });
-            });
+            }
+    
+            if (events.length === 0) {
+                container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
+                return;
+            }
+    
+            // ── Render the events (using the appropriate render function) ──
+            let html = '';
+            if (kind === 1) {
+                html = renderKind1Events(events);
+            } else if (kind === 30023) {
+                html = renderKind30023Events(events);
+            } else if (kind === 1808) {
+                html = renderKind1808Events(events);
+            } else if (kind === 9735) {
+                html = renderKind9735Events(events);
+            } else if (kind === 30078) {
+                html = renderKind30078Events(events);
+            } else {
+                html = renderGenericKindEvents(events, kindInfo);
+            }
+    
+            container.insertAdjacentHTML('beforeend', html);
+    
+            // ── Attach edit button listeners (kind 30023) ──
+            if (kind === 30023) {
+                container.querySelectorAll('.edit-article-btn').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        try {
+                            const idx = Number(this.dataset.index);
+                            const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                            if (!ev) {
+                                throw new Error('Invalid article selection');
+                            }
+                            if (typeof window.openArticleEditor === 'function') {
+                                window.openArticleEditor(ev);
+                            } else {
+                                window._safeToast('Editor not loaded. Please refresh.', 'error');
+                            }
+                        } catch (e) {
+                            window._safeToast('Error parsing event data.', 'error');
+                        }
+                    });
+                });
+            }
+    
+            // ── Add "Load more" button for kind 30023 if we have a full page ──
+            if (kind === 30023 && events.length >= PAGE_SIZE) {
+                const loadMoreWrap = document.createElement('div');
+                loadMoreWrap.style.cssText = 'display:flex; justify-content:center; margin-top:10px;';
+                const loadMoreBtn = document.createElement('button');
+                loadMoreBtn.textContent = 'Load more articles...';
+                loadMoreBtn.className = 'btn btn-outline';
+                loadMoreBtn.style.padding = '8px 16px';
+                loadMoreWrap.appendChild(loadMoreBtn);
+                container.appendChild(loadMoreWrap);
+    
+                loadMoreBtn.addEventListener('click', async function () {
+                    this.textContent = 'Loading...';
+                    this.disabled = true;
+                    // Get the oldest event's created_at from the current list
+                    const oldest = events[events.length - 1]?.created_at;
+                    if (!oldest) {
+                        this.textContent = 'No more articles';
+                        this.disabled = true;
+                        return;
+                    }
+                    // Fetch next page
+                    const more = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE, oldest);
+                    if (more.length === 0) {
+                        this.textContent = 'No more articles';
+                        this.disabled = true;
+                        return;
+                    }
+                    // Merge and deduplicate
+                    const merged = [...events, ...more.filter(e => !events.find(ev => ev.id === e.id))];
+                    // Update the cache and the local list
+                    setCachedKindData(currentUser.publicKey, kind, merged);
+                    events = merged; // update reference
+                    // Re-render the entire list (or we could append only new ones, but simpler to re-render)
+                    // We'll re-render only the articles section; we can keep the button outside.
+                    // But to keep it clean, we remove the old list and re-render.
+                    const existingList = container.querySelector('.articles-list');
+                    if (existingList) existingList.remove();
+                    // Re-render the events using the same render function
+                    let newHtml = '';
+                    if (kind === 30023) {
+                        newHtml = renderKind30023Events(events);
+                    }
+                    // Insert the new list before the load-more button
+                    const loadMoreContainer = container.querySelector('div:last-child');
+                    const listWrapper = document.createElement('div');
+                    listWrapper.className = 'articles-list';
+                    listWrapper.innerHTML = newHtml;
+                    container.insertBefore(listWrapper, loadMoreContainer);
+                    // Re-attach edit listeners
+                    listWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
+                        btn.addEventListener('click', function () {
+                            try {
+                                const idx = Number(this.dataset.index);
+                                const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                                if (!ev) throw new Error('Invalid article');
+                                if (typeof window.openArticleEditor === 'function') {
+                                    window.openArticleEditor(ev);
+                                } else {
+                                    window._safeToast('Editor not loaded. Please refresh.', 'error');
+                                }
+                            } catch (e) {
+                                window._safeToast('Error parsing event data.', 'error');
+                            }
+                        });
+                    });
+                    // Restore button state
+                    this.textContent = 'Load more articles...';
+                    this.disabled = false;
+                    if (more.length < PAGE_SIZE) {
+                        this.textContent = 'No more articles';
+                        this.disabled = true;
+                    }
+                });
+            }
+    
+        } catch (e) {
+            console.error('Error loading kind tab:', e);
+            if (loading) loading.style.display = 'none';
+            container.innerHTML = `<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`;
         }
-
-    } catch (e) {
-        console.error('Error loading kind tab:', e);
-        if (loading) loading.style.display = 'none';
-        container.innerHTML = `<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`;
-    }
-};
+    };
 
     // ── Render Kind 1 (Posts) ──
     function renderKind1Events(events) {
