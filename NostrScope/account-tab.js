@@ -1066,24 +1066,26 @@
     
         try {
             const PAGE_SIZE = 20;
+            const INITIAL_LIMIT = 200; // Load up to 200 articles on first visit
             let events = [];
             let listWrapper = null;
     
             // ── Get cached data ──
             const cached = getCachedKindData(currentUser.publicKey, kind);
-            if (cached && cached.length > 0) {
+            if (cached && cached.length > 0 && !refresh) {
                 events = cached;
                 console.log(`📦 Using cached ${events.length} articles`);
             } else {
-                // First load – fetch initial batch
-                const initialLimit = kind === 30023 ? 50 : (kind === 1 ? PAGE_SIZE : 200);
+                // First load or forced refresh – fetch initial batch
+                const initialLimit = (kind === 30023) ? INITIAL_LIMIT : (kind === 1 ? PAGE_SIZE : 200);
                 events = await fetchKindEvents(currentUser.publicKey, kind, initialLimit);
                 setCachedKindData(currentUser.publicKey, kind, events);
+                console.log(`📦 Fetched ${events.length} articles (initial)`);
             }
     
             if (loading) loading.style.display = 'none';
     
-            // ── "New Article" button for kind 30023 ──
+            // ── "New Article" and "Check for new" buttons ──
             if (kind === 30023) {
                 const newBtnWrap = document.createElement('div');
                 newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;';
@@ -1128,7 +1130,6 @@
                 html = renderGenericKindEvents(events, kindInfo);
             }
     
-            // Wrap the list in a container so we can re-render only the list part
             listWrapper = document.createElement('div');
             listWrapper.className = kind === 30023 ? 'articles-list' : kind === 1 ? 'notes-list' : 'events-list';
             listWrapper.innerHTML = html;
@@ -1155,8 +1156,10 @@
             }
     
             // ── "Load more" for kind 30023 and kind 1 ──
-            const shouldShowLoadMore = (kind === 30023 && events.length >= 50) || (kind === 1 && events.length >= PAGE_SIZE);
-            if (shouldShowLoadMore) {
+            // Show if we have exactly the limit (meaning there might be more)
+            const isAtLimit = (kind === 30023 && events.length >= INITIAL_LIMIT) ||
+                              (kind === 1 && events.length >= PAGE_SIZE);
+            if (isAtLimit) {
                 const loadMoreWrap = document.createElement('div');
                 loadMoreWrap.style.cssText = 'display:flex; justify-content:center; margin-top:10px;';
                 const loadMoreBtn = document.createElement('button');
@@ -1213,7 +1216,7 @@
                             });
                         });
                     }
-                    // Update the count
+                    // Update count
                     const countEl = container.querySelector('span[style*="articles loaded"]');
                     if (countEl) countEl.textContent = `${events.length} articles loaded`;
                     this.textContent = `Load more ${kind === 30023 ? 'articles' : 'notes'}...`;
@@ -1225,15 +1228,14 @@
                 });
             }
     
-            // ── Store reference to listWrapper for refresh function ──
+            // ── Store reference for "Check for new" ──
             listWrapper._events = events;
             listWrapper._kind = kind;
             listWrapper._container = container;
             listWrapper._loadMoreWrap = container.querySelector('div:last-child');
     
-            // ── After rendering, check for new articles in background (for kind 30023) ──
+            // ── After rendering, check for new articles in background ──
             if (kind === 30023 && events.length > 0) {
-                // Check for new articles in the background (after a short delay)
                 setTimeout(() => checkForNewArticles(kind, events, container, listWrapper), 2000);
             }
     
