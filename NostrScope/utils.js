@@ -52,18 +52,26 @@ function normalizeRelayList(relays) {
   const cleaned = relays
     .map((r) => (typeof r === "string" ? r.trim() : ""))
     .filter((r) => /^wss:\/\//i.test(r));
-  return [...new Set(cleaned)];
+  const unique = [...new Set(cleaned)];
+  const primary = (CONFIG?.primaryRelay || "").trim();
+  if (!primary) return unique;
+
+  const withoutPrimary = unique.filter((r) => r !== primary);
+  if (unique.includes(primary)) {
+    return [primary, ...withoutPrimary];
+  }
+  return [primary, ...withoutPrimary];
 }
 
 function loadSavedRelays() {
   try {
     const raw = localStorage.getItem(RELAY_STORAGE_KEY);
-    if (!raw) return [...CONFIG.relays];
+    if (!raw) return normalizeRelayList(CONFIG.relays);
     const parsed = JSON.parse(raw);
     const normalized = normalizeRelayList(parsed);
-    return normalized.length ? normalized : [...CONFIG.relays];
+    return normalized.length ? normalized : normalizeRelayList(CONFIG.relays);
   } catch (e) {
-    return [...CONFIG.relays];
+    return normalizeRelayList(CONFIG.relays);
   }
 }
 
@@ -76,7 +84,7 @@ function saveActiveRelays(relays) {
 }
 
 function resetActiveRelays() {
-  activeRelays = [...CONFIG.relays];
+  activeRelays = normalizeRelayList(CONFIG.relays);
   localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(activeRelays));
   return [...activeRelays];
 }
@@ -503,7 +511,7 @@ function hideError() {
 // ── Relay Manager ──────────────────
 class RelayManager {
   constructor(urls) {
-    this.relayUrls = urls;
+    this.relayUrls = normalizeRelayList(urls);
     this.connections = new Map();
     this.subscriptions = new Map();
     this.subIdCounter = 0;
@@ -512,7 +520,17 @@ class RelayManager {
     return "sub_" + ++this.subIdCounter;
   }
   async connectAll(ms = CONFIG.relayConnectTimeout) {
-    await Promise.allSettled(this.relayUrls.map((u) => this.connect(u, ms)));
+    const relays = normalizeRelayList(this.relayUrls);
+    const primary = (CONFIG?.primaryRelay || "").trim();
+
+    if (primary && relays.includes(primary)) {
+      await Promise.allSettled([this.connect(primary, ms)]);
+      const rest = relays.filter((u) => u !== primary);
+      await Promise.allSettled(rest.map((u) => this.connect(u, ms)));
+      return;
+    }
+
+    await Promise.allSettled(relays.map((u) => this.connect(u, ms)));
   }
   async connect(url, ms = CONFIG.relayConnectTimeout) {
     if (this.connections.has(url)) {

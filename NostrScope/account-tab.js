@@ -21,13 +21,14 @@
     // ── Pagination settings ──
     const PAGE_SIZE = 10;
     let isScanning = false;
+    const ACCOUNT_CACHE_TTL = 30 * 60 * 1000;
+    const QUICK_SCAN_KINDS = [0, 1, 3, 6, 7, 9734, 9735, 10002, 1808, 30023, 30078, 30311, 1311, 30024];
 
     // ── Mini player state ──
     let currentAudio = null;
     let currentTrack = null;
     let miniPlayerInitialized = false;
 
-    // ── Registry helpers ──
     async function loadKindRegistry() {
         try {
             const cached = localStorage.getItem(REGISTRY_CACHE_KEY);
@@ -146,7 +147,6 @@
         };
     }
 
-    // ── Cache Helpers ──
     function getCachedData(key) {
         try {
             const data = localStorage.getItem(key);
@@ -177,7 +177,6 @@
         setCachedData(key, { timestamp: Date.now(), events });
     }
 
-    // ── Fast scan: get counts ──
     async function scanKindCounts(pubkey, onProgress) {
         const relays = CONFIG.relays.slice(0, 5);
         const rm = new RelayManager(relays);
@@ -243,7 +242,55 @@
         return counts;
     }
 
-    // ── Background scan ──
+    async function scanKindCountsQuick(pubkey) {
+        const relays = CONFIG.relays.slice(0, 3);
+        const rm = new RelayManager(relays);
+        const counts = {};
+
+        try {
+            await rm.connectAll(CONFIG.relayConnectTimeout || 5000);
+            const subId = rm.subscribe([{
+                kinds: QUICK_SCAN_KINDS,
+                authors: [pubkey],
+                limit: 120
+            }]);
+
+            await new Promise(resolve => {
+                let done = false;
+
+                rm.onEvent = (ev) => {
+                    if (ev.pubkey === pubkey) {
+                        counts[ev.kind] = (counts[ev.kind] || 0) + 1;
+                    }
+                };
+
+                rm.onEOSE = (sid) => {
+                    if (sid === subId && !done) {
+                        done = true;
+                        rm.closeSubscription(subId);
+                        resolve();
+                    }
+                };
+
+                setTimeout(() => {
+                    if (!done) {
+                        done = true;
+                        rm.closeSubscription(subId);
+                        resolve();
+                    }
+                }, 2500);
+            });
+        } catch (e) {
+            console.error('Quick scan error:', e);
+        }
+
+        QUICK_SCAN_KINDS.forEach(kind => {
+            if (!counts[kind]) counts[kind] = 0;
+        });
+
+        return counts;
+    }
+
     async function backgroundScan() {
         if (isScanning) {
             window._safeToast('⏳ Scan already in progress...', 'info');
@@ -307,7 +354,6 @@
         }
     }
 
-    // ── Update counts in the table ──
     function updateCountsInTable(newCounts) {
         const table = document.getElementById('kindTableBody');
         if (!table) return;
@@ -358,13 +404,11 @@
             }
         });
 
-        // Update total count
         const totalElements = document.querySelectorAll('.total-count');
         totalElements.forEach(el => {
             el.textContent = totalEvents;
         });
 
-        // Update quick stats
         const noteCount = document.querySelector('.stat-notes .stat-value');
         const articleCount = document.querySelector('.stat-articles .stat-value');
         const mediaCount = document.querySelector('.stat-media .stat-value');
@@ -382,7 +426,6 @@
         }
     }
 
-    // ── Fetch events for a specific kind ──
     async function fetchKindEvents(pubkey, kind, limit = 100) {
         const relays = CONFIG.relays.slice(0, 5);
         const rm = new RelayManager(relays);
@@ -419,7 +462,6 @@
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
-    // ── Notification system (unchanged) ──
     let notifications = [];
     let notificationBadge = null;
 
@@ -524,7 +566,6 @@
         }, 4000);
     }
 
-    // ── Safe toast helper ──
     if (typeof window._safeToast !== 'function') {
         window._safeToast = function (msg, type) {
             if (typeof window.showToast === 'function') window.showToast(msg, type);
@@ -532,9 +573,8 @@
         };
     }
 
-    // ── Profile fetch ──
     async function fetchUserProfile(pubkey) {
-        const relays = CONFIG.relays || [];
+        const relays = (window.activeRelays && window.activeRelays.length ? window.activeRelays : (CONFIG.relays || [])).slice(0, 6);
         const rm = new RelayManager(relays);
         let profile = {};
         let profileEvent = null;
@@ -544,6 +584,13 @@
             const subId = rm.subscribe([{ kinds: [0], authors: [pubkey], limit: 1 }]);
 
             await new Promise((resolve) => {
+                const pendingRelays = new Set(
+                    [...rm.connections.keys()].filter(u => {
+                        const conn = rm.connections.get(u);
+                        return conn && conn.ws && conn.ws.readyState === WebSocket.OPEN;
+                    })
+                );
+
                 rm.onEvent = (ev) => {
                     if (ev.kind === 0 && ev.pubkey === pubkey) {
                         try {
@@ -554,13 +601,21 @@
                         }
                     }
                 };
-                rm.onEOSE = (sid) => {
+                rm.onEOSE = (sid, relayUrl) => {
                     if (sid === subId) {
-                        rm.closeSubscription(subId);
-                        resolve();
+                        if (relayUrl) {
+                            pendingRelays.delete(relayUrl);
+                        }
+                        if (pendingRelays.size === 0) {
+                            rm.closeSubscription(subId);
+                            resolve();
+                        }
                     }
                 };
-                setTimeout(resolve, CONFIG.profileInvestigationTimeout || 8000);
+                setTimeout(() => {
+                    rm.closeSubscription(subId);
+                    resolve();
+                }, CONFIG.profileInvestigationTimeout || 8000);
             });
         } catch (e) {
             console.error('Error fetching profile:', e);
@@ -568,7 +623,18 @@
         return { profile, profileEvent };
     }
 
-    // ── Publish an event ──
+    function hasMeaningfulProfile(profile) {
+        if (!profile || typeof profile !== 'object') return false;
+        return Boolean(
+            (profile.name && String(profile.name).trim()) ||
+            (profile.display_name && String(profile.display_name).trim()) ||
+            (profile.about && String(profile.about).trim()) ||
+            (profile.picture && String(profile.picture).trim()) ||
+            (profile.banner && String(profile.banner).trim()) ||
+            (profile.nip05 && String(profile.nip05).trim())
+        );
+    }
+
     async function publishEvent(eventTemplate) {
         if (typeof window._signNostrEvent !== 'function') {
             throw new Error('Signing not available');
@@ -585,7 +651,6 @@
         return signed;
     }
 
-    // ── Load and render account page ──
     let isAccountPageLoading = false;
     let accountPageLoaded = false;
     let kindCounts = {};
@@ -599,31 +664,37 @@
         }
 
         if (!kindRegistryLoaded) {
-            await loadKindRegistry();
+            loadKindRegistry().catch(() => { });
         }
 
         const profileContent = document.getElementById('profileContent');
         if (!profileContent) return;
 
-        if (!forceRefresh) {
-            const cachedCounts = getCachedData(CACHE_KEYS.KIND_COUNTS + '_' + currentUser.publicKey);
-            const cachedProfile = getCachedData(CACHE_KEYS.PROFILE + '_' + currentUser.publicKey);
-            if (cachedCounts && cachedProfile) {
-                const age = Date.now() - (cachedCounts.timestamp || 0);
-                if (age < 5 * 60 * 1000) {
-                    console.log('📦 Using cached kind counts');
-                    kindCounts = cachedCounts.counts;
-                    renderAccountPage(cachedProfile.profile, kindCounts);
-                    accountPageLoaded = true;
-                    profileContent.dataset.accountPage = 'loaded';
-                    return;
-                }
+        const cacheProfileKey = CACHE_KEYS.PROFILE + '_' + currentUser.publicKey;
+        const cacheCountsKey = CACHE_KEYS.KIND_COUNTS + '_' + currentUser.publicKey;
+        const cachedCounts = getCachedData(cacheCountsKey);
+        const cachedProfile = getCachedData(cacheProfileKey);
+        const cachedProfileHasData = hasMeaningfulProfile(cachedProfile?.profile);
+        const profileAge = cachedProfile ? Date.now() - (cachedProfile.timestamp || 0) : Number.MAX_SAFE_INTEGER;
+        const countsAge = cachedCounts ? Date.now() - (cachedCounts.timestamp || 0) : Number.MAX_SAFE_INTEGER;
+        const hasCache = Boolean(cachedProfile && cachedCounts);
+
+        if (!forceRefresh && hasCache) {
+            kindCounts = cachedCounts.counts || {};
+            renderAccountPage(cachedProfile.profile || {}, kindCounts);
+            accountPageLoaded = true;
+            profileContent.dataset.accountPage = 'loaded';
+            loadNotifications();
+
+            if (profileAge < ACCOUNT_CACHE_TTL && countsAge < ACCOUNT_CACHE_TTL && cachedProfileHasData) {
+                return;
             }
         }
 
         isAccountPageLoading = true;
 
-        profileContent.innerHTML = `
+        if (!hasCache || forceRefresh) {
+            profileContent.innerHTML = `
             <div style="padding:16px;">
                 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
                     <div style="width:72px;height:72px;border-radius:50%;background:#1d1f23;flex-shrink:0;animation:pulse 1.5s ease-in-out infinite;"></div>
@@ -644,21 +715,33 @@
                 }
             </style>
         `;
+        }
 
         try {
-            const { profile, profileEvent } = await fetchUserProfile(currentUser.publicKey);
+            const profilePromise = (forceRefresh || !cachedProfile || profileAge >= ACCOUNT_CACHE_TTL || !cachedProfileHasData)
+                ? fetchUserProfile(currentUser.publicKey)
+                : Promise.resolve({ profile: cachedProfile.profile || {}, profileEvent: null });
+
+            const countsPromise = (forceRefresh || !cachedCounts || countsAge >= ACCOUNT_CACHE_TTL)
+                ? scanKindCountsQuick(currentUser.publicKey)
+                : Promise.resolve(cachedCounts.counts || {});
+
+            const [{ profile, profileEvent }, quickCounts] = await Promise.all([profilePromise, countsPromise]);
 
             if (window._setCachedProfile) {
                 window._setCachedProfile({ profile, profileEvent });
             }
             try {
                 localStorage.setItem('nostrscope_profile', JSON.stringify(profile));
-                setCachedData(CACHE_KEYS.PROFILE + '_' + currentUser.publicKey, { profile, timestamp: Date.now() });
+                setCachedData(cacheProfileKey, { profile, timestamp: Date.now() });
             } catch (e) { }
 
-            kindCounts = await scanKindCounts(currentUser.publicKey);
+            kindCounts = {
+                ...(cachedCounts?.counts || {}),
+                ...(quickCounts || {})
+            };
 
-            setCachedData(CACHE_KEYS.KIND_COUNTS + '_' + currentUser.publicKey, {
+            setCachedData(cacheCountsKey, {
                 counts: kindCounts,
                 timestamp: Date.now()
             });
@@ -680,7 +763,6 @@
         }
     }
 
-    // ── Render the account page ──
     function renderAccountPage(profile, counts) {
         const profileContent = document.getElementById('profileContent');
         if (!profileContent) return;
@@ -703,7 +785,6 @@
             return `<img src="${src}" alt="${alt}" style="max-width:200px;max-height:120px;border-radius:8px;border:1px solid #2f3336;object-fit:cover;" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'color:#444;\\'>Failed to load</span>';">`;
         }
 
-        // Profile fields
         const profileFields = [
             { key: 'name', label: 'Name', value: name },
             { key: 'about', label: 'About', value: about },
@@ -727,7 +808,6 @@
         profileRows += `<tr><td style="color:#71767b;font-weight:600;vertical-align:top;padding:6px 8px 6px 0;border-bottom:1px solid #2f3336;font-size:0.7rem;">Badges</td>
             <td style="padding:6px 0;border-bottom:1px solid #2f3336;">${badges.length ? badges.map(t => `<span class="badge badge-blue" style="margin:2px;font-size:0.6rem;">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:#444;">—</span>'}</td></tr>`;
 
-        // ── Build kind table ──
         const allKinds = Object.keys(registry).map(Number).sort((a, b) => a - b);
         const totalEvents = Object.values(counts).reduce((sum, c) => sum + c, 0);
 
@@ -763,7 +843,6 @@
             `;
         });
 
-        // ── Build HTML with collapsible table and kind tabs ──
         const html = `
             <div style="padding:12px;max-width:100%;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px;">
@@ -804,7 +883,6 @@
                     <p style="margin:0;color:#e7e9ea;font-size:0.8rem;white-space:pre-wrap;word-break:break-word;">${escapeHtml(about)}</p>
                 </div>` : ''}
 
-                <!-- Stats summary -->
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:4px;margin-bottom:10px;">
                     <div class="stat-notes" style="background:#1d1f23;border:1px solid #2f3336;border-radius:6px;padding:6px;text-align:center;">
                         <div class="stat-value" style="font-size:0.9rem;font-weight:700;color:#e7e9ea;">${counts[1] || 0}</div>
@@ -828,7 +906,6 @@
                     </div>
                 </div>
 
-                <!-- Collapsible Kind Table -->
                 <details style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;overflow:hidden;margin-bottom:10px;">
                     <summary style="cursor:pointer;padding:8px 12px;font-weight:600;color:#e7e9ea;font-size:0.8rem;list-style:none;display:flex;justify-content:space-between;align-items:center;background:#16181c;">
                         <span>📋 All Registered Kinds (${Object.keys(registry).length})</span>
@@ -854,7 +931,6 @@
                     </div>
                 </details>
 
-                <!-- Kind Tabs -->
                 <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid #2f3336;padding-bottom:6px;">
                     <button class="btn btn-sm btn-outline kind-tab active" data-kind="profile" style="padding:4px 10px;font-size:0.65rem;">👤 Profile</button>
                     <button class="btn btn-sm btn-outline kind-tab" data-kind="1" style="padding:4px 10px;font-size:0.65rem;">📝 Posts</button>
@@ -864,13 +940,11 @@
                     <button class="btn btn-sm btn-outline kind-tab" data-kind="30078" style="padding:4px 10px;font-size:0.65rem;">📦 App Data</button>
                 </div>
 
-                <!-- Tab Content -->
                 <div id="kindTabContent" style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:12px;min-height:100px;">
                     <div id="tabLoading" style="display:none;text-align:center;color:#71767b;padding:20px;">⏳ Loading...</div>
                     <div id="tabContent"></div>
                 </div>
 
-                <!-- Profile metadata -->
                 <details style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;overflow:hidden;margin-top:10px;">
                     <summary style="cursor:pointer;padding:8px 12px;font-weight:600;color:#e7e9ea;font-size:0.7rem;list-style:none;display:flex;justify-content:space-between;align-items:center;background:#16181c;">
                         <span>📋 Profile Metadata</span>
@@ -890,7 +964,6 @@
         updateNotificationBadge();
         loadNotifications();
 
-        // ── Attach tab handlers ──
         profileContent.querySelectorAll('.kind-tab').forEach(tab => {
             tab.addEventListener('click', function () {
                 profileContent.querySelectorAll('.kind-tab').forEach(t => t.classList.remove('active'));
@@ -904,43 +977,33 @@
             });
         });
 
-        // Load default tab (profile)
         renderProfileTab();
     }
 
-    // ── Render Profile Tab (Kind 0) ──
     function renderProfileTab() {
         const container = document.getElementById('tabContent');
         const loading = document.getElementById('tabLoading');
         if (loading) loading.style.display = 'none';
         if (!container) return;
 
-        const profile = window._cachedProfile ? window._cachedProfile().profile || {} : {};
-
         container.innerHTML = `
             <div style="display:flex;flex-direction:column;gap:10px;">
-                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(160deg,#1d1f23,#243854);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid #2f3336;font-size:2rem;">
-                        ${profile.picture ? `<img src="${profile.picture}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='👤';">` : '👤'}
-                    </div>
-                    <div style="flex:1;min-width:150px;">
-                        <h3 style="font-size:1rem;margin:0;color:#e7e9ea;">${escapeHtml(profile.name || 'Unnamed')}</h3>
-                        <p style="color:#71767b;font-size:0.7rem;margin:2px 0;">${profile.nip05 || ''}</p>
-                        <p style="color:#71767b;font-size:0.65rem;word-break:break-all;">${profile.about || ''}</p>
-                    </div>
+                <div style="background:#16181c;border:1px solid #2f3336;border-radius:8px;padding:10px;">
+                    <p style="margin:0;color:#9ab1d1;font-size:0.75rem;line-height:1.5;">
+                        Profile summary is shown above. Use the tabs below to browse your notes, blog posts, media, zaps, and app data.
+                    </p>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;">✏️ Edit Profile</button>
-                    <button class="btn btn-outline btn-sm" onclick="window.loadKindTab(0)" style="padding:4px 12px;font-size:0.7rem;">📄 View Raw</button>
+                    <button class="btn btn-outline btn-sm" onclick="window.loadKindTab(0)" style="padding:4px 12px;font-size:0.7rem;">📄 View Kind 0 Raw</button>
+                    <button class="btn btn-outline btn-sm" onclick="window.showNotifications && window.showNotifications()" style="padding:4px 12px;font-size:0.7rem;">🔔 Notifications</button>
                 </div>
-                <div style="font-size:0.65rem;color:#71767b;margin-top:4px;">
-                    <strong>Public Key:</strong> <code style="font-size:0.55rem;word-break:break-all;">${currentUser.publicKey}</code>
+                <div style="font-size:0.65rem;color:#71767b;">
+                    Tip: use the top ✏️ Edit button to update profile metadata.
                 </div>
             </div>
         `;
     }
 
-    // ── Load Kind Tab ──
     window.loadKindTab = async function (kind) {
         if (!currentUser) {
             window._safeToast('Please log in first.', 'info');
@@ -966,20 +1029,26 @@
 
             if (loading) loading.style.display = 'none';
 
-            // ── If kind 30023, add a "New Article" button ──
+            // ── Add "New Article" button for kind 30023 ──
             if (kind === 30023) {
                 const newBtnWrap = document.createElement('div');
                 newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
-                newBtnWrap.innerHTML = `<button class="btn btn-primary" onclick="window.openArticleEditor()" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
+                newBtnWrap.innerHTML = `<button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
                 container.prepend(newBtnWrap);
+                newBtnWrap.querySelector('#newArticleBtn').addEventListener('click', function () {
+                    if (typeof window.openArticleEditor === 'function') {
+                        window.openArticleEditor();
+                    } else {
+                        window._safeToast('Editor not loaded. Please refresh.', 'error');
+                    }
+                });
             }
 
             if (events.length === 0) {
-                container.innerHTML += `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`;
+                container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
                 return;
             }
 
-            // Render based on kind
             let html = '';
             if (kind === 1) {
                 html = renderKind1Events(events);
@@ -995,7 +1064,30 @@
                 html = renderGenericKindEvents(events, kindInfo);
             }
 
-            container.innerHTML += html;
+            container.insertAdjacentHTML('beforeend', html);
+
+            // ── Attach edit button listeners (kind 30023) ──
+            if (kind === 30023) {
+                container.querySelectorAll('.edit-article-btn').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        try {
+                            const idx = Number(this.dataset.index);
+                            const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                            if (!ev) {
+                                throw new Error('Invalid article selection');
+                            }
+                            if (typeof window.openArticleEditor === 'function') {
+                                window.openArticleEditor(ev);
+                            } else {
+                                window._safeToast('Editor not loaded. Please refresh.', 'error');
+                            }
+                        } catch (e) {
+                            window._safeToast('Error parsing event data.', 'error');
+                        }
+                    });
+                });
+            }
+
         } catch (e) {
             console.error('Error loading kind tab:', e);
             if (loading) loading.style.display = 'none';
@@ -1071,7 +1163,6 @@
 
             let html = escapeHtml(text);
 
-            // Code blocks
             html = html.replace(/```([\s\S]*?)```/g, function (match, code) {
                 return `<pre style="background:#0d1117;border:1px solid #2f3336;border-radius:6px;padding:12px;overflow-x:auto;font-family:monospace;font-size:0.75rem;color:#e7e9ea;margin:8px 0;"><code>${code}</code></pre>`;
             });
@@ -1170,7 +1261,7 @@
                         <button class="btn btn-sm btn-primary" onclick="window.openBlogModal('blog-${ev.id.substring(0, 12)}', ${evJson})" style="padding:4px 12px;font-size:0.6rem;flex:1;">📖 Read Full Article</button>
                         <button class="btn btn-sm btn-outline" onclick="window.boostEvent('${ev.id}','${ev.pubkey}','${ev.kind}')" style="padding:4px 10px;font-size:0.55rem;">🚀</button>
                         <button class="btn btn-sm btn-outline" onclick="window.showEventJsonModal(${evJson})" style="padding:4px 10px;font-size:0.55rem;">📄</button>
-                        <button class="btn btn-sm btn-outline" onclick="window.openArticleEditor(${evJson})" style="padding:4px 10px;font-size:0.55rem;">✏️ Edit</button>
+                        <button class="btn btn-sm btn-outline edit-article-btn" data-index="${index}" style="padding:4px 10px;font-size:0.55rem;">✏️ Edit</button>
                     </div>
                 </div>
             </div>
@@ -1178,7 +1269,7 @@
         }).join('');
     }
 
-    // ── Open Blog Modal (unchanged, from earlier) ──
+    // ── Open Blog Modal (unchanged from earlier) ──
     window.openBlogModal = function (blogId, ev) {
         const modalContainer = document.getElementById('modalContainer');
         if (!modalContainer) return;
@@ -1208,10 +1299,85 @@
             if (clientTag) client = clientTag[1] || '';
         }
 
+        function sanitizeMediaUrl(url) {
+            if (!url || typeof url !== 'string') return null;
+            const trimmed = url.trim();
+            if (!/^https?:\/\//i.test(trimmed)) return null;
+            return trimmed;
+        }
+
+        function extractYouTubeId(url) {
+            const safe = sanitizeMediaUrl(url);
+            if (!safe) return null;
+            const m1 = safe.match(/^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/i);
+            if (m1) return m1[1];
+            const m2 = safe.match(/^https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+            if (m2) return m2[1];
+            const m3 = safe.match(/^https?:\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i);
+            if (m3) return m3[1];
+            return null;
+        }
+
+        function buildVideoEmbedHtml(url) {
+            const safe = sanitizeMediaUrl(url);
+            if (!safe) return '';
+            const ytId = extractYouTubeId(safe);
+            if (ytId) {
+                return `<iframe src="https://www.youtube.com/embed/${ytId}" title="YouTube video" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%;min-height:280px;border:0;border-radius:10px;"></iframe>`;
+            }
+            return `<video src="${safe}" controls style="width:100%;max-width:100%;"></video>`;
+        }
+
+        function buildAudioEmbedHtml(url) {
+            const safe = sanitizeMediaUrl(url);
+            if (!safe) return '';
+            return `<audio src="${safe}" controls style="width:100%;"></audio>`;
+        }
+
+        function injectMediaEmbeds(rawText) {
+            if (!rawText) return { text: '', placeholders: [] };
+
+            const placeholders = [];
+            const pushPlaceholder = (html) => {
+                const key = `%%MEDIAEMBED${placeholders.length}%%`;
+                placeholders.push({ key, html });
+                return key;
+            };
+
+            let text = rawText;
+
+            text = text.replace(/<iframe[^>]*src=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) => {
+                const safe = sanitizeMediaUrl(src);
+                if (!safe) return '';
+                const ytId = extractYouTubeId(safe);
+                if (ytId) return pushPlaceholder(buildVideoEmbedHtml(safe));
+                return pushPlaceholder(`<iframe src="${safe}" loading="lazy" style="width:100%;min-height:260px;border:0;border-radius:10px;"></iframe>`);
+            });
+
+            text = text.replace(/<video[^>]*src=["']([^"']+)["'][^>]*><\/video>/gi, (match, src) => {
+                const embed = buildVideoEmbedHtml(src);
+                return embed ? pushPlaceholder(embed) : '';
+            });
+
+            text = text.replace(/<audio[^>]*src=["']([^"']+)["'][^>]*><\/audio>/gi, (match, src) => {
+                const embed = buildAudioEmbedHtml(src);
+                return embed ? pushPlaceholder(embed) : '';
+            });
+
+            text = text.replace(/(^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}[^\s]*|youtu\.be\/[a-zA-Z0-9_-]{11}[^\s]*))(\n|$)/gi, (m, p1, url, p3) => {
+                const embed = buildVideoEmbedHtml(url);
+                if (!embed) return m;
+                return `${p1}${pushPlaceholder(embed)}${p3}`;
+            });
+
+            return { text, placeholders };
+        }
+
         function parseMarkdownFull(text) {
             if (!text) return '<p style="color:#71767b;">No content available.</p>';
 
-            let html = escapeHtml(text);
+            const injected = injectMediaEmbeds(text);
+            let html = escapeHtml(injected.text);
 
             html = html.replace(/```([\s\S]*?)```/g, function (match, code) {
                 return `<pre style="background:#0d1117;border:1px solid #2f3336;border-radius:6px;padding:14px;overflow-x:auto;font-family:monospace;font-size:0.78rem;color:#e7e9ea;margin:14px 0;white-space:pre-wrap;word-wrap:break-word;"><code style="white-space:pre-wrap;word-wrap:break-word;">${code}</code></pre>`;
@@ -1255,6 +1421,10 @@
 
             html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
 
+            for (const item of injected.placeholders) {
+                html = html.split(item.key).join(item.html);
+            }
+
             return html;
         }
 
@@ -1296,7 +1466,7 @@
                     </div>
                 </div>
                 
-                <div style="font-size:0.95rem;line-height:1.85;color:#e7e9ea;word-break:break-word;overflow-wrap:break-word;max-width:100%;padding:0 4px;">
+                <div class="article-rich-content" style="font-size:0.95rem;line-height:1.85;color:#e7e9ea;word-break:break-word;overflow-wrap:break-word;max-width:100%;padding:0 4px;">
                     ${fullContent}
                 </div>
                 
@@ -1349,8 +1519,7 @@
         }, 300);
     };
 
-    // ── Mini player and other kind renderers (unchanged from original) ──
-    // ── Initialize mini player ──
+    // ── Mini player and other kind renderers (unchanged) ──
     function initMiniPlayer() {
         if (miniPlayerInitialized) return;
         miniPlayerInitialized = true;
@@ -1586,7 +1755,6 @@
         }).join('');
     }
 
-    // ── Render Kind 9735 (Zaps) ──
     function renderKind9735Events(events) {
         return events.map(ev => {
             const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
@@ -1626,7 +1794,6 @@
         }).join('');
     }
 
-    // ── Render Kind 30078 (Application Data) ──
     function renderKind30078Events(events) {
         return events.map(ev => {
             const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
@@ -1668,7 +1835,6 @@
         }).join('');
     }
 
-    // ── Render Generic Kind Events ──
     function renderGenericKindEvents(events, kindInfo) {
         return events.map(ev => {
             const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
@@ -1702,24 +1868,34 @@
         }).join('');
     }
 
-    // ── Show event JSON in modal ──
     window.showEventJsonModal = function (ev) {
         const modalContainer = document.getElementById('modalContainer');
         if (!modalContainer) return;
 
         const json = JSON.stringify(ev, null, 2);
+        const kindLabel = (window.KNOWN_KINDS && window.KNOWN_KINDS[ev.kind]) ? window.KNOWN_KINDS[ev.kind] : `Kind ${ev.kind}`;
+        const createdAt = new Date((ev.created_at || 0) * 1000).toLocaleString();
+        const shortId = ev.id ? `${ev.id.substring(0, 12)}...` : 'N/A';
         modalContainer.innerHTML = `
-            <div class="modal-backdrop" onclick="if(event.target===this)document.getElementById('modalContainer').innerHTML='';" style="padding:12px;">
-                <div class="modal" style="max-width:95%;margin:10px;padding:14px;max-height:85vh;display:flex;flex-direction:column;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0;">
-                        <h3 style="font-size:0.8rem;margin:0;color:#e7e9ea;">Event JSON</h3>
+            <div class="modal-backdrop" onclick="if(event.target===this)document.getElementById('modalContainer').innerHTML='';" style="padding:0;">
+                <div class="modal json-modal" style="margin:0;">
+                    <div class="json-modal-header">
+                        <div>
+                            <h3 class="json-modal-title">Event JSON</h3>
+                            <div class="json-modal-meta">
+                                <span class="json-chip">${kindLabel}</span>
+                                <span class="json-chip">🕒 ${createdAt}</span>
+                                <span class="json-chip">🆔 ${shortId}</span>
+                            </div>
+                        </div>
                         <button onclick="document.getElementById('modalContainer').innerHTML='';" style="background:none;border:none;color:#71767b;font-size:1.2rem;cursor:pointer;">✕</button>
                     </div>
-                    <div style="overflow-y:auto;flex:1;">
-                        <div class="json-viewer" style="font-size:0.55rem;padding:8px;background:#0d1117;border-radius:6px;max-height:60vh;overflow:auto;">${syntaxHighlight(json)}</div>
+                    <div class="json-modal-body">
+                        <div class="json-viewer" style="font-size:0.72rem;max-height:none;height:100%;min-height:0;">${syntaxHighlight(json)}</div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;">
+                    <div class="json-modal-actions">
                         <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText(JSON.stringify(window._currentEventData, null, 2)).then(() => window._safeToast('Copied!'));" style="font-size:0.6rem;padding:4px 10px;">Copy</button>
+                        <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText(window._currentEventData.id || '').then(() => window._safeToast('Event ID copied!'));" style="font-size:0.6rem;padding:4px 10px;">Copy ID</button>
                         <button class="btn btn-sm btn-primary" onclick="window.downloadFile(JSON.stringify(window._currentEventData, null, 2), 'nostr-event-${ev.id.substring(0, 12)}.json');" style="font-size:0.6rem;padding:4px 10px;">Download</button>
                         <button onclick="document.getElementById('modalContainer').innerHTML='';" class="btn btn-sm btn-outline" style="font-size:0.6rem;padding:4px 10px;">Close</button>
                     </div>
@@ -1729,7 +1905,6 @@
         window._currentEventData = ev;
     };
 
-    // ── Open kind modal (from table) ──
     window.openKindModal = async function (kind) {
         if (!currentUser) {
             window._safeToast('Please log in first.', 'info');
@@ -1764,7 +1939,6 @@
         renderKindModal(kind, kindInfo, events, 0);
     };
 
-    // ── Render kind modal ──
     function renderKindModal(kind, kindInfo, events, page) {
         const modalContainer = document.getElementById('modalContainer');
         if (!modalContainer) return;
@@ -1878,7 +2052,6 @@
         `;
     }
 
-    // ── Show notifications modal ──
     window.showNotifications = function () {
         const modalContainer = document.getElementById('modalContainer');
         if (!modalContainer) return;
@@ -1948,7 +2121,6 @@
         }
     };
 
-    // ── Profile edit popup ──
     function openProfileEditPopup(profile) {
         const jsonStr = JSON.stringify(profile, null, 2);
         const popupHtml = `
@@ -1990,7 +2162,6 @@
         });
     }
 
-    // ── Show account modal ──
     window.showAccountModal = function (forceRefresh) {
         if (!currentUser) {
             window._safeToast('Please log in first.', 'info');
@@ -2005,14 +2176,9 @@
         setTimeout(() => loadAccountPage(forceRefresh || false), 50);
     };
 
-    // ── Expose functions globally ──
-    window.showEventJsonModal = showEventJsonModal;
     window.openProfileEditPopup = openProfileEditPopup;
     window.loadAccountPage = loadAccountPage;
-    window.openKindModal = openKindModal;
-    window.changeKindPage = changeKindPage;
     window.backgroundScan = backgroundScan;
-    window.loadKindTab = loadKindTab;
     window.showMiniPlayer = showMiniPlayer;
     window.playTrackInMiniPlayer = playTrackInMiniPlayer;
 
@@ -2041,8 +2207,7 @@
         };
     }
 
-    // ── Initialize registry load ──
     loadKindRegistry();
 
-    console.log('✅ account-tab.js with collapsible table and kind tabs');
+    console.log('✅ account-tab.js with article editor integration');
 })();

@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>NostrScope</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='50%25' y='56%25' font-size='34' text-anchor='middle' fill='%23facc15'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='50%25' y='56%25' font-size='34' text-anchor='middle' fill='%23facc15'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/nostr-tools@2.23.9/lib/nostr.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 </head>
+
 <body>
     <div class="app-shell">
+        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="🌙 Dark">🌙 Dark</button>
         <!-- Feed Screen (main) -->
         <div class="screen feed-screen active" id="feedScreen">
             <div class="feed-header">
@@ -23,7 +28,8 @@
                     </div>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button id="feedLoginBtn" class="btn btn-sm btn-outline" onclick="window.showLoginModal && window.showLoginModal()">🔑 Login</button>
+                    <button id="feedLoginBtn" class="btn btn-sm btn-outline"
+                        onclick="window.showLoginModal && window.showLoginModal()">🔑 Login</button>
                     <button id="feedAccountBtn" class="btn btn-sm btn-outline" style="display:none;">👤</button>
                     <button class="btn btn-icon" id="refreshFeedBtn">🔄</button>
                 </div>
@@ -56,7 +62,8 @@
                 <div class="home-subtitle">Explore any Nostr event or user</div>
             </div>
             <div class="search-box">
-                <input type="text" class="search-input" id="searchInput" placeholder="event / npub / note / URL" autocomplete="off">
+                <input type="text" class="search-input" id="searchInput" placeholder="event / npub / note / URL"
+                    autocomplete="off">
                 <button class="btn btn-primary" id="analyzeBtn">Analyze</button>
             </div>
             <div class="error-msg" id="errorMsg"></div>
@@ -85,6 +92,16 @@
             </div>
         </div>
 
+        <!-- Editor Screen -->
+        <div class="screen editor-screen" id="editorScreen">
+            <div class="editor-header" style="padding:12px 16px; background:rgba(9,14,23,0.72); backdrop-filter:blur(14px); border-bottom:1px solid rgba(145,163,192,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <span class="back-btn" id="editorBackBtn">← Back</span>
+                <span class="editor-title" style="font-weight:800; letter-spacing:-0.02em; font-size:1.05rem;">New Article</span>
+                <button class="btn btn-primary" id="editorPublishBtn" style="padding:6px 14px; font-size:0.8rem;">Publish</button>
+            </div>
+            <div class="editor-content" id="editorContent" style="flex:1; overflow-y:auto; padding-bottom:20px;"></div>
+        </div>
+
         <!-- Bottom Navigation -->
         <div class="bottom-nav">
             <button class="nav-btn active" data-screen="feed">📰</button>
@@ -92,6 +109,7 @@
             <button class="nav-btn" data-screen="search">🔍</button>
             <button class="nav-btn" data-screen="profile">👤</button>
         </div>
+
     </div>
 
     <!-- Loading overlay, toasts, modals -->
@@ -103,14 +121,16 @@
     <div id="modalContainer"></div>
 
     <!-- Scripts -->
-<script src="config.js"></script>
-<script src="utils.js"></script>
-<script src="nav.js"></script>
-<script src="scripts.js"></script>
-<script src="boost.js"></script>
-<script src="feed.js"></script>
-<script src="boosts-feed.js"></script>   <!-- ← add this line -->
-<script src="account-tab.js"></script>
-    
-    </body>
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="nav.js"></script>
+    <script src="scripts.js"></script>
+    <script src="boost.js"></script>
+    <script src="feed.js"></script>
+    <script src="boosts-feed.js"></script> <!-- ← add this line -->
+    <script src="account-tab.js"></script>
+    <script src="editor.js"></script>
+
+</body>
+
 </html>

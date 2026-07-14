@@ -17,6 +17,7 @@
     const feedLoginBtn = document.getElementById('feedLoginBtn');
     const feedAccountBtn = document.getElementById('feedAccountBtn');
     const profileContent = document.getElementById('profileContent');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
 
     // 🌐 Make modalContainer globally accessible for account-tab.js
     window.modalContainer = modalContainer;
@@ -26,6 +27,34 @@
     let cachedProfile = null;               // { profile, profileEvent }
     const profileCache = new Map();          // pubkey -> { name, picture }
     const pendingFetches = new Map();
+    const THEME_STORAGE_KEY = 'nostrscope_theme';
+
+    function getPreferredTheme() {
+        try {
+            const stored = localStorage.getItem(THEME_STORAGE_KEY);
+            if (stored === 'light' || stored === 'dark') return stored;
+        } catch (e) { }
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+
+    function setTheme(theme) {
+        const safeTheme = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', safeTheme);
+        if (themeToggleBtn) {
+            const next = safeTheme === 'dark' ? 'light' : 'dark';
+            themeToggleBtn.textContent = safeTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+            themeToggleBtn.title = `Switch to ${next} mode`;
+            themeToggleBtn.setAttribute('aria-label', themeToggleBtn.textContent);
+        }
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, safeTheme);
+        } catch (e) { }
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+        setTheme(current === 'dark' ? 'light' : 'dark');
+    }
 
     // 🔧 Global helpers for account-tab.js
     window._cachedProfile = () => cachedProfile;
@@ -416,13 +445,22 @@
     // scripts.js - update showEventModal
     function showEventModal(ev) {
         const json = JSON.stringify(ev, null, 2);
-        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();"><div class="modal"><button class="modal-close" style="float:right;background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button><h3>Event: <code style="font-size:0.7rem;word-break:break-all;">${escapeHtml(ev.id)}</code></h3><p style="color:var(--text2);">Kind: ${KNOWN_KINDS[ev.kind] || ev.kind} | ${new Date((ev.created_at || 0) * 1000).toLocaleString()}</p><div class="json-viewer" style="max-height:50vh;">${syntaxHighlight(json)}</div><div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
+        const kindLabel = KNOWN_KINDS[ev.kind] || `Kind ${ev.kind}`;
+        const createdAt = new Date((ev.created_at || 0) * 1000).toLocaleString();
+        const shortId = ev.id ? `${ev.id.substring(0, 12)}...` : 'N/A';
+        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this)this.remove();" style="padding:0;"><div class="modal json-modal" style="margin:0;"><div class="json-modal-header"><div><h3 class="json-modal-title">Event JSON</h3><div class="json-modal-meta"><span class="json-chip">${kindLabel}</span><span class="json-chip">🕒 ${createdAt}</span><span class="json-chip">🆔 ${shortId}</span></div></div><button class="modal-close" style="background:none;border:none;color:var(--text2);font-size:1.2rem;" onclick="this.closest('.modal-backdrop').remove();">✕</button></div><div class="json-modal-body"><div class="json-viewer" style="font-size:0.72rem;max-height:none;height:100%;min-height:0;">${syntaxHighlight(json)}</div></div><div class="json-modal-actions"><button class="btn btn-sm btn-outline copy-json-btn" data-event-id="${ev.id}">Copy</button><button class="btn btn-sm btn-outline copy-json-id-btn" data-event-id="${ev.id}">Copy ID</button><button class="btn btn-sm btn-primary download-json-btn" data-event-id="${ev.id}">Download</button></div></div></div>`;
         const b = modalContainer.querySelector('.modal-backdrop');
         b.querySelector('.copy-json-btn').addEventListener('click', () => {
             const evMap = window._getEventMap ? window._getEventMap() : eventMap;
             const eventData = evMap.get(b.querySelector('.copy-json-btn').dataset.eventId);
             if (eventData) {
                 navigator.clipboard.writeText(JSON.stringify(eventData, null, 2)).then(() => safeToast('Copied!'));
+            }
+        });
+        b.querySelector('.copy-json-id-btn').addEventListener('click', () => {
+            const eventId = b.querySelector('.copy-json-id-btn').dataset.eventId;
+            if (eventId) {
+                navigator.clipboard.writeText(eventId).then(() => safeToast('Event ID copied!'));
             }
         });
         b.querySelector('.download-json-btn').addEventListener('click', () => {
@@ -534,12 +572,14 @@
             feedLoginBtn.onclick = function (e) { e.preventDefault(); showLoginModal(); return false; };
         }
         if (feedAccountBtn) feedAccountBtn.addEventListener('click', () => switchScreen('profile'));
+        if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
     }
 
     // ── Init: restore login from localStorage ──
     function initApp() {
         console.log('🚀 Initializing NostrScope...');
         if (typeof NostrTools === 'undefined') { setTimeout(initApp, 500); return; }
+        setTheme(getPreferredTheme());
         // Restore session
         if (loadLogin()) {
             console.log('🔓 Session restored from localStorage');

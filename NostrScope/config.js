@@ -6,21 +6,21 @@ const CONFIG = {
     // Full relay pool – primary relay listed first, then fallbacks
     relays: [
         'wss://relay.bchnostr.com',
-        'wss://relay.damus.io',
         'wss://nos.lol',
         'wss://relay.primal.net',
         'wss://relay.nostr.band',
         'wss://purplepag.es',
         'wss://relay.snort.social',
         'wss://nostr.wine',
-        'wss://relay.ditto.pub'
+        // Keep Damus as optional only; some browser contexts get 403 on websocket handshake.
+        'wss://relay.damus.io'
     ],
     
     // Feed-specific relays – uses primary relay first, then 2 fallbacks for speed
     feedRelays: [
         'wss://relay.bchnostr.com',
-        'wss://relay.damus.io',
-        'wss://nos.lol'
+        'wss://nos.lol',
+        'wss://relay.primal.net'
     ],
     
     // Analysis relay hints – passed to the investigator when scanning
