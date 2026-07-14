@@ -1,5 +1,5 @@
 (function () {
-    console.log('📄 account-tab.js loaded (collapsible table with kind tabs)');
+    console.log('📄 account-tab.js loaded (collapsible table with kind tabs + article editor)');
 
     // ── Fetch and cache the kind registry ──
     let KIND_REGISTRY = null;
@@ -27,6 +27,7 @@
     let currentTrack = null;
     let miniPlayerInitialized = false;
 
+    // ── Registry helpers ──
     async function loadKindRegistry() {
         try {
             const cached = localStorage.getItem(REGISTRY_CACHE_KEY);
@@ -418,7 +419,7 @@
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
-    // ── Notification system ──
+    // ── Notification system (unchanged) ──
     let notifications = [];
     let notificationBadge = null;
 
@@ -794,7 +795,7 @@
                         ${nip05 ? `<p style="color:#35c98b;font-size:0.65rem;margin:2px 0 0 0;">✓ ${escapeHtml(nip05)}</p>` : ''}
                     </div>
                     <div style="display:flex;gap:6px;flex-shrink:0;width:100%;margin-top:4px;">
-                        <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup && window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;flex:1;">✏️ Edit</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;flex:1;">✏️ Edit</button>
                         <button class="btn btn-outline btn-sm" onclick="window.logout && window.logout()" style="padding:4px 12px;font-size:0.7rem;flex:1;">🚪 Logout</button>
                     </div>
                 </div>
@@ -965,8 +966,16 @@
 
             if (loading) loading.style.display = 'none';
 
+            // ── If kind 30023, add a "New Article" button ──
+            if (kind === 30023) {
+                const newBtnWrap = document.createElement('div');
+                newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
+                newBtnWrap.innerHTML = `<button class="btn btn-primary" onclick="window.openArticleEditor()" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>`;
+                container.prepend(newBtnWrap);
+            }
+
             if (events.length === 0) {
-                container.innerHTML = `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`;
+                container.innerHTML += `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`;
                 return;
             }
 
@@ -986,7 +995,7 @@
                 html = renderGenericKindEvents(events, kindInfo);
             }
 
-            container.innerHTML = html;
+            container.innerHTML += html;
         } catch (e) {
             console.error('Error loading kind tab:', e);
             if (loading) loading.style.display = 'none';
@@ -1000,9 +1009,7 @@
             const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
             let contentHtml = '';
 
-            // Parse content
             let text = ev.content || '';
-            // Extract image URLs
             const imageUrls = [];
             if (ev.tags) {
                 ev.tags.forEach(tag => {
@@ -1014,17 +1021,14 @@
                     }
                 });
             }
-            // Also find image URLs in content
             const contentImages = text.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/gi) || [];
             imageUrls.push(...contentImages);
 
-            // Convert text to HTML with links
             text = escapeHtml(text);
             text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4da3ff;">$1</a>');
             text = text.replace(/\n/g, '<br>');
             contentHtml = `<div style="font-size:0.8rem;line-height:1.5;color:#e7e9ea;white-space:pre-wrap;word-break:break-word;">${text}</div>`;
 
-            // Images
             let imagesHtml = '';
             if (imageUrls.length > 0) {
                 imagesHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:6px;">
@@ -1032,7 +1036,6 @@
                 </div>`;
             }
 
-            // Tags
             let tagsHtml = '';
             if (ev.tags) {
                 const hashtags = ev.tags.filter(t => t[0] === 't').map(t => t[1]);
@@ -1061,26 +1064,22 @@
         }).join('');
     }
 
-    // ── Render Kind 30023 (Articles/Blog) with preview cards ──
+    // ── Render Kind 30023 (Articles/Blog) with Edit button ──
     function renderKind30023Events(events) {
-        // Parse markdown for full content
         function parseMarkdown(text) {
             if (!text) return '';
 
             let html = escapeHtml(text);
 
-            // ── Code blocks ──
+            // Code blocks
             html = html.replace(/```([\s\S]*?)```/g, function (match, code) {
                 return `<pre style="background:#0d1117;border:1px solid #2f3336;border-radius:6px;padding:12px;overflow-x:auto;font-family:monospace;font-size:0.75rem;color:#e7e9ea;margin:8px 0;"><code>${code}</code></pre>`;
             });
 
-            // ── Inline code ──
             html = html.replace(/`([^`]+)`/g, '<code style="background:#0d1117;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.75rem;color:#e7e9ea;">$1</code>');
 
-            // ── Blockquotes ──
             html = html.replace(/^&gt; (.*$)/gim, '<blockquote style="border-left:3px solid #4da3ff;padding:4px 12px;margin:8px 0;background:#162132;border-radius:4px;color:#a0b0c0;">$1</blockquote>');
 
-            // ── Headers ──
             html = html.replace(/^###### (.*$)/gim, '<h6 style="font-size:0.7rem;font-weight:700;color:#71767b;margin:12px 0 4px;">$1</h6>');
             html = html.replace(/^##### (.*$)/gim, '<h5 style="font-size:0.75rem;font-weight:700;color:#8a9bb8;margin:12px 0 4px;">$1</h5>');
             html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size:0.85rem;font-weight:700;color:#b0c4de;margin:14px 0 6px;">$1</h4>');
@@ -1088,10 +1087,8 @@
             html = html.replace(/^## (.*$)/gim, '<h2 style="font-size:1.1rem;font-weight:700;color:#e7e9ea;margin:20px 0 10px;border-bottom:1px solid #2f3336;padding-bottom:6px;">$1</h2>');
             html = html.replace(/^# (.*$)/gim, '<h1 style="font-size:1.3rem;font-weight:800;color:#f0f4ff;margin:24px 0 12px;border-bottom:2px solid #4da3ff33;padding-bottom:8px;">$1</h1>');
 
-            // ── Horizontal rules ──
             html = html.replace(/^---$/gim, '<hr style="border:0;border-top:1px solid #2f3336;margin:20px 0;">');
 
-            // ── Bold and Italic ──
             html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
@@ -1099,27 +1096,22 @@
             html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
             html = html.replace(/_(.*?)_/g, '<em>$1</em>');
 
-            // ── Links ──
             html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#4da3ff;text-decoration:underline;">$1</a>');
 
-            // ── Images ──
             html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function (match, alt, url) {
                 return `<img src="${url}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:8px 0;border:1px solid #2f3336;" loading="lazy" onerror="this.style.display='none';">`;
             });
 
-            // ── Unordered lists ──
             html = html.replace(/^[\*\-] (.*$)/gim, '<li style="padding:2px 0;">$1</li>');
             html = html.replace(/(<li>.*?<\/li>\s*)+/g, function (match) {
                 return `<ul style="list-style-type:disc;padding-left:20px;margin:6px 0;">${match}</ul>`;
             });
 
-            // ── Ordered lists ──
             html = html.replace(/^\d+\. (.*$)/gim, '<li style="padding:2px 0;">$1</li>');
             html = html.replace(/(<li>.*?<\/li>\s*)+/g, function (match) {
                 return `<ol style="list-style-type:decimal;padding-left:20px;margin:6px 0;">${match}</ol>`;
             });
 
-            // ── Line breaks ──
             html = html.replace(/\n/g, '<br>');
 
             return html;
@@ -1132,7 +1124,6 @@
             let image = '';
             let content = ev.content || '';
 
-            // Extract tags
             if (ev.tags) {
                 const titleTag = ev.tags.find(t => t[0] === 'title');
                 if (titleTag) title = titleTag[1] || title;
@@ -1142,20 +1133,14 @@
                 if (imageTag) image = imageTag[1] || '';
             }
 
-            // Extract hashtags
             let hashtags = [];
             if (ev.tags) {
                 hashtags = ev.tags.filter(t => t[0] === 't').map(t => t[1]);
             }
 
-            // Create a unique ID for this blog post
-            const blogId = 'blog-' + ev.id.substring(0, 12);
-
-            // Store full content for modal
             const fullContent = parseMarkdown(content);
             const evJson = JSON.stringify(ev).replace(/"/g, '&quot;');
 
-            // Truncate summary for preview
             const shortSummary = summary.length > 120 ? summary.substring(0, 120) + '...' : summary;
 
             return `
@@ -1182,9 +1167,10 @@
                     ` : ''}
                     
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        <button class="btn btn-sm btn-primary" onclick="window.openBlogModal('${blogId}', ${evJson})" style="padding:4px 12px;font-size:0.6rem;flex:1;">📖 Read Full Article</button>
+                        <button class="btn btn-sm btn-primary" onclick="window.openBlogModal('blog-${ev.id.substring(0, 12)}', ${evJson})" style="padding:4px 12px;font-size:0.6rem;flex:1;">📖 Read Full Article</button>
                         <button class="btn btn-sm btn-outline" onclick="window.boostEvent('${ev.id}','${ev.pubkey}','${ev.kind}')" style="padding:4px 10px;font-size:0.55rem;">🚀</button>
                         <button class="btn btn-sm btn-outline" onclick="window.showEventJsonModal(${evJson})" style="padding:4px 10px;font-size:0.55rem;">📄</button>
+                        <button class="btn btn-sm btn-outline" onclick="window.openArticleEditor(${evJson})" style="padding:4px 10px;font-size:0.55rem;">✏️ Edit</button>
                     </div>
                 </div>
             </div>
@@ -1192,12 +1178,11 @@
         }).join('');
     }
 
-    // ── Open Blog Modal with full content in extended view ──
+    // ── Open Blog Modal (unchanged, from earlier) ──
     window.openBlogModal = function (blogId, ev) {
         const modalContainer = document.getElementById('modalContainer');
         if (!modalContainer) return;
 
-        // Parse the content - properly extract all fields
         let title = 'Untitled';
         let summary = '';
         let image = '';
@@ -1205,7 +1190,6 @@
         let hashtags = [];
         let client = '';
 
-        // ── CLEAN UP CONTENT: Remove excessive newlines ──
         content = content
             .replace(/\n{4,}/g, '\n\n')
             .trim()
@@ -1215,37 +1199,28 @@
         if (ev.tags) {
             const titleTag = ev.tags.find(t => t[0] === 'title');
             if (titleTag) title = titleTag[1] || title;
-
             const summaryTag = ev.tags.find(t => t[0] === 'summary');
             if (summaryTag) summary = summaryTag[1] || '';
-
             const imageTag = ev.tags.find(t => t[0] === 'image');
             if (imageTag) image = imageTag[1] || '';
-
             hashtags = ev.tags.filter(t => t[0] === 't').map(t => t[1]);
-
             const clientTag = ev.tags.find(t => t[0] === 'client');
             if (clientTag) client = clientTag[1] || '';
         }
 
-        // Parse markdown with full styling
         function parseMarkdownFull(text) {
             if (!text) return '<p style="color:#71767b;">No content available.</p>';
 
             let html = escapeHtml(text);
 
-            // ── Code blocks ──
             html = html.replace(/```([\s\S]*?)```/g, function (match, code) {
                 return `<pre style="background:#0d1117;border:1px solid #2f3336;border-radius:6px;padding:14px;overflow-x:auto;font-family:monospace;font-size:0.78rem;color:#e7e9ea;margin:14px 0;white-space:pre-wrap;word-wrap:break-word;"><code style="white-space:pre-wrap;word-wrap:break-word;">${code}</code></pre>`;
             });
 
-            // ── Inline code ──
             html = html.replace(/`([^`]+)`/g, '<code style="background:#0d1117;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.8rem;color:#e7e9ea;word-wrap:break-word;">$1</code>');
 
-            // ── Blockquotes ──
             html = html.replace(/^&gt; (.*$)/gim, '<blockquote style="border-left:4px solid #4da3ff;padding:8px 16px;margin:14px 0;background:#162132;border-radius:4px;color:#c0d0e0;font-style:italic;word-wrap:break-word;">$1</blockquote>');
 
-            // ── Headers ──
             html = html.replace(/^###### (.*$)/gim, '<h6 style="font-size:0.85rem;font-weight:700;color:#71767b;margin:16px 0 8px;letter-spacing:0.5px;word-wrap:break-word;">$1</h6>');
             html = html.replace(/^##### (.*$)/gim, '<h5 style="font-size:0.9rem;font-weight:700;color:#8a9bb8;margin:18px 0 8px;word-wrap:break-word;">$1</h5>');
             html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size:1rem;font-weight:700;color:#b0c4de;margin:20px 0 10px;word-wrap:break-word;">$1</h4>');
@@ -1253,10 +1228,8 @@
             html = html.replace(/^## (.*$)/gim, '<h2 style="font-size:1.25rem;font-weight:700;color:#e7e9ea;margin:28px 0 14px;border-bottom:2px solid #2f3336;padding-bottom:8px;word-wrap:break-word;">$1</h2>');
             html = html.replace(/^# (.*$)/gim, '<h1 style="font-size:1.5rem;font-weight:800;color:#f0f4ff;margin:30px 0 16px;border-bottom:3px solid #4da3ff33;padding-bottom:10px;word-wrap:break-word;">$1</h1>');
 
-            // ── Horizontal rules ──
             html = html.replace(/^---$/gim, '<hr style="border:0;border-top:2px solid #2f3336;margin:28px 0;">');
 
-            // ── Bold and Italic ──
             html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
@@ -1264,27 +1237,22 @@
             html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
             html = html.replace(/_(.*?)_/g, '<em>$1</em>');
 
-            // ── Links ──
             html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#4da3ff;text-decoration:underline;font-weight:600;word-wrap:break-word;">$1</a>');
 
-            // ── Images ──
             html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function (match, alt, url) {
                 return `<img src="${url}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:12px 0;border:1px solid #2f3336;box-shadow:0 4px 12px rgba(0,0,0,0.3);" loading="lazy" onerror="this.style.display='none';">`;
             });
 
-            // ── Unordered lists ──
             html = html.replace(/^[\*\-] (.*$)/gim, '<li style="padding:4px 0;word-wrap:break-word;">$1</li>');
             html = html.replace(/(<li>.*?<\/li>\s*)+/g, function (match) {
                 return `<ul style="list-style-type:disc;padding-left:24px;margin:8px 0;">${match}</ul>`;
             });
 
-            // ── Ordered lists ──
             html = html.replace(/^\d+\. (.*$)/gim, '<li style="padding:4px 0;word-wrap:break-word;">$1</li>');
             html = html.replace(/(<li>.*?<\/li>\s*)+/g, function (match) {
                 return `<ol style="list-style-type:decimal;padding-left:24px;margin:8px 0;">${match}</ol>`;
             });
 
-            // ── Clean up excessive line breaks ──
             html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
 
             return html;
@@ -1296,12 +1264,10 @@
         const dTag = ev.tags ? ev.tags.find(t => t[0] === 'd')?.[1] || ev.id : ev.id;
         const authorNpub = npubFromHex(ev.pubkey);
 
-        // ── FIXED: Added proper margins on each side ──
         const html = `
         <div id="blogModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);overflow-y:auto;z-index:10000;-webkit-overflow-scrolling:touch;display:flex;justify-content:center;">
             <div style="width:100%;max-width:820px;padding:12px 20px 40px;background:#0d1117;min-height:100%;height:auto;box-sizing:border-box;">
                 
-                <!-- Sticky Header -->
                 <div style="position:sticky;top:0;z-index:10;padding:10px 0;background:#0d1117;border-bottom:1px solid #2f3336;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-size:0.7rem;color:#71767b;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📖 ${escapeHtml(title.substring(0, 35))}${title.length > 35 ? '...' : ''}</span>
                     <button onclick="document.getElementById('modalContainer').innerHTML='';" style="background:rgba(255,255,255,0.06);border:1px solid #2f3336;color:#71767b;border-radius:6px;padding:5px 12px;font-size:0.7rem;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;flex-shrink:0;">
@@ -1309,20 +1275,16 @@
                     </button>
                 </div>
                 
-                <!-- 1. IMAGE -->
                 ${image ? `
                     <div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #2f3336;background:#0d1117;">
                         <img src="${image}" style="width:100%;max-height:350px;object-fit:cover;display:block;" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'padding:30px;text-align:center;color:#71767b;font-size:0.85rem;\\'>📷 Image not available</div>'">
                     </div>
                 ` : ''}
                 
-                <!-- 2. TITLE -->
                 <h1 style="font-size:1.5rem;font-weight:800;color:#f0f4ff;margin:0 0 6px;line-height:1.3;word-break:break-word;overflow-wrap:break-word;">${escapeHtml(title)}</h1>
                 
-                <!-- Summary -->
                 ${summary ? `<p style="font-size:0.9rem;color:#a0b0c0;margin:0 0 12px;line-height:1.6;word-break:break-word;overflow-wrap:break-word;">${escapeHtml(summary)}</p>` : ''}
                 
-                <!-- Meta info -->
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #2f3336;">
                     <span style="font-size:0.7rem;color:#71767b;">📅 ${time}</span>
                     <span style="font-size:0.6rem;color:#71767b;font-family:monospace;background:#1d1f23;padding:2px 8px;border-radius:4px;word-break:break-all;">${ev.id.substring(0, 12)}...</span>
@@ -1334,26 +1296,22 @@
                     </div>
                 </div>
                 
-                <!-- 3. CONTENT - Added left/right padding for better readability -->
                 <div style="font-size:0.95rem;line-height:1.85;color:#e7e9ea;word-break:break-word;overflow-wrap:break-word;max-width:100%;padding:0 4px;">
                     ${fullContent}
                 </div>
                 
-                <!-- 4. TAGS -->
                 ${hashtags.length > 0 ? `
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:28px;padding-top:18px;border-top:2px solid #2f3336;padding-left:4px;padding-right:4px;">
                         ${hashtags.map(t => `<span style="background:#162132;border:1px solid #2f3336;border-radius:20px;padding:4px 12px;font-size:0.65rem;color:#4da3ff;word-break:break-all;">#${escapeHtml(t)}</span>`).join('')}
                     </div>
                 ` : ''}
                 
-                <!-- 5. CLIENT -->
                 ${client ? `
                     <div style="margin-top:12px;font-size:0.6rem;color:#71767b;text-align:center;padding-top:12px;border-top:1px solid #2f3336;word-break:break-all;padding-left:4px;padding-right:4px;">
                         Published via ${escapeHtml(client)}
                     </div>
                 ` : ''}
                 
-                <!-- Bottom actions -->
                 <div style="margin-top:20px;display:flex;gap:6px;flex-wrap:wrap;padding-top:14px;border-top:2px solid #2f3336;padding-left:4px;padding-right:4px;">
                     <button onclick="document.getElementById('modalContainer').innerHTML='';" class="btn btn-primary" style="flex:1;padding:10px;font-size:0.8rem;min-height:44px;">✕ Close</button>
                     <button class="btn btn-outline" onclick="window.boostEvent('${ev.id}','${ev.pubkey}','${ev.kind}')" style="padding:10px 14px;font-size:0.8rem;min-height:44px;">🚀</button>
@@ -1364,10 +1322,8 @@
         </div>
     `;
 
-        // Set the HTML content
         modalContainer.innerHTML = html;
 
-        // ── Scroll to top ──
         requestAnimationFrame(() => {
             const backdrop = document.getElementById('blogModalBackdrop');
             if (backdrop) {
@@ -1393,6 +1349,7 @@
         }, 300);
     };
 
+    // ── Mini player and other kind renderers (unchanged from original) ──
     // ── Initialize mini player ──
     function initMiniPlayer() {
         if (miniPlayerInitialized) return;
@@ -1577,7 +1534,7 @@
         // Show mini player with this track
         window.showMiniPlayer(trackData, audioElement);
     };
-
+    
     // ── Render Kind 1808 (Audio/BCH Radio) ──
     function renderKind1808Events(events) {
         return events.map(ev => {
@@ -1596,7 +1553,6 @@
             const minutes = Math.floor(duration / 60);
             const seconds = duration % 60;
 
-            // Generate a unique ID for this track
             const trackId = 'track-' + ev.id.substring(0, 12);
 
             return `
@@ -1645,7 +1601,6 @@
                 if (pTag) sender = pTag[1] || sender;
             }
 
-            // Try to parse content for txid
             try {
                 const content = JSON.parse(ev.content || '{}');
                 if (content.txid) txid = content.txid;
@@ -1722,7 +1677,6 @@
                 contentPreview = contentPreview.substring(0, 200) + '...';
             }
 
-            // Check if content is JSON
             let isJson = false;
             try {
                 if (contentPreview && (contentPreview.startsWith('{') || contentPreview.startsWith('['))) {
@@ -1865,7 +1819,6 @@
         `;
     }
 
-    // ── Change kind page ──
     window.changeKindPage = function (kind, page) {
         const events = currentPageData[kind] || [];
         const registry = KIND_REGISTRY || getFallbackRegistry();
@@ -1873,7 +1826,6 @@
         renderKindModal(kind, kindInfo, events, page);
     };
 
-    // ── Render single event in modal ──
     function renderSingleEventInModal(ev, index) {
         const time = new Date((ev.created_at || 0) * 1000).toLocaleString();
         let contentHtml = '';
@@ -2092,5 +2044,5 @@
     // ── Initialize registry load ──
     loadKindRegistry();
 
-    console.log('✅ account-tab.js with collapsible table and kind tabs');
+    console.log('✅ account-tab.js with article editor integration');
 })();
