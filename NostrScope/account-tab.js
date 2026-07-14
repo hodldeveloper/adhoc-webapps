@@ -455,7 +455,7 @@
                     if (sid === subId && !resolved) {
                         resolved = true;
                         rm.closeSubscription(subId);
-                        console.log(`📊 fetchKindEvents: kind ${kind}, fetched ${events.length} events (limit ${limit})`);
+                        console.log(`📊 fetchKindEvents: kind ${kind}, fetched ${events.length} events`);
                         resolve();
                     }
                 };
@@ -475,6 +475,7 @@
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     }
 
+    
     let notifications = [];
     let notificationBadge = null;
 
@@ -675,39 +676,44 @@
             window._safeToast('Please log in first.', 'info');
             return;
         }
-
+    
         if (!kindRegistryLoaded) {
-            loadKindRegistry().catch(() => { });
+            await loadKindRegistry();
         }
-
+    
         const profileContent = document.getElementById('profileContent');
         if (!profileContent) return;
-
+    
+        // ── Check cache ──
         const cacheProfileKey = CACHE_KEYS.PROFILE + '_' + currentUser.publicKey;
         const cacheCountsKey = CACHE_KEYS.KIND_COUNTS + '_' + currentUser.publicKey;
-        const cachedCounts = getCachedData(cacheCountsKey);
         const cachedProfile = getCachedData(cacheProfileKey);
-        const cachedProfileHasData = hasMeaningfulProfile(cachedProfile?.profile);
-        const profileAge = cachedProfile ? Date.now() - (cachedProfile.timestamp || 0) : Number.MAX_SAFE_INTEGER;
-        const countsAge = cachedCounts ? Date.now() - (cachedCounts.timestamp || 0) : Number.MAX_SAFE_INTEGER;
-        const hasCache = Boolean(cachedProfile && cachedCounts);
-
-        if (!forceRefresh && hasCache) {
-            kindCounts = cachedCounts.counts || {};
-            renderAccountPage(cachedProfile.profile || {}, kindCounts);
-            accountPageLoaded = true;
-            profileContent.dataset.accountPage = 'loaded';
-            loadNotifications();
-
-            if (profileAge < ACCOUNT_CACHE_TTL && countsAge < ACCOUNT_CACHE_TTL && cachedProfileHasData) {
+        const cachedCounts = getCachedData(cacheCountsKey);
+    
+        if (!forceRefresh && cachedProfile && cachedCounts) {
+            const age = Date.now() - (cachedCounts.timestamp || 0);
+            if (age < ACCOUNT_CACHE_TTL) {
+                kindCounts = cachedCounts.counts || {};
+                renderAccountPage(cachedProfile.profile || {}, kindCounts);
+                accountPageLoaded = true;
+                profileContent.dataset.accountPage = 'loaded';
+                loadNotifications();
+    
+                // ── Then update in background ──
+                if (typeof window.requestIdleCallback === 'function') {
+                    requestIdleCallback(() => refreshAccountDataInBackground());
+                } else {
+                    setTimeout(refreshAccountDataInBackground, 1000);
+                }
                 return;
             }
         }
-
+    
+        // ── Force fresh load ──
         isAccountPageLoading = true;
-
-        if (!hasCache || forceRefresh) {
-            profileContent.innerHTML = `
+    
+        // Show skeleton
+        profileContent.innerHTML = `
             <div style="padding:16px;">
                 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
                     <div style="width:72px;height:72px;border-radius:50%;background:#1d1f23;flex-shrink:0;animation:pulse 1.5s ease-in-out infinite;"></div>
@@ -728,19 +734,18 @@
                 }
             </style>
         `;
-        }
-
+    
         try {
-            const profilePromise = (forceRefresh || !cachedProfile || profileAge >= ACCOUNT_CACHE_TTL || !cachedProfileHasData)
-                ? fetchUserProfile(currentUser.publicKey)
-                : Promise.resolve({ profile: cachedProfile.profile || {}, profileEvent: null });
-
-            const countsPromise = (forceRefresh || !cachedCounts || countsAge >= ACCOUNT_CACHE_TTL)
-                ? scanKindCountsQuick(currentUser.publicKey)
-                : Promise.resolve(cachedCounts.counts || {});
-
-            const [{ profile, profileEvent }, quickCounts] = await Promise.all([profilePromise, countsPromise]);
-
+            // ── Stage 1: High‑priority kinds (0, 3, 10002) ──
+            const [profileResult, relayListResult] = await Promise.all([
+                fetchUserProfile(currentUser.publicKey),
+                fetchKindEvents(currentUser.publicKey, 10002, 10) // relay list
+            ]);
+    
+            const { profile, profileEvent } = profileResult;
+            const relayList = relayListResult.length > 0 ? relayListResult[0] : null;
+    
+            // Cache the profile
             if (window._setCachedProfile) {
                 window._setCachedProfile({ profile, profileEvent });
             }
@@ -748,21 +753,28 @@
                 localStorage.setItem('nostrscope_profile', JSON.stringify(profile));
                 setCachedData(cacheProfileKey, { profile, timestamp: Date.now() });
             } catch (e) { }
-
+    
+            // ── Render the profile instantly ──
+            const quickCounts = await scanKindCountsQuick(currentUser.publicKey);
             kindCounts = {
                 ...(cachedCounts?.counts || {}),
                 ...(quickCounts || {})
             };
-
             setCachedData(cacheCountsKey, {
                 counts: kindCounts,
                 timestamp: Date.now()
             });
-
+    
+            // Render the page (this will show the profile and the kind table with counts)
             renderAccountPage(profile, kindCounts);
             accountPageLoaded = true;
             profileContent.dataset.accountPage = 'loaded';
             loadNotifications();
+    
+            // ── Stage 2: Load notes and articles lazily (they will be loaded when the user clicks tabs) ──
+            // No need to pre‑fetch them – tabs will load on demand.
+    
+            isAccountPageLoading = false;
         } catch (e) {
             console.error('Error loading account data:', e);
             profileContent.innerHTML = `
@@ -771,8 +783,25 @@
                     <button class="btn btn-primary" onclick="window.loadAccountPage(true)" style="margin-top:12px;">Retry</button>
                 </div>
             `;
-        } finally {
             isAccountPageLoading = false;
+        }
+    }
+    
+    // ── Background refresh (optional) ──
+    async function refreshAccountDataInBackground() {
+        try {
+            const profileResult = await fetchUserProfile(currentUser.publicKey);
+            const quickCounts = await scanKindCountsQuick(currentUser.publicKey);
+            // Update cache and UI if needed
+            // For simplicity, we only update the cache
+            const cacheProfileKey = CACHE_KEYS.PROFILE + '_' + currentUser.publicKey;
+            setCachedData(cacheProfileKey, { profile: profileResult.profile, timestamp: Date.now() });
+            const cacheCountsKey = CACHE_KEYS.KIND_COUNTS + '_' + currentUser.publicKey;
+            kindCounts = { ...kindCounts, ...quickCounts };
+            setCachedData(cacheCountsKey, { counts: kindCounts, timestamp: Date.now() });
+            console.log('🔄 Background refresh complete');
+        } catch (e) {
+            console.warn('Background refresh failed:', e);
         }
     }
 
@@ -1017,7 +1046,7 @@
         `;
     }
 
-    window.loadKindTab = async function (kind, page = 1) {
+    window.loadKindTab = async function (kind) {
         if (!currentUser) {
             window._safeToast('Please log in first.', 'info');
             return;
@@ -1034,23 +1063,25 @@
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
     
         try {
-            const PAGE_SIZE = 20; // Number of articles per page
+            const PAGE_SIZE = 20;
             let events = [];
     
-            // ── For kind 30023, use cache if available, else fetch ──
+            // ── For kind 30023, use cache if available, else fetch first page ──
             if (kind === 30023) {
-                // Try to get cached events
                 const cached = getCachedKindData(currentUser.publicKey, kind);
                 if (cached && cached.length > 0) {
                     events = cached;
                     console.log(`📦 Using cached ${events.length} articles`);
                 } else {
-                    // First page fetch
                     events = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE);
                     setCachedKindData(currentUser.publicKey, kind, events);
                 }
+            } else if (kind === 1) {
+                // Notes: load latest 20
+                events = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE);
+                setCachedKindData(currentUser.publicKey, kind, events);
             } else {
-                // For other kinds, use cache if available
+                // Other kinds: load more (200) in one go
                 events = getCachedKindData(currentUser.publicKey, kind);
                 if (!events) {
                     events = await fetchKindEvents(currentUser.publicKey, kind, 200);
@@ -1060,7 +1091,7 @@
     
             if (loading) loading.style.display = 'none';
     
-            // ── Add "New Article" button for kind 30023 ──
+            // ── "New Article" button for kind 30023 ──
             if (kind === 30023) {
                 const newBtnWrap = document.createElement('div');
                 newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:flex-end;';
@@ -1080,7 +1111,7 @@
                 return;
             }
     
-            // ── Render the events (using the appropriate render function) ──
+            // ── Render events ──
             let html = '';
             if (kind === 1) {
                 html = renderKind1Events(events);
@@ -1098,16 +1129,14 @@
     
             container.insertAdjacentHTML('beforeend', html);
     
-            // ── Attach edit button listeners (kind 30023) ──
+            // ── Attach edit buttons for kind 30023 ──
             if (kind === 30023) {
                 container.querySelectorAll('.edit-article-btn').forEach(btn => {
                     btn.addEventListener('click', function () {
                         try {
                             const idx = Number(this.dataset.index);
                             const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
-                            if (!ev) {
-                                throw new Error('Invalid article selection');
-                            }
+                            if (!ev) throw new Error('Invalid article');
                             if (typeof window.openArticleEditor === 'function') {
                                 window.openArticleEditor(ev);
                             } else {
@@ -1120,12 +1149,12 @@
                 });
             }
     
-            // ── Add "Load more" button for kind 30023 if we have a full page ──
-            if (kind === 30023 && events.length >= PAGE_SIZE) {
+            // ── "Load more" for kind 30023 and kind 1 ──
+            if ((kind === 30023 || kind === 1) && events.length >= PAGE_SIZE) {
                 const loadMoreWrap = document.createElement('div');
                 loadMoreWrap.style.cssText = 'display:flex; justify-content:center; margin-top:10px;';
                 const loadMoreBtn = document.createElement('button');
-                loadMoreBtn.textContent = 'Load more articles...';
+                loadMoreBtn.textContent = `Load more ${kind === 30023 ? 'articles' : 'notes'}...`;
                 loadMoreBtn.className = 'btn btn-outline';
                 loadMoreBtn.style.padding = '8px 16px';
                 loadMoreWrap.appendChild(loadMoreBtn);
@@ -1134,63 +1163,54 @@
                 loadMoreBtn.addEventListener('click', async function () {
                     this.textContent = 'Loading...';
                     this.disabled = true;
-                    // Get the oldest event's created_at from the current list
                     const oldest = events[events.length - 1]?.created_at;
                     if (!oldest) {
-                        this.textContent = 'No more articles';
+                        this.textContent = 'No more';
                         this.disabled = true;
                         return;
                     }
-                    // Fetch next page
                     const more = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE, oldest);
                     if (more.length === 0) {
-                        this.textContent = 'No more articles';
+                        this.textContent = 'No more';
                         this.disabled = true;
                         return;
                     }
-                    // Merge and deduplicate
                     const merged = [...events, ...more.filter(e => !events.find(ev => ev.id === e.id))];
-                    // Update the cache and the local list
                     setCachedKindData(currentUser.publicKey, kind, merged);
-                    events = merged; // update reference
-                    // Re-render the entire list (or we could append only new ones, but simpler to re-render)
-                    // We'll re-render only the articles section; we can keep the button outside.
-                    // But to keep it clean, we remove the old list and re-render.
-                    const existingList = container.querySelector('.articles-list');
+                    events = merged;
+                    // Re‑render the list
+                    const existingList = container.querySelector('.articles-list') || container.querySelector('.notes-list');
                     if (existingList) existingList.remove();
-                    // Re-render the events using the same render function
                     let newHtml = '';
-                    if (kind === 30023) {
-                        newHtml = renderKind30023Events(events);
-                    }
-                    // Insert the new list before the load-more button
-                    const loadMoreContainer = container.querySelector('div:last-child');
+                    if (kind === 30023) newHtml = renderKind30023Events(events);
+                    else if (kind === 1) newHtml = renderKind1Events(events);
                     const listWrapper = document.createElement('div');
-                    listWrapper.className = 'articles-list';
+                    listWrapper.className = kind === 30023 ? 'articles-list' : 'notes-list';
                     listWrapper.innerHTML = newHtml;
-                    container.insertBefore(listWrapper, loadMoreContainer);
-                    // Re-attach edit listeners
-                    listWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
-                        btn.addEventListener('click', function () {
-                            try {
-                                const idx = Number(this.dataset.index);
-                                const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
-                                if (!ev) throw new Error('Invalid article');
-                                if (typeof window.openArticleEditor === 'function') {
-                                    window.openArticleEditor(ev);
-                                } else {
-                                    window._safeToast('Editor not loaded. Please refresh.', 'error');
+                    container.insertBefore(listWrapper, loadMoreWrap);
+                    // Re‑attach listeners
+                    if (kind === 30023) {
+                        listWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
+                            btn.addEventListener('click', function () {
+                                try {
+                                    const idx = Number(this.dataset.index);
+                                    const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                                    if (!ev) throw new Error('Invalid article');
+                                    if (typeof window.openArticleEditor === 'function') {
+                                        window.openArticleEditor(ev);
+                                    } else {
+                                        window._safeToast('Editor not loaded. Please refresh.', 'error');
+                                    }
+                                } catch (e) {
+                                    window._safeToast('Error parsing event data.', 'error');
                                 }
-                            } catch (e) {
-                                window._safeToast('Error parsing event data.', 'error');
-                            }
+                            });
                         });
-                    });
-                    // Restore button state
-                    this.textContent = 'Load more articles...';
+                    }
+                    this.textContent = `Load more ${kind === 30023 ? 'articles' : 'notes'}...`;
                     this.disabled = false;
                     if (more.length < PAGE_SIZE) {
-                        this.textContent = 'No more articles';
+                        this.textContent = 'No more';
                         this.disabled = true;
                     }
                 });
