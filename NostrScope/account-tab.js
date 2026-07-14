@@ -1058,6 +1058,12 @@
         const loading = document.getElementById('tabLoading');
         if (!container) return;
     
+        // Clean up any previous observer (if we had one)
+        if (container._observer) {
+            container._observer.disconnect();
+            delete container._observer;
+        }
+    
         if (loading) loading.style.display = 'block';
         container.innerHTML = '';
     
@@ -1065,27 +1071,26 @@
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
     
         try {
-            const PAGE_SIZE = 20;
-            const INITIAL_LIMIT = 200; // Load up to 200 articles on first visit
+            const PAGE_SIZE = 20; // for pagination after initial load
             let events = [];
-            let listWrapper = null;
+            let isLoadingMore = false;
+            let hasMore = true;
     
             // ── Get cached data ──
             const cached = getCachedKindData(currentUser.publicKey, kind);
-            if (cached && cached.length > 0 && !refresh) {
+            if (cached && cached.length > 0) {
                 events = cached;
                 console.log(`📦 Using cached ${events.length} articles`);
             } else {
-                // First load or forced refresh – fetch initial batch
-                const initialLimit = (kind === 30023) ? INITIAL_LIMIT : (kind === 1 ? PAGE_SIZE : 200);
+                // First load – fetch initial batch
+                const initialLimit = kind === 30023 ? 50 : (kind === 1 ? PAGE_SIZE : 200);
                 events = await fetchKindEvents(currentUser.publicKey, kind, initialLimit);
                 setCachedKindData(currentUser.publicKey, kind, events);
-                console.log(`📦 Fetched ${events.length} articles (initial)`);
             }
     
             if (loading) loading.style.display = 'none';
     
-            // ── "New Article" and "Check for new" buttons ──
+            // ── "New Article" button for kind 30023 ──
             if (kind === 30023) {
                 const newBtnWrap = document.createElement('div');
                 newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;';
@@ -1094,7 +1099,7 @@
                         <button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>
                         <button class="btn btn-outline" id="refreshArticlesBtn" style="padding:6px 12px; font-size:0.75rem;">🔄 Check for new</button>
                     </div>
-                    <span style="font-size:0.6rem; color:#71767b;">${events.length} articles loaded</span>
+                    <span style="font-size:0.6rem; color:#71767b;" id="articleCount">${events.length} articles loaded</span>
                 `;
                 container.prepend(newBtnWrap);
                 document.getElementById('newArticleBtn').addEventListener('click', function () {
@@ -1105,7 +1110,7 @@
                     }
                 });
                 document.getElementById('refreshArticlesBtn').addEventListener('click', function () {
-                    checkForNewArticles(kind, events, container, listWrapper);
+                    checkForNewArticles(kind, events, container);
                 });
             }
     
@@ -1130,7 +1135,8 @@
                 html = renderGenericKindEvents(events, kindInfo);
             }
     
-            listWrapper = document.createElement('div');
+            // Wrap the list in a container so we can re-render only the list part
+            const listWrapper = document.createElement('div');
             listWrapper.className = kind === 30023 ? 'articles-list' : kind === 1 ? 'notes-list' : 'events-list';
             listWrapper.innerHTML = html;
             container.appendChild(listWrapper);
@@ -1155,88 +1161,122 @@
                 });
             }
     
-            // ── "Load more" for kind 30023 and kind 1 ──
-            // Show if we have exactly the limit (meaning there might be more)
-            const isAtLimit = (kind === 30023 && events.length >= INITIAL_LIMIT) ||
-                              (kind === 1 && events.length >= PAGE_SIZE);
-            if (isAtLimit) {
-                const loadMoreWrap = document.createElement('div');
-                loadMoreWrap.style.cssText = 'display:flex; justify-content:center; margin-top:10px;';
-                const loadMoreBtn = document.createElement('button');
-                loadMoreBtn.textContent = `Load more ${kind === 30023 ? 'articles' : 'notes'}...`;
-                loadMoreBtn.className = 'btn btn-outline';
-                loadMoreBtn.style.padding = '8px 16px';
-                loadMoreWrap.appendChild(loadMoreBtn);
-                container.appendChild(loadMoreWrap);
+            // ── Infinite scroll: create a sentinel at the bottom ──
+            if (kind === 30023 || kind === 1) {
+                const sentinel = document.createElement('div');
+                sentinel.className = 'scroll-sentinel';
+                sentinel.style.cssText = 'height:20px; width:100%; display:flex; justify-content:center; align-items:center; font-size:0.7rem; color:#71767b; padding:10px 0;';
+                sentinel.textContent = 'Loading more...';
+                sentinel.style.display = 'none'; // hidden initially
+                container.appendChild(sentinel);
     
-                loadMoreBtn.addEventListener('click', async function () {
-                    this.textContent = 'Loading...';
-                    this.disabled = true;
+                // Function to load more
+                const loadMore = async () => {
+                    if (isLoadingMore || !hasMore) return;
+                    isLoadingMore = true;
+                    sentinel.style.display = 'flex';
+                    sentinel.textContent = 'Loading more...';
+    
                     const oldest = events[events.length - 1]?.created_at;
                     if (!oldest) {
-                        this.textContent = 'No more';
-                        this.disabled = true;
+                        hasMore = false;
+                        sentinel.textContent = 'No more articles';
+                        sentinel.style.display = 'flex';
+                        isLoadingMore = false;
                         return;
                     }
                     const more = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE, oldest);
                     if (more.length === 0) {
-                        this.textContent = 'No more';
-                        this.disabled = true;
+                        hasMore = false;
+                        sentinel.textContent = 'No more articles';
+                        sentinel.style.display = 'flex';
+                        isLoadingMore = false;
                         return;
                     }
+                    // Merge and deduplicate
                     const merged = [...events, ...more.filter(e => !events.find(ev => ev.id === e.id))];
                     setCachedKindData(currentUser.publicKey, kind, merged);
-                    events = merged;
-                    // Re‑render the list
+                    events.splice(0, events.length, ...merged);
+    
+                    // Re-render the list (append new items)
                     const existingList = container.querySelector('.articles-list') || container.querySelector('.notes-list');
-                    if (existingList) existingList.remove();
-                    let newHtml = '';
-                    if (kind === 30023) newHtml = renderKind30023Events(events);
-                    else if (kind === 1) newHtml = renderKind1Events(events);
-                    const newListWrapper = document.createElement('div');
-                    newListWrapper.className = kind === 30023 ? 'articles-list' : 'notes-list';
-                    newListWrapper.innerHTML = newHtml;
-                    container.insertBefore(newListWrapper, loadMoreWrap);
-                    // Re‑attach listeners
-                    if (kind === 30023) {
-                        newListWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
-                            btn.addEventListener('click', function () {
-                                try {
-                                    const idx = Number(this.dataset.index);
-                                    const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
-                                    if (!ev) throw new Error('Invalid article');
-                                    if (typeof window.openArticleEditor === 'function') {
-                                        window.openArticleEditor(ev);
-                                    } else {
-                                        window._safeToast('Editor not loaded. Please refresh.', 'error');
+                    if (existingList) {
+                        let newHtml = '';
+                        if (kind === 30023) newHtml = renderKind30023Events(events);
+                        else if (kind === 1) newHtml = renderKind1Events(events);
+                        const newListWrapper = document.createElement('div');
+                        newListWrapper.className = existingList.className;
+                        newListWrapper.innerHTML = newHtml;
+                        container.replaceChild(newListWrapper, existingList);
+                        // Re-attach edit listeners for articles
+                        if (kind === 30023) {
+                            newListWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
+                                btn.addEventListener('click', function () {
+                                    try {
+                                        const idx = Number(this.dataset.index);
+                                        const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                                        if (!ev) throw new Error('Invalid article');
+                                        if (typeof window.openArticleEditor === 'function') {
+                                            window.openArticleEditor(ev);
+                                        } else {
+                                            window._safeToast('Editor not loaded. Please refresh.', 'error');
+                                        }
+                                    } catch (e) {
+                                        window._safeToast('Error parsing event data.', 'error');
                                     }
-                                } catch (e) {
-                                    window._safeToast('Error parsing event data.', 'error');
-                                }
+                                });
                             });
-                        });
+                        }
+                        // Update the count
+                        const countEl = container.querySelector('#articleCount');
+                        if (countEl) countEl.textContent = `${events.length} articles loaded`;
                     }
-                    // Update count
-                    const countEl = container.querySelector('span[style*="articles loaded"]');
-                    if (countEl) countEl.textContent = `${events.length} articles loaded`;
-                    this.textContent = `Load more ${kind === 30023 ? 'articles' : 'notes'}...`;
-                    this.disabled = false;
+    
+                    // Update sentinel
                     if (more.length < PAGE_SIZE) {
-                        this.textContent = 'No more';
-                        this.disabled = true;
+                        hasMore = false;
+                        sentinel.textContent = 'No more articles';
+                        sentinel.style.display = 'flex';
+                    } else {
+                        sentinel.style.display = 'none';
                     }
+                    isLoadingMore = false;
+                };
+    
+                // ── Intersection Observer ──
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting && !isLoadingMore && hasMore) {
+                        loadMore();
+                    }
+                }, {
+                    rootMargin: '0px 0px 100px 0px', // trigger when sentinel is 100px before viewport
+                    threshold: 0.1
                 });
+                observer.observe(sentinel);
+    
+                // Store observer and sentinel on container so we can clean up later
+                container._observer = observer;
+                container._sentinel = sentinel;
+                container._hasMore = hasMore;
+    
+                // ── Initial state ──
+                if (events.length < 50 && kind === 30023) {
+                    // If we have fewer than 50, we might already have all, so check if we should show "no more"
+                    if (events.length < 50) {
+                        hasMore = false;
+                        sentinel.textContent = 'No more articles';
+                        sentinel.style.display = 'flex';
+                    }
+                } else if (kind === 1 && events.length < PAGE_SIZE) {
+                    hasMore = false;
+                    sentinel.textContent = 'No more notes';
+                    sentinel.style.display = 'flex';
+                }
             }
     
-            // ── Store reference for "Check for new" ──
-            listWrapper._events = events;
-            listWrapper._kind = kind;
-            listWrapper._container = container;
-            listWrapper._loadMoreWrap = container.querySelector('div:last-child');
-    
-            // ── After rendering, check for new articles in background ──
+            // ── After rendering, check for new articles in background (for kind 30023) ──
             if (kind === 30023 && events.length > 0) {
-                setTimeout(() => checkForNewArticles(kind, events, container, listWrapper), 2000);
+                setTimeout(() => checkForNewArticles(kind, events, container), 2000);
             }
     
         } catch (e) {
