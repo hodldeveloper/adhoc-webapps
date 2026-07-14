@@ -426,9 +426,10 @@
         }
     }
 
-    async function fetchKindEvents(pubkey, kind, limit = 20, until = null) {
-        const relays = CONFIG.relays.slice(0, 5);
-        const rm = new RelayManager(relays);
+    async function fetchKindEvents(pubkey, kind, limit = 20, until = null, relays = null) {
+        // Use activeRelays if available, otherwise fallback to CONFIG.relays
+        const relayList = relays || (window.activeRelays && window.activeRelays.length ? window.activeRelays : CONFIG.relays.slice(0, 5));
+        const rm = new RelayManager(relayList);
         const events = [];
     
         const filter = {
@@ -455,7 +456,7 @@
                     if (sid === subId && !resolved) {
                         resolved = true;
                         rm.closeSubscription(subId);
-                        console.log(`📊 fetchKindEvents: kind ${kind}, fetched ${events.length} events`);
+                        console.log(`📊 fetchKindEvents: kind ${kind}, fetched ${events.length} events (limit ${limit}) from ${relayList.length} relays`);
                         resolve();
                     }
                 };
@@ -1063,18 +1064,20 @@
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
     
         try {
-            const PAGE_SIZE = 20;
+            const PAGE_SIZE = 20; // for pagination after initial load
             let events = [];
     
-            // ── For kind 30023, use cache if available, else fetch first page ──
+            // ── For kind 30023, fetch more initially (50) and cache ──
             if (kind === 30023) {
                 const cached = getCachedKindData(currentUser.publicKey, kind);
                 if (cached && cached.length > 0) {
                     events = cached;
                     console.log(`📦 Using cached ${events.length} articles`);
                 } else {
-                    events = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE);
+                    // Fetch 50 articles initially
+                    events = await fetchKindEvents(currentUser.publicKey, kind, 50);
                     setCachedKindData(currentUser.publicKey, kind, events);
+                    console.log(`📦 Fetched ${events.length} articles (initial)`);
                 }
             } else if (kind === 1) {
                 // Notes: load latest 20
@@ -1150,7 +1153,10 @@
             }
     
             // ── "Load more" for kind 30023 and kind 1 ──
-            if ((kind === 30023 || kind === 1) && events.length >= PAGE_SIZE) {
+            // For kind 30023, show "Load more" if we have exactly 50 or more (indicating there might be more)
+            // Or if we fetched with PAGE_SIZE (20) and got 20.
+            const shouldShowLoadMore = (kind === 30023 && events.length >= 50) || (kind === 1 && events.length >= PAGE_SIZE);
+            if (shouldShowLoadMore) {
                 const loadMoreWrap = document.createElement('div');
                 loadMoreWrap.style.cssText = 'display:flex; justify-content:center; margin-top:10px;';
                 const loadMoreBtn = document.createElement('button');
@@ -1223,6 +1229,7 @@
         }
     };
 
+    
     // ── Render Kind 1 (Posts) ──
     function renderKind1Events(events) {
         return events.map(ev => {
