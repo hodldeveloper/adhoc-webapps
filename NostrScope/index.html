@@ -85,6 +85,16 @@
             </div>
         </div>
 
+        <!-- Editor Screen -->
+        <div class="screen editor-screen" id="editorScreen">
+            <div class="editor-header" style="padding:12px 16px; background:rgba(9,14,23,0.72); backdrop-filter:blur(14px); border-bottom:1px solid rgba(145,163,192,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <span class="back-btn" id="editorBackBtn">← Back</span>
+                <span class="editor-title" style="font-weight:800; letter-spacing:-0.02em; font-size:1.05rem;">New Article</span>
+                <button class="btn btn-primary" id="editorPublishBtn" style="padding:6px 14px; font-size:0.8rem;">Publish</button>
+            </div>
+            <div class="editor-content" id="editorContent" style="flex:1; overflow-y:auto; padding-bottom:20px;"></div>
+        </div>
+
         <!-- Bottom Navigation -->
         <div class="bottom-nav">
             <button class="nav-btn active" data-screen="feed">📰</button>
