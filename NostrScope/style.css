@@ -1930,3 +1930,36 @@ a {
     animation: slideUp 0.3s ease-out;
 }
 
+/* ── Editor Screen ── */
+.editor-screen .editor-content {
+    background: transparent;
+}
+.editor-screen .editor-content .CodeMirror {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    background: #1d1f23;
+    color: #e7e9ea;
+    border: 1px solid #2f3336;
+    border-radius: 6px;
+}
+.editor-screen .editor-content .CodeMirror-cursor {
+    border-left-color: #e7e9ea;
+}
+.editor-screen .editor-content .editor-toolbar {
+    border: 1px solid #2f3336;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: #16181c;
+}
+.editor-screen .editor-content .editor-toolbar button {
+    color: #e7e9ea;
+}
+.editor-screen .editor-content .editor-toolbar button:hover {
+    background: #2f3336;
+}
+.editor-screen .editor-content .editor-toolbar i.separator {
+    border-left: 1px solid #2f3336;
+}
+.editor-screen .editor-content .CodeMirror-selected {
+    background: #4da3ff33;
+}
