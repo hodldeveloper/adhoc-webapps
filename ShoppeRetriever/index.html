@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Manager Pro v3 – ScrapingBee</title>
+    <title>Shopee Manager Pro v3 – ScrapingBee (Debug)</title>
     <style>
         :root {
             --bg: #f8f9fb;
@@ -96,6 +96,8 @@
         .badge-fav { color:var(--star); }
         .card-actions { display:flex; gap:3px; margin-top:4px; flex-wrap:wrap; }
         .price-history-tip { font-size:0.7rem; color:var(--accent); cursor:help; text-decoration:underline dotted; }
+        .debug-area { margin-top:10px; }
+        .debug-area textarea { width:100%; height:200px; font-family:monospace; font-size:0.75rem; }
     </style>
 </head>
 <body>
@@ -153,10 +155,17 @@
                 <div class="form-group"><label>Description</label><textarea id="desc" rows="2"></textarea></div>
                 <div style="display:flex; gap:8px;"><button type="submit" class="btn btn-primary" id="submitBtn">Add</button><button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none;" onclick="cancelEdit()">Cancel</button></div>
             </form>
-            <details style="margin-top:12px;"><summary>⚙️ API Key & Import</summary>
-                <label style="font-size:0.7rem;">ScrapingBee API Key</label>
+            <details style="margin-top:12px;"><summary>⚙️ ScrapingBee Settings & Import</summary>
+                <label style="font-size:0.7rem;">API Key</label>
                 <input type="text" id="apiKey" value="YDSZEP2SX0IXGP99E5GTDSAMOGCBDXTA2DGS6A92ZHFRRUR5PQDT1GQS1ESDW4JO335L7ALTLD3U7LCW" style="width:100%;font-size:0.8rem;">
+                <label style="font-size:0.7rem; display:flex; align-items:center; gap:6px; margin-top:5px;">
+                    <input type="checkbox" id="renderJs"> Enable JavaScript rendering (costs 5 credits per call)
+                </label>
                 <textarea id="bulkInput" rows="2" placeholder="Bulk links..."></textarea><button class="btn btn-ghost btn-sm" onclick="bulkImport()">Import</button>
+                <div class="debug-area" id="debugContainer" style="display:none;">
+                    <label style="font-size:0.7rem;">Debug HTML (first 3000 chars)</label>
+                    <textarea id="debugHtml" readonly></textarea>
+                </div>
             </details>
         </div>
         <div class="panel">
@@ -181,7 +190,7 @@
 
     <script>
         (() => {
-            const STORAGE = 'shopee_pro_v3_sbee';
+            const STORAGE = 'shopee_pro_v3_sbee_debug';
             let products = [], currentTags = [], editingId = null, selectedIds = new Set();
             const $ = s => document.querySelector(s);
 
@@ -388,7 +397,7 @@
                 save(); resetForm(); renderList(); toast('Saved!');
             });
 
-            // ========== SCRAPINGBEE INTEGRATION ==========
+            // ========== SCRAPINGBEE INTEGRATION WITH DEBUG ==========
             function getApiKey() {
                 return $('#apiKey').value.trim();
             }
@@ -396,28 +405,48 @@
             async function fetchPage(url) {
                 const key = getApiKey();
                 if (!key) throw new Error('No ScrapingBee API key');
-                const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${key}&url=${encodeURIComponent(url)}&render_js=false&premium_proxy=true`;
+                const renderJs = $('#renderJs').checked;
+                const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${key}&url=${encodeURIComponent(url)}&render_js=${renderJs}&premium_proxy=true`;
                 const resp = await fetch(apiUrl);
                 if (!resp.ok) throw new Error(`ScrapingBee error ${resp.status}`);
                 return resp.text();
             }
 
             function extractProductFromHTML(html) {
-                // Try __NEXT_DATA__ first
+                // Keep for debugging
+                console.log('HTML length:', html.length);
+                // Try __NEXT_DATA__
                 const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
                 if (nextDataMatch) {
                     const json = JSON.parse(nextDataMatch[1]);
                     const item = json.props?.pageProps?.item;
                     if (item) return { item, shopInfo: json.props?.pageProps?.shopInfo };
                 }
-                // Fallback to __INITIAL_STATE__
+                // Try __INITIAL_STATE__
                 const initStateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});/);
                 if (initStateMatch) {
                     const state = JSON.parse(initStateMatch[1]);
                     const item = state.product?.item;
                     if (item) return { item, shopInfo: state.product?.shopInfo };
                 }
-                throw new Error('Could not find product data');
+                // Last resort: look for any script with "item" and "shopid"
+                const scripts = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g);
+                for (const match of scripts) {
+                    const content = match[1];
+                    if (content.includes('"shopid"') && content.includes('"itemid"')) {
+                        try {
+                            const json = JSON.parse(content);
+                            if (json.item) return { item: json.item, shopInfo: json.shop_info };
+                            if (json.props?.pageProps?.item) return { item: json.props.pageProps.item, shopInfo: json.props.pageProps.shopInfo };
+                        } catch(e) {}
+                    }
+                }
+                return null;
+            }
+
+            function showDebug(html) {
+                $('#debugContainer').style.display = 'block';
+                $('#debugHtml').value = html.substring(0, 3000);
             }
 
             function populateFromItem(item, shopInfo) {
@@ -447,11 +476,16 @@
             window.fetchDetails = async () => {
                 const link = $('#link').value.trim();
                 if (!link) return toast('Enter a Shopee link', 'error');
+                $('#debugContainer').style.display = 'none';
                 toast('Fetching via ScrapingBee...');
                 try {
                     const html = await fetchPage(link);
-                    const { item, shopInfo } = extractProductFromHTML(html);
-                    populateFromItem(item, shopInfo);
+                    const result = extractProductFromHTML(html);
+                    if (!result) {
+                        showDebug(html);
+                        throw new Error('Could not find product data – check debug HTML.');
+                    }
+                    populateFromItem(result.item, result.shopInfo);
                     toast('Details loaded! ✅', 'success');
                 } catch (err) {
                     toast('Fetch failed: ' + err.message, 'error');
@@ -466,7 +500,9 @@
                     if (!p.link) continue;
                     try {
                         const html = await fetchPage(p.link);
-                        const { item, shopInfo } = extractProductFromHTML(html);
+                        const result = extractProductFromHTML(html);
+                        if (!result) { p.unavailable = true; continue; }
+                        const { item, shopInfo } = result;
                         const newPrice = (item.price_min || item.price || 0) / 100000;
                         if (newPrice && newPrice !== p.price) {
                             p.priceHistory.push({ price: p.price, date: p.lastUpdated || new Date().toISOString() });
