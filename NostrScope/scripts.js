@@ -571,70 +571,72 @@
         // ── Parse community data ──
         const tags = communityEvent.tags || [];
         const name = tags.find(t => t[0] === 'name')?.[1] || 'Unnamed Community';
-        const description = tags.find(t => t[0] === 'description')?.[1] || '';
-        const image = tags.find(t => t[0] === 'image')?.[1] || '';
         const dTag = tags.find(t => t[0] === 'd')?.[1] || '';
     
-        // Parse content (JSON with rules, banner, joinFee)
         let contentData = {};
         try {
             contentData = JSON.parse(communityEvent.content || '{}');
         } catch (e) {}
+        const description = contentData.description || '';
         const rules = contentData.rules || [];
         const banner = contentData.banner || '';
         const joinFee = contentData.joinFee || null;
+        const image = tags.find(t => t[0] === 'image')?.[1] || '';
         const type = tags.find(t => t[0] === 'type')?.[1] || 'open';
     
-        // Moderators
         const moderators = tags.filter(t => t[0] === 'p' && t[3] === 'moderator').map(t => t[1]);
-    
         const npub = communityEvent.pubkey ? npubFromHex(communityEvent.pubkey) : '';
     
         // ── Build the community view HTML ──
         const html = `
-            <div class="card" style="padding:0; overflow:hidden;">
-                ${banner ? `<div style="height:180px; background:url('${banner}') center/cover no-repeat; background-color:#1d1f23;"></div>` : ''}
-                <div style="padding:16px;">
-                    ${image ? `<img src="${image}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #16181c;margin-top:-40px;display:block;background:#1d1f23;" loading="lazy">` : ''}
-                    <h2 style="margin:8px 0 4px; font-size:1.3rem;">${escapeHtml(name)}</h2>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                        <span class="badge ${type === 'paid' ? 'badge-orange' : 'badge-green'}">${type === 'paid' ? '💰 Paid' : '🔓 Open'}</span>
-                        ${joinFee ? `<span class="badge badge-purple">Join Fee: $${escapeHtml(joinFee)}</span>` : ''}
-                        <span class="badge badge-blue">${moderators.length} moderators</span>
-                    </div>
-                    ${description ? `<p style="margin:8px 0; color:#a0b0c0; line-height:1.5;">${escapeHtml(description)}</p>` : ''}
-                    ${rules.length ? `
-                        <details style="margin:12px 0;">
-                            <summary style="cursor:pointer;font-weight:600;color:#4da3ff;">📋 Community Rules (${rules.length})</summary>
-                            <ol style="margin:8px 0 0 20px; color:#d0d8e0;">
-                                ${rules.map(r => `<li style="margin:4px 0;">${escapeHtml(r)}</li>`).join('')}
-                            </ol>
-                        </details>
-                    ` : ''}
-                    <div style="margin:12px 0; padding:10px; background:#1d1f23; border-radius:8px; border:1px solid #2f3336; font-size:0.7rem; color:#71767b; word-break:break-all;">
-                        <div><strong>Community ID:</strong> <code>${escapeHtml(dTag)}</code></div>
-                        <div><strong>Author:</strong> <code>${escapeHtml(npub)}</code></div>
-                        <div><strong>Event ID:</strong> <code>${escapeHtml(communityEvent.id)}</code></div>
-                    </div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-                        <button class="btn btn-sm btn-primary" onclick="window._inspectEvent('${communityEvent.id}')">📄 View JSON</button>
-                        <button class="btn btn-sm btn-outline" onclick="window.boostEvent('${communityEvent.id}','${communityEvent.pubkey}','${communityEvent.kind}')">🚀 Boost</button>
-                        <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${communityEvent.id}').then(()=>window._safeToast('Copied!'))">📋 Copy ID</button>
+            <div style="padding:16px; max-width:100%;">
+                <div style="background:#1d1f23;border:1px solid #2f3336;border-radius:12px;overflow:hidden;">
+                    ${banner ? `<div style="height:180px; background:url('${banner}') center/cover no-repeat; background-color:#1d1f23;"></div>` : ''}
+                    <div style="padding:16px;">
+                        ${image ? `<img src="${image}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #16181c;margin-top:-40px;display:block;background:#1d1f23;" loading="lazy">` : ''}
+                        <h2 style="margin:8px 0 4px; font-size:1.3rem;">${escapeHtml(name)}</h2>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                            <span class="badge ${type === 'paid' ? 'badge-orange' : 'badge-green'}">${type === 'paid' ? '💰 Paid' : '🔓 Open'}</span>
+                            ${joinFee ? `<span class="badge badge-purple">Join Fee: $${escapeHtml(joinFee)}</span>` : ''}
+                            <span class="badge badge-blue">${moderators.length} moderators</span>
+                        </div>
+                        ${description ? `<p style="margin:8px 0; color:#a0b0c0; line-height:1.5;">${escapeHtml(description)}</p>` : ''}
+                        ${rules.length ? `
+                            <details style="margin:12px 0;">
+                                <summary style="cursor:pointer;font-weight:600;color:#4da3ff;">📋 Community Rules (${rules.length})</summary>
+                                <ol style="margin:8px 0 0 20px; color:#d0d8e0;">
+                                    ${rules.map(r => `<li style="margin:4px 0;">${escapeHtml(r)}</li>`).join('')}
+                                </ol>
+                            </details>
+                        ` : ''}
+                        <div style="margin:12px 0; padding:10px; background:#0d1117; border-radius:8px; border:1px solid #2f3336; font-size:0.7rem; color:#71767b; word-break:break-all;">
+                            <div><strong>Community ID:</strong> <code>${escapeHtml(dTag)}</code></div>
+                            <div><strong>Author:</strong> <code>${escapeHtml(npub)}</code></div>
+                            <div><strong>Event ID:</strong> <code>${escapeHtml(communityEvent.id)}</code></div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+                            <button class="btn btn-sm btn-primary" onclick="window._inspectEvent('${communityEvent.id}')">📄 View JSON</button>
+                            <button class="btn btn-sm btn-outline" onclick="window.boostEvent('${communityEvent.id}','${communityEvent.pubkey}','${communityEvent.kind}')">🚀 Boost</button>
+                            <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${communityEvent.id}').then(()=>window._safeToast('Copied!'))">📋 Copy ID</button>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
     
-        // ── Inject into the analysis screen ──
-        const container = document.getElementById('panel-thread');
-        if (container) {
-            container.innerHTML = html;
-            // Hide other panels
-            ['panel-timeline', 'panel-stats', 'panel-json', 'panel-relays', 'panel-bch', 'panel-profile'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
+        // ── Replace the entire analysis content ──
+        const analysisContent = document.getElementById('analysisContent');
+        if (analysisContent) {
+            analysisContent.innerHTML = html;
         }
+    
+        // ── Update the header title ──
+        const titleEl = document.querySelector('.analysis-title');
+        if (titleEl) {
+            titleEl.textContent = '🏘️ Community';
+        }
+    
+        // ── Ensure the analysis screen is active (already done by caller) ──
     }
 
     let pendingRender = null;
