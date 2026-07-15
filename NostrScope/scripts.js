@@ -550,6 +550,150 @@
     }
 
     let pendingRender = null;
+
+    // ── Community Creation ──
+
+    window.createCommunity = function () {
+        if (!currentUser) {
+            safeToast('Please login first.', 'info');
+            return;
+        }
+        if (typeof window._safeToast === 'function') {
+            window._safeToast('📝 Create a new community', 'info');
+        }
+    
+        const modalHtml = `
+            <div class="modal-backdrop" id="communityModalBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10001;padding:16px;">
+                <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:12px;padding:20px;max-width:520px;width:100%;color:#e7e9ea;max-height:90vh;overflow-y:auto;">
+                    <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.5rem;cursor:pointer;" onclick="document.getElementById('communityModalBackdrop').remove();">✕</button>
+                    <h3 style="margin-top:0;">🏘️ Create Community</h3>
+                    <div style="display:grid; gap:12px;">
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">Community Name *</label>
+                            <input id="commName" type="text" placeholder="e.g. Bitcoin Enthusiasts" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">Banner Image URL</label>
+                            <input id="commBanner" type="url" placeholder="https://example.com/banner.jpg" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">Description</label>
+                            <textarea id="commDescription" rows="3" placeholder="What is this community about?" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;resize:vertical;"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">Rules (one per line)</label>
+                            <textarea id="commRules" rows="4" placeholder="1. Be respectful&#10;2. No spam" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;resize:vertical;"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">Community Type</label>
+                            <select id="commType" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;">
+                                <option value="open">Open (anyone can join)</option>
+                                <option value="paid">Paid (requires join fee)</option>
+                            </select>
+                        </div>
+                        <div id="paidFields" style="display:none;">
+                            <label style="font-size:0.75rem;color:#71767b;">Join Fee (USD) *</label>
+                            <input id="commFee" type="number" min="0.01" step="0.01" placeholder="e.g. 5.00" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:#71767b;">d‑Tag (optional – leave blank for auto‑generate)</label>
+                            <input id="commDTag" type="text" placeholder="my-community" style="width:100%;padding:8px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
+                        <button class="btn btn-outline" onclick="document.getElementById('communityModalBackdrop').remove();">Cancel</button>
+                        <button class="btn btn-primary" id="publishCommunityBtn">Publish Community</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    
+        const modalContainer = document.getElementById('modalContainer');
+        if (!modalContainer) return;
+        modalContainer.innerHTML = modalHtml;
+    
+        // Show/hide paid fields based on type selection
+        const typeSelect = document.getElementById('commType');
+        const paidFields = document.getElementById('paidFields');
+        typeSelect.addEventListener('change', function() {
+            paidFields.style.display = this.value === 'paid' ? 'block' : 'none';
+        });
+    
+        document.getElementById('publishCommunityBtn').addEventListener('click', window.publishCommunity);
+    };
+    
+    window.publishCommunity = async function () {
+        const name = document.getElementById('commName').value.trim();
+        const banner = document.getElementById('commBanner').value.trim();
+        const description = document.getElementById('commDescription').value.trim();
+        const rulesRaw = document.getElementById('commRules').value.trim();
+        const type = document.getElementById('commType').value;
+        const fee = document.getElementById('commFee').value.trim();
+        const dTagRaw = document.getElementById('commDTag').value.trim();
+    
+        if (!name) {
+            window._safeToast('Community name is required.', 'error');
+            return;
+        }
+        if (type === 'paid') {
+            const feeNum = parseFloat(fee);
+            if (!fee || isNaN(feeNum) || feeNum <= 0) {
+                window._safeToast('Please enter a valid join fee (USD).', 'error');
+                return;
+            }
+        }
+    
+        // Build rules array (split by newline, filter empty)
+        const rules = rulesRaw ? rulesRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    
+        const now = Math.floor(Date.now() / 1000);
+        const dTag = dTagRaw || `bchnostr-community-${Date.now()}`;
+    
+        const eventTemplate = {
+            kind: 34550,
+            created_at: now,
+            tags: [
+                ['d', dTag],
+                ['name', name],
+                ['type', type],
+                ['client', 'BCHNostr'],
+            ],
+            content: JSON.stringify({
+                description: description || '',
+                rules: rules,
+                banner: banner || '',
+                ...(type === 'paid' ? { joinFee: fee } : {})
+            })
+        };
+    
+        try {
+            const signed = await window._signNostrEvent(eventTemplate, currentUser.privateKey);
+            const rm = window._relayManager || await ensureRelayManager();
+            if (rm) {
+                rm.publish(signed);
+                window._safeToast('✅ Community published!', 'success');
+                document.getElementById('communityModalBackdrop').remove();
+                // Optionally refresh the feed or community list
+            } else {
+                window._safeToast('No relay connection.', 'error');
+            }
+        } catch (e) {
+            window._safeToast('Error publishing: ' + e.message, 'error');
+        }
+    };
+    
+    // Helper to ensure relay manager (copied from boost.js)
+    async function ensureRelayManager() {
+        if (window._relayManager) return window._relayManager;
+        if (typeof RelayManager !== 'function') return null;
+        const relays = (window.activeRelays || window.CONFIG?.relays || []).slice(0, 6);
+        if (!relays.length) return null;
+        const rm = new RelayManager(relays);
+        window._relayManager = rm;
+        try { await rm.connectAll(4000); } catch (e) {}
+        return rm;
+    }
+    
     function debouncedRender(inv) { if (pendingRender) clearTimeout(pendingRender); pendingRender = setTimeout(() => { renderAll(inv); pendingRender = null; }, 100); }
 
     function renderAll(inv) {
