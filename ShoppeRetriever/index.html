@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Manager Pro v3</title>
+    <title>Shopee Manager Pro v3 – API Edition</title>
     <style>
         :root {
             --bg: #f8f9fb;
@@ -115,7 +115,7 @@
         <div class="stat-item">⚠️ Unavailable <span class="stat-value" id="statUnavail">0</span></div>
     </div>
     <div style="padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <h1 style="font-size:1.3rem;">🛒 Shopee Pro v3</h1>
+        <h1 style="font-size:1.3rem;">🛒 Shopee Pro v3 (API)</h1>
         <select id="sortSelect" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:0.8rem;">
             <option value="newest">Newest Added</option>
             <option value="oldest">Oldest Added</option>
@@ -146,7 +146,10 @@
                     <div class="form-group"><label>Rating</label><input type="number" id="rating" step="0.1" min="0" max="5"></div>
                     <div class="form-group"><label>Sold</label><input type="number" id="sold"></div>
                 </div>
-                <div class="form-group"><label>Image URL</label><input type="url" id="image"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Shop Name</label><input type="text" id="shopName" placeholder="Auto-filled on fetch"></div>
+                    <div class="form-group"><label>Image URL</label><input type="url" id="image"></div>
+                </div>
                 <div class="form-group"><label>Affiliate Link</label><input type="url" id="affLink"></div>
                 <div class="form-row">
                     <div class="form-group"><label>Category</label><select id="category"><option value="">None</option><option>Electronics</option><option>Fashion</option><option>Food</option><option>Home</option><option>Pets</option><option>Gaming</option><option>Health</option><option>Automotive</option></select></div>
@@ -157,7 +160,8 @@
                 <div style="display:flex; gap:8px;"><button type="submit" class="btn btn-primary" id="submitBtn">Add</button><button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none;" onclick="cancelEdit()">Cancel</button></div>
             </form>
             <details style="margin-top:12px;"><summary>⚙️ Proxy & Import</summary>
-                <input type="text" id="proxyUrl" value="https://api.allorigins.win/raw?url=" style="width:100%;font-size:0.8rem;" placeholder="CORS proxy for Shopee API">
+                <label style="font-size:0.7rem;">Proxy base URL (for Shopee API)</label>
+                <input type="text" id="proxyUrl" value="https://bold-sky-d1b7.invalidcastx.workers.dev/?url=" style="width:100%;font-size:0.8rem;">
                 <textarea id="bulkInput" rows="2" placeholder="Bulk links..."></textarea><button class="btn btn-ghost btn-sm" onclick="bulkImport()">Import</button>
             </details>
         </div>
@@ -184,21 +188,20 @@
 
     <script>
         (() => {
-            const STORAGE = 'shopee_pro_v3';
+            const STORAGE = 'shopee_pro_v3_api';
             let products = [], currentTags = [], editingId = null, selectedIds = new Set();
             const $ = s => document.querySelector(s);
             const $$ = s => document.querySelectorAll(s);
 
-            // Load
             function load() {
                 try { products = JSON.parse(localStorage.getItem(STORAGE)) || []; } catch { products = []; }
                 products = products.map(p => ({
                     id: p.id || crypto.randomUUID(), itemid: p.itemid || '', shopid: p.shopid || '',
                     name: p.name || '', price: p.price || 0, origPrice: p.origPrice || '',
                     rating: p.rating || '', sold: p.sold || '', image: p.image || '',
-                    link: p.link || '', affLink: p.affLink || '', category: p.category || '',
-                    campaign: p.campaign || '', tags: p.tags || [], desc: p.desc || '',
-                    favorite: p.favorite || false, unavailable: p.unavailable || false,
+                    link: p.link || '', affLink: p.affLink || '', shopName: p.shopName || '',
+                    category: p.category || '', campaign: p.campaign || '', tags: p.tags || [],
+                    desc: p.desc || '', favorite: p.favorite || false, unavailable: p.unavailable || false,
                     lastUpdated: p.lastUpdated || '', priceHistory: p.priceHistory || [],
                     addedAt: p.addedAt || new Date().toISOString()
                 }));
@@ -210,13 +213,11 @@
                 setTimeout(() => t.className = 'toast', 2000);
             }
 
-            // Tags
             function renderTags() {
                 $('#tagPills').innerHTML = currentTags.map((t,i) => `<span class="tag-pill">${esc(t)}<span class="remove-tag" data-index="${i}">&times;</span></span>`).join('');
             }
             function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-            // Stats
             function updateStats() {
                 const total = products.length;
                 let fav=0, sumDisc=0, maxDisc=0, cats=new Set(), needRefresh=0, unavail=0;
@@ -240,13 +241,11 @@
                 $('#statUnavail').textContent = unavail;
             }
 
-            // Sorting & filtering
             function getFilteredAndSorted() {
                 const filter = document.querySelector('.filter-chip.active')?.dataset.filter || 'all';
                 const sort = $('#sortSelect').value;
                 const search = $('#searchInput').value.toLowerCase().trim();
                 let filtered = [...products];
-                // filter
                 if (filter === 'favorite') filtered = filtered.filter(p => p.favorite);
                 else if (filter === 'needRefresh') filtered = filtered.filter(p => !p.lastUpdated || (Date.now() - new Date(p.lastUpdated).getTime()) > 86400000);
                 else if (filter === 'noAff') filtered = filtered.filter(p => !p.affLink);
@@ -254,9 +253,7 @@
                     const min = parseInt(filter.replace('disc',''));
                     filtered = filtered.filter(p => p.origPrice && p.price && p.origPrice>p.price && Math.round((1-p.price/p.origPrice)*100) >= min);
                 } else if (filter !== 'all') filtered = filtered.filter(p => p.category === filter);
-                // search
                 if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search) || p.link.includes(search) || (p.tags||[]).some(t=>t.toLowerCase().includes(search)));
-                // sort
                 switch(sort) {
                     case 'newest': filtered.sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt)); break;
                     case 'oldest': filtered.sort((a,b) => new Date(a.addedAt) - new Date(b.addedAt)); break;
@@ -315,7 +312,6 @@
                 updateStats();
             }
 
-            // Selection
             document.addEventListener('change', e => {
                 if (e.target.classList.contains('sel-cb')) {
                     const idx = parseInt(e.target.dataset.index);
@@ -333,7 +329,6 @@
             $('#sortSelect').addEventListener('change', renderList);
             $('#searchInput').addEventListener('input', renderList);
 
-            // Form
             function resetForm() {
                 $('#productForm').reset(); $('#editId').value=''; editingId=null; currentTags=[];
                 $('#submitBtn').textContent='Add'; $('#cancelBtn').style.display='none';
@@ -344,6 +339,7 @@
                 $('#price').value = p.price; $('#origPrice').value = p.origPrice||'';
                 $('#rating').value = p.rating||''; $('#sold').value = p.sold||'';
                 $('#image').value = p.image||''; $('#affLink').value = p.affLink||'';
+                $('#shopName').value = p.shopName||'';
                 $('#category').value = p.category||''; $('#campaign').value = p.campaign||'';
                 $('#desc').value = p.desc||''; currentTags = [...(p.tags||[])];
                 editingId = products.indexOf(p); $('#editId').value = editingId;
@@ -359,13 +355,30 @@
                 e.preventDefault();
                 const link = $('#link').value.trim();
                 if (!link) return toast('Link required','error');
+                let itemid = '', shopid = '';
+                try {
+                    const url = new URL(link);
+                    const pathParts = url.pathname.split('/');
+                    for (let part of pathParts) {
+                        if (part.startsWith('i.')) {
+                            const ids = part.replace('i.','').split('.');
+                            if (ids.length >= 2) { shopid = ids[0]; itemid = ids[1]; }
+                            break;
+                        }
+                    }
+                    if (!itemid) {
+                        const numbers = pathParts.filter(p => /^\d+$/.test(p));
+                        if (numbers.length >= 2) { shopid = numbers[0]; itemid = numbers[1]; }
+                    }
+                } catch(e) {}
                 const prod = {
                     id: editingId!==null ? products[editingId]?.id : crypto.randomUUID(),
-                    itemid: '', shopid: '', // will be extracted from link
+                    itemid, shopid,
                     name: $('#name').value.trim(), price: parseFloat($('#price').value)||0,
                     origPrice: $('#origPrice').value ? parseFloat($('#origPrice').value) : '',
                     rating: $('#rating').value || '', sold: $('#sold').value || '',
                     image: $('#image').value.trim(), link, affLink: $('#affLink').value.trim(),
+                    shopName: $('#shopName').value.trim(),
                     category: $('#category').value, campaign: $('#campaign').value.trim(),
                     tags: [...currentTags], desc: $('#desc').value.trim(),
                     favorite: editingId!==null ? products[editingId].favorite : false,
@@ -373,22 +386,9 @@
                     priceHistory: editingId!==null ? products[editingId].priceHistory || [] : [],
                     addedAt: editingId!==null ? products[editingId].addedAt : new Date().toISOString()
                 };
-                // Extract ids
-                try {
-                    const url = new URL(link);
-                    const path = url.pathname.split('/');
-                    const idPart = path.find(p => p.includes('i.')) || path[path.length-1];
-                    if (idPart) {
-                        const ids = idPart.replace('i.','').split('.');
-                        if (ids.length >= 2) { prod.itemid = ids[0]; prod.shopid = ids[1]; }
-                        else if (ids.length === 1) prod.itemid = ids[0];
-                    }
-                } catch(e) {}
-                // duplicate check
                 if (prod.itemid && products.some((p,i) => p.itemid === prod.itemid && i !== editingId)) {
                     if (!confirm('Product with same itemid exists. Add anyway?')) return;
                 }
-                // price history
                 if (editingId!==null && products[editingId] && products[editingId].price !== prod.price) {
                     prod.priceHistory = [...(prod.priceHistory || []), { price: prod.price, date: new Date().toISOString() }];
                 }
@@ -397,67 +397,99 @@
                 save(); resetForm(); renderList(); toast('Saved!');
             });
 
-            // Fetch via proxy
+            // --- Fetch via Shopee API using your Cloudflare Worker ---
             window.fetchDetails = async () => {
                 const link = $('#link').value.trim();
-                if (!link) return toast('Enter link','error');
-                const proxy = $('#proxyUrl').value.trim() || 'https://api.allorigins.win/raw?url=';
-                toast('Fetching...');
+                if (!link) return toast('Enter a Shopee link', 'error');
+
+                // Extract itemid & shopid
+                let itemid = '', shopid = '';
                 try {
-                    const resp = await fetch(proxy + encodeURIComponent(link));
-                    if (!resp.ok) throw new Error('Proxy error');
-                    const html = await resp.text();
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    const json = doc.querySelector('script[type="application/ld+json"]');
-                    if (json) {
-                        const d = JSON.parse(json.textContent);
-                        if (d.name) $('#name').value = d.name;
-                        if (d.image) $('#image').value = Array.isArray(d.image) ? d.image[0] : d.image;
-                        if (d.offers) {
-                            const off = Array.isArray(d.offers) ? d.offers[0] : d.offers;
-                            if (off.price) $('#price').value = off.price;
-                        }
-                        if (d.aggregateRating) {
-                            $('#rating').value = d.aggregateRating.ratingValue || '';
-                            $('#sold').value = d.aggregateRating.reviewCount || '';
+                    const url = new URL(link);
+                    const pathParts = url.pathname.split('/');
+                    for (let part of pathParts) {
+                        if (part.startsWith('i.')) {
+                            const ids = part.replace('i.', '').split('.');
+                            if (ids.length >= 2) { shopid = ids[0]; itemid = ids[1]; }
+                            break;
                         }
                     }
-                    toast('Fetched. Verify data.','success');
-                } catch (e) {
-                    toast('Fetch failed. Try different proxy.','error');
+                    if (!itemid) {
+                        const numbers = pathParts.filter(p => /^\d+$/.test(p));
+                        if (numbers.length >= 2) { shopid = numbers[0]; itemid = numbers[1]; }
+                    }
+                } catch (e) {}
+                if (!itemid || !shopid) {
+                    return toast('Could not extract Shopee IDs. Use a full product URL.', 'error');
+                }
+
+                const apiUrl = `https://shopee.ph/api/v4/item/get?itemid=${itemid}&shopid=${shopid}`;
+                const proxyBase = $('#proxyUrl').value.trim() || 'https://bold-sky-d1b7.invalidcastx.workers.dev/?url=';
+                toast('Fetching via Shopee API...');
+
+                try {
+                    const resp = await fetch(proxyBase + encodeURIComponent(apiUrl));
+                    if (!resp.ok) throw new Error(`Proxy error ${resp.status}`);
+                    const data = await resp.json();
+                    const item = data.data?.item;
+                    if (!item) throw new Error('Invalid API response');
+
+                    // Populate form (prices are in 1/100000 of PHP)
+                    $('#name').value = item.name || '';
+                    const price = item.price_min || item.price || 0;
+                    $('#price').value = (price / 100000).toFixed(2);
+                    if (item.price_before_discount) {
+                        $('#origPrice').value = (item.price_before_discount / 100000).toFixed(2);
+                    } else if (item.price_max && item.price_max > price) {
+                        $('#origPrice').value = (item.price_max / 100000).toFixed(2);
+                    } else {
+                        $('#origPrice').value = '';
+                    }
+                    $('#rating').value = item.item_rating?.rating_star || '';
+                    $('#sold').value = item.historical_sold || item.sold || '';
+                    $('#image').value = item.image ? 'https://cf.shopee.ph/file/' + item.image : '';
+                    if (data.data.shop_info?.name) {
+                        $('#shopName').value = data.data.shop_info.name;
+                    }
+                    toast('Details loaded! ✅', 'success');
+                } catch (err) {
+                    toast('API fetch failed: ' + err.message, 'error');
+                    console.error(err);
                 }
             };
 
             window.refreshAll = async () => {
-                if (!confirm('Refresh all prices? This may take time.')) return;
-                const proxy = $('#proxyUrl').value.trim() || 'https://api.allorigins.win/raw?url=';
+                if (!confirm('Refresh all products using the API? This may take time.')) return;
+                const proxyBase = $('#proxyUrl').value.trim() || 'https://bold-sky-d1b7.invalidcastx.workers.dev/?url=';
                 let count = 0;
                 for (let p of products) {
-                    if (!p.link) continue;
+                    if (!p.itemid || !p.shopid) continue;
+                    const apiUrl = `https://shopee.ph/api/v4/item/get?itemid=${p.itemid}&shopid=${p.shopid}`;
                     try {
-                        const resp = await fetch(proxy + encodeURIComponent(p.link));
-                        const html = await resp.text();
-                        const doc = new DOMParser().parseFromString(html, 'text/html');
-                        const json = doc.querySelector('script[type="application/ld+json"]');
-                        if (json) {
-                            const d = JSON.parse(json.textContent);
-                            if (d.offers) {
-                                const off = Array.isArray(d.offers) ? d.offers[0] : d.offers;
-                                if (off.price && off.price != p.price) {
-                                    p.priceHistory.push({ price: p.price, date: p.lastUpdated || new Date().toISOString() });
-                                    p.price = off.price;
-                                }
-                            }
-                            p.lastUpdated = new Date().toISOString();
-                            p.unavailable = false;
-                            count++;
+                        const resp = await fetch(proxyBase + encodeURIComponent(apiUrl));
+                        if (!resp.ok) { p.unavailable = true; continue; }
+                        const data = await resp.json();
+                        const item = data.data?.item;
+                        if (!item) { p.unavailable = true; continue; }
+                        const newPrice = (item.price_min || item.price || 0) / 100000;
+                        if (newPrice && newPrice !== p.price) {
+                            p.priceHistory.push({ price: p.price, date: p.lastUpdated || new Date().toISOString() });
+                            p.price = newPrice;
                         }
+                        p.name = item.name || p.name;
+                        if (item.price_before_discount) p.origPrice = item.price_before_discount / 100000;
+                        p.rating = item.item_rating?.rating_star || p.rating;
+                        p.sold = item.historical_sold || item.sold || p.sold;
+                        p.image = item.image ? 'https://cf.shopee.ph/file/' + item.image : p.image;
+                        p.shopName = data.data.shop_info?.name || p.shopName;
+                        p.lastUpdated = new Date().toISOString();
+                        p.unavailable = false;
+                        count++;
                     } catch { p.unavailable = true; }
                 }
                 save(); renderList(); toast(`Updated ${count} products.`);
             };
 
-            // Copy formats
             function format(p) {
                 const link = p.affLink || p.link;
                 let t = `🛒 ${p.name}\n💰 ₱${p.price}`;
@@ -466,7 +498,6 @@
                 if(p.sold) t += ` 📦${Number(p.sold).toLocaleString()}`;
                 if(p.desc) t += `\n📝 ${p.desc}`;
                 t += `\n🔗 ${link}`;
-                // auto hashtags
                 const tags = [...(p.tags||[]), p.category, p.campaign].filter(Boolean).map(t=>'#'+t.replace(/\s+/g,''));
                 if(tags.length) t += '\n'+tags.join(' ');
                 return t;
@@ -486,18 +517,34 @@
                 toast(`🎲 ${p.name}`);
             };
 
-            // Bulk import
             window.bulkImport = () => {
                 const raw = $('#bulkInput').value.trim();
                 if (!raw) return;
                 const lines = raw.split(/[\n\r]+/).filter(l=>l.trim());
                 lines.forEach(link => {
                     if (!link.startsWith('http')) return;
+                    let itemid = '', shopid = '';
+                    try {
+                        const url = new URL(link);
+                        const pathParts = url.pathname.split('/');
+                        for (let part of pathParts) {
+                            if (part.startsWith('i.')) {
+                                const ids = part.replace('i.','').split('.');
+                                if (ids.length >= 2) { shopid = ids[0]; itemid = ids[1]; }
+                                break;
+                            }
+                        }
+                        if (!itemid) {
+                            const numbers = pathParts.filter(p => /^\d+$/.test(p));
+                            if (numbers.length >= 2) { shopid = numbers[0]; itemid = numbers[1]; }
+                        }
+                    } catch(e) {}
                     products.push({
-                        id: crypto.randomUUID(), itemid:'', shopid:'', name:'Imported', price:0,
+                        id: crypto.randomUUID(), itemid, shopid, name:'Imported', price:0,
                         origPrice:'', rating:'', sold:'', image:'', link, affLink:'',
-                        category:'', campaign:'', tags:[], desc:'', favorite:false, unavailable:false,
-                        lastUpdated:'', priceHistory:[], addedAt: new Date().toISOString()
+                        shopName:'', category:'', campaign:'', tags:[], desc:'',
+                        favorite:false, unavailable:false, lastUpdated:'', priceHistory:[],
+                        addedAt: new Date().toISOString()
                     });
                 });
                 save(); renderList(); $('#bulkInput').value=''; toast('Imported');
@@ -510,7 +557,6 @@
             };
             window.clearAll = () => { if(confirm('Delete all?')){ products=[]; save(); renderList(); }};
 
-            // Tag input
             $('#tagInput').addEventListener('keydown', e => {
                 if (e.key==='Enter') { e.preventDefault(); const v=$('#tagInput').value.trim(); if(v&&!currentTags.includes(v)){currentTags.push(v); renderTags();} $('#tagInput').value=''; }
             });
@@ -518,7 +564,6 @@
                 if(e.target.classList.contains('remove-tag')){ const i=parseInt(e.target.dataset.index); currentTags.splice(i,1); renderTags(); }
             });
 
-            // Init
             load(); renderList();
         })();
     </script>
