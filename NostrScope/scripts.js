@@ -524,34 +524,61 @@
         if (parsed.error) { showError(parsed.error); safeToast(parsed.error, 'error'); return; }
         if (parsed.pubkey) { await investigateUser(parsed.pubkey, parsed.relayHints || []); return; }
         if (parsed.source === 'naddr') {
-            const kind = Number(parsed.kind); // ← ensure it's a number
-            const filter = { kinds: [kind], authors: [parsed.pubkey], '#d': [parsed.dTag], limit: 1 };
+            const kind = Number(parsed.kind);
+            const pubkey = parsed.pubkey;
+            const dTag = parsed.dTag;
             const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
             const tempRm = new RelayManager(allUrls);
             window._relayManager = tempRm;
-            const tempInv = new EventInvestigator(tempRm);
-            
-            tempInv.onComplete = (inv) => {
-                if (inv.events.length > 0) {
-                    const ev = inv.events[0];
-                    // ── If it's a community (kind 34550), render community view ──
+        
+            showLoading(`Fetching ${kind === 34550 ? 'community' : 'event'} by address...`);
+            await tempRm.connectAll(CONFIG.relayConnectTimeout);
+        
+            const filter = { kinds: [kind], authors: [pubkey], '#d': [dTag], limit: 1 };
+            const events = [];
+        
+            // ── Manually capture the event ──
+            tempRm.onEvent = (ev) => {
+                // Double‑check it matches the filter (belt and braces)
+                if (ev.kind === kind && ev.pubkey === pubkey) {
+                    const dTagMatch = ev.tags.some(t => t[0] === 'd' && t[1] === dTag);
+                    if (dTagMatch) {
+                        events.push(ev);
+                    }
+                }
+            };
+        
+            let resolved = false;
+            tempRm.onEOSE = () => {
+                if (resolved) return;
+                resolved = true;
+                if (events.length > 0) {
+                    const ev = events[0];
                     if (kind === 34550) {
                         renderCommunityView(ev);
                         hideLoading();
                         switchScreen('analysis');
-                        return;
+                    } else {
+                        // For other addressable kinds, fall back to normal analysis by event ID
+                        runAnalysis(ev.id);
                     }
-                    // Otherwise, fall back to regular event analysis
-                    runAnalysis(ev.id);
                 } else {
-                    safeToast('No event found for this naddr.', 'error');
+                    safeToast('No event found for this address.', 'error');
                     hideLoading();
                 }
             };
-            const label = kind === 34550 ? 'community' : 'event';
-            showLoading(`Fetching ${label} by naddr...`);
-            await tempInv.rm.connectAll(CONFIG.relayConnectTimeout);
-            tempInv.rm.subscribe([filter]);
+        
+            tempRm.subscribe([filter]);
+        
+            // ── Safety timeout ──
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    safeToast('Address lookup timed out.', 'error');
+                    hideLoading();
+                }
+            }, CONFIG.profileInvestigationTimeout || 8000);
+        
             return;
         }
         investigationHexId = parsed.hexId;
