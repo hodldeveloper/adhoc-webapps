@@ -38,6 +38,7 @@ const KNOWN_KINDS = {
   23194: "Wallet Request",
   23195: "Wallet Response",
   27235: "BCH Tip",
+  34550: "Community",
 };
 
 // ── State ─────────────────────────
@@ -344,6 +345,30 @@ function parseInput(input) {
     /https?:\/\/bchnostr\.com\/blog\/(naddr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
   );
   if (m) return parseInput(m[1]);
+  // ── BCHNostr community URL (kind:pubkey:dTag) ──
+  m = t.match(
+    /https?:\/\/bchnostr\.com\/community\/([0-9a-zA-Z%:]+)/i
+  );
+  if (m) {
+    try {
+      const decoded = decodeURIComponent(m[1]);
+      const parts = decoded.split(':');
+      if (parts.length === 3) {
+        const kind = parseInt(parts[0]);
+        const pubkey = parts[1];
+        const dTag = parts[2];
+        if (!isNaN(kind) && isValidHex64(pubkey) && dTag.length > 0) {
+          return {
+            source: 'naddr',
+            kind: kind,
+            pubkey: pubkey,
+            dTag: dTag,
+            relayHints: ['wss://relay.bchnostr.com']
+          };
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
   m = t.match(
     /https?:\/\/snort\.social\/e\/(note1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+|nevent1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+)/i,
   );
