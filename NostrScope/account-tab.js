@@ -810,7 +810,7 @@
     function renderAccountPage(profile, counts) {
         const profileContent = document.getElementById('profileContent');
         if (!profileContent) return;
-
+    
         const registry = KIND_REGISTRY || getFallbackRegistry();
         const npub = npubFromHex(currentUser.publicKey);
         const picture = profile.picture || '';
@@ -818,17 +818,17 @@
         const name = profile.name || 'Unnamed';
         const about = profile.about || '';
         const nip05 = profile.nip05 || '';
-
+    
         let badges = [];
         if (profile.tags && Array.isArray(profile.tags)) {
             badges = [...profile.tags];
         }
-
+    
         function renderImage(src, alt) {
             if (!src) return '<span style="color:#444;">—</span>';
             return `<img src="${src}" alt="${alt}" style="max-width:200px;max-height:120px;border-radius:8px;border:1px solid #2f3336;object-fit:cover;" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'color:#444;\\'>Failed to load</span>';">`;
         }
-
+    
         const profileFields = [
             { key: 'name', label: 'Name', value: name },
             { key: 'about', label: 'About', value: about },
@@ -836,7 +836,7 @@
             { key: 'banner', label: 'Banner', value: banner },
             { key: 'nip05', label: 'NIP-05', value: nip05 },
         ];
-
+    
         let profileRows = '';
         profileFields.forEach(f => {
             const val = f.value || '';
@@ -848,13 +848,13 @@
                     <td style="padding:6px 0;word-break:break-word;border-bottom:1px solid #2f3336;font-size:0.7rem;">${escapeHtml(val) || '<span style="color:#444;">—</span>'}</td></tr>`;
             }
         });
-
+    
         profileRows += `<tr><td style="color:#71767b;font-weight:600;vertical-align:top;padding:6px 8px 6px 0;border-bottom:1px solid #2f3336;font-size:0.7rem;">Badges</td>
             <td style="padding:6px 0;border-bottom:1px solid #2f3336;">${badges.length ? badges.map(t => `<span class="badge badge-blue" style="margin:2px;font-size:0.6rem;">${escapeHtml(t)}</span>`).join(' ') : '<span style="color:#444;">—</span>'}</td></tr>`;
-
+    
         const allKinds = Object.keys(registry).map(Number).sort((a, b) => a - b);
         const totalEvents = Object.values(counts).reduce((sum, c) => sum + c, 0);
-
+    
         let kindTableRows = '';
         allKinds.forEach(kind => {
             const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
@@ -863,7 +863,7 @@
                 kindInfo.category === 'Addressable' ? '#64f4d6' : '#4da3ff';
             const categoryIcon = kindInfo.category === 'Replaceable' ? '🔄' :
                 kindInfo.category === 'Addressable' ? '📌' : '📄';
-
+    
             kindTableRows += `
                 <tr onclick="window.openKindModal(${kind})" style="cursor:pointer;border-bottom:1px solid #2f3336;transition:background 0.2s;" onmouseover="this.style.background='#162132'" onmouseout="this.style.background='transparent'">
                     <td style="padding:6px 8px;font-size:0.65rem;color:#e7e9ea;font-weight:600;white-space:nowrap;">${kind}</td>
@@ -886,7 +886,7 @@
                 </tr>
             `;
         });
-
+    
         const html = `
             <div style="padding:12px;max-width:100%;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px;">
@@ -903,11 +903,11 @@
                     </div>
                 </div>
                 <div id="scanStatus" style="display:none;font-size:0.6rem;color:#4da3ff;text-align:center;margin-bottom:6px;padding:4px;background:#162132;border-radius:4px;"></div>
-
+    
                 ${banner ? `<div style="height:100px;background:linear-gradient(120deg,rgba(77,163,255,0.46),rgba(100,244,214,0.36));border-radius:10px;margin-bottom:10px;overflow:hidden;position:relative;">
                     <img src="${banner}" alt="Banner" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.display='none';">
                 </div>` : ''}
-
+    
                 <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,#1d1f23,#243854);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid #2f3336;font-size:1.5rem;">
                         ${picture ? `<img src="${picture}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.display='none';this.parentElement.textContent='👤';">` : '👤'}
@@ -917,16 +917,17 @@
                         <p style="color:#71767b;font-size:0.65rem;margin:2px 0 0 0;word-break:break-all;">${npub}</p>
                         ${nip05 ? `<p style="color:#35c98b;font-size:0.65rem;margin:2px 0 0 0;">✓ ${escapeHtml(nip05)}</p>` : ''}
                     </div>
-                    <div style="display:flex;gap:6px;flex-shrink:0;width:100%;margin-top:4px;">
-                        <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;flex:1;">✏️ Edit</button>
-                        <button class="btn btn-outline btn-sm" onclick="window.logout && window.logout()" style="padding:4px 12px;font-size:0.7rem;flex:1;">🚪 Logout</button>
+                    <div style="display:flex;gap:6px;flex-shrink:0;width:100%;margin-top:4px; flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">✏️ Edit</button>
+                        <button class="btn btn-outline btn-sm" onclick="window.logout && window.logout()" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">🚪 Logout</button>
+                        <button class="btn btn-outline btn-sm" onclick="window.createCommunity && window.createCommunity()" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">🏘️ New Community</button>
                     </div>
                 </div>
-
+    
                 ${about ? `<div style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:8px;margin-bottom:10px;">
                     <p style="margin:0;color:#e7e9ea;font-size:0.8rem;white-space:pre-wrap;word-break:break-word;">${escapeHtml(about)}</p>
                 </div>` : ''}
-
+    
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:4px;margin-bottom:10px;">
                     <div class="stat-notes" style="background:#1d1f23;border:1px solid #2f3336;border-radius:6px;padding:6px;text-align:center;">
                         <div class="stat-value" style="font-size:0.9rem;font-weight:700;color:#e7e9ea;">${counts[1] || 0}</div>
@@ -949,7 +950,7 @@
                         <div style="font-size:0.55rem;color:#71767b;">Total</div>
                     </div>
                 </div>
-
+    
                 <details style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;overflow:hidden;margin-bottom:10px;">
                     <summary style="cursor:pointer;padding:8px 12px;font-weight:600;color:#e7e9ea;font-size:0.8rem;list-style:none;display:flex;justify-content:space-between;align-items:center;background:#16181c;">
                         <span>📋 All Registered Kinds (${Object.keys(registry).length})</span>
@@ -974,7 +975,7 @@
                         </table>
                     </div>
                 </details>
-
+    
                 <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid #2f3336;padding-bottom:6px;">
                     <button class="btn btn-sm btn-outline kind-tab active" data-kind="profile" style="padding:4px 10px;font-size:0.65rem;">👤 Profile</button>
                     <button class="btn btn-sm btn-outline kind-tab" data-kind="1" style="padding:4px 10px;font-size:0.65rem;">📝 Posts</button>
@@ -983,12 +984,12 @@
                     <button class="btn btn-sm btn-outline kind-tab" data-kind="9735" style="padding:4px 10px;font-size:0.65rem;">⚡ Zaps</button>
                     <button class="btn btn-sm btn-outline kind-tab" data-kind="30078" style="padding:4px 10px;font-size:0.65rem;">📦 App Data</button>
                 </div>
-
+    
                 <div id="kindTabContent" style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:12px;min-height:100px;">
                     <div id="tabLoading" style="display:none;text-align:center;color:#71767b;padding:20px;">⏳ Loading...</div>
                     <div id="tabContent"></div>
                 </div>
-
+    
                 <details style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;overflow:hidden;margin-top:10px;">
                     <summary style="cursor:pointer;padding:8px 12px;font-weight:600;color:#e7e9ea;font-size:0.7rem;list-style:none;display:flex;justify-content:space-between;align-items:center;background:#16181c;">
                         <span>📋 Profile Metadata</span>
@@ -1002,12 +1003,12 @@
                 </details>
             </div>
         `;
-
+    
         profileContent.innerHTML = html;
         notificationBadge = null;
         updateNotificationBadge();
         loadNotifications();
-
+    
         profileContent.querySelectorAll('.kind-tab').forEach(tab => {
             tab.addEventListener('click', function () {
                 profileContent.querySelectorAll('.kind-tab').forEach(t => t.classList.remove('active'));
@@ -1020,7 +1021,7 @@
                 }
             });
         });
-
+    
         renderProfileTab();
     }
 
