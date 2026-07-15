@@ -359,7 +359,7 @@ function parseInput(input) {
         const dTag = parts[2];
         if (!isNaN(kind) && isValidHex64(pubkey) && dTag.length > 0) {
           return {
-            source: 'naddr',
+            source: 'addressable',
             kind: kind,
             pubkey: pubkey,
             dTag: dTag,
