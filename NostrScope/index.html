@@ -9,6 +9,7 @@
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='50%25' y='56%25' font-size='34' text-anchor='middle' fill='%23facc15'%3E%F0%9F%94%8D%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <script src="https://unpkg.com/nostr-tools@2.23.9/lib/nostr.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -16,7 +17,7 @@
 
 <body>
     <div class="app-shell">
-        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="🌙 Dark">🌙 Dark</button>
+        <button id="themeToggleBtn" class="theme-toggle-btn fa-with-label" type="button" aria-label="Dark"><i class="fa-solid fa-moon" aria-hidden="true"></i><span>Dark</span></button>
         <!-- Feed Screen (main) -->
         <div class="screen feed-screen active" id="feedScreen">
             <div class="feed-header">
@@ -30,7 +31,6 @@
                 <div style="display:flex; gap:8px;">
                     <button id="feedLoginBtn" class="btn btn-sm btn-outline"
                         onclick="window.showLoginModal && window.showLoginModal()">🔑 Login</button>
-                    <button id="feedAccountBtn" class="btn btn-sm btn-outline" style="display:none;">👤</button>
                     <button class="btn btn-icon" id="refreshFeedBtn">🔄</button>
                 </div>
             </div>
@@ -52,6 +52,25 @@
                 </div>
             </div>
             <div class="feed-content" id="boostsContent"></div>
+        </div>
+
+        <!-- Community Screen -->
+        <div class="screen feed-screen" id="communityScreen">
+            <div class="feed-header">
+                <div class="feed-brand">
+                    <div class="feed-brand-icon">🏘️</div>
+                    <div class="feed-brand-text">
+                        <div class="feed-brand-title">BCH<span>Communities</span></div>
+                        <div class="feed-brand-subtitle">Kind 34550</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button id="newCommunityBtn" class="btn btn-sm btn-outline"
+                        onclick="window.createCommunity && window.createCommunity()">🏘️ New Community</button>
+                    <button class="btn btn-icon" id="refreshCommunityBtn">🔄</button>
+                </div>
+            </div>
+            <div class="feed-content" id="communityContent"></div>
         </div>
 
         <!-- Search Screen -->
@@ -106,6 +125,7 @@
         <div class="bottom-nav">
             <button class="nav-btn active" data-screen="feed">📰</button>
             <button class="nav-btn" data-screen="boosts">🚀</button>
+            <button class="nav-btn" data-screen="community">🏘️</button>
             <button class="nav-btn" data-screen="search">🔍</button>
             <button class="nav-btn" data-screen="profile">👤</button>
         </div>

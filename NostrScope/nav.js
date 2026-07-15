@@ -10,6 +10,9 @@
         if (typeof switchScreen === 'function') {
             switchScreen(screenName);
         }
+        if (screenName === 'feed' && typeof window.scrollFeedToTop === 'function') {
+            window.scrollFeedToTop();
+        }
     });
 
     // Highlight active nav button when screen changes

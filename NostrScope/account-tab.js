@@ -29,6 +29,39 @@
     let currentTrack = null;
     let miniPlayerInitialized = false;
 
+    const ACCOUNT_THEME_COLOR_MAP = [
+        ['#16181c', 'var(--surface)'],
+        ['#1d1f23', 'var(--surface2)'],
+        ['#0d1117', 'var(--bg-soft)'],
+        ['#2f3336', 'var(--border)'],
+        ['#e7e9ea', 'var(--text)'],
+        ['#f0f4ff', 'var(--text)'],
+        ['#71767b', 'var(--text2)'],
+        ['#9ab1d1', 'var(--text2)'],
+        ['#a0b0c0', 'var(--text2)'],
+        ['#444', 'var(--text2)'],
+        ['#1d9bf0', 'var(--accent)'],
+        ['#4da3ff', 'var(--accent)'],
+        ['#64f4d6', 'var(--accent2)'],
+        ['#35c98b', 'var(--green)'],
+        ['#ff9a4e', 'var(--orange)'],
+        ['#ff5d79', 'var(--red)'],
+        ['#162132', 'var(--surface3)'],
+        ['#243854', 'var(--surface3)'],
+        ['#4da3ff33', 'color-mix(in srgb, var(--accent) 20%, transparent)'],
+        ['#fff', 'var(--text)'],
+    ];
+
+    function applyAccountThemeMarkup(markup) {
+        if (!markup) return markup;
+        let next = String(markup);
+        ACCOUNT_THEME_COLOR_MAP.forEach(([from, to]) => {
+            const re = new RegExp(from.replace('#', '\\#'), 'gi');
+            next = next.replace(re, to);
+        });
+        return next;
+    }
+
     async function loadKindRegistry() {
         try {
             const cached = localStorage.getItem(REGISTRY_CACHE_KEY);
@@ -341,7 +374,7 @@
             console.error('Scan error:', e);
             if (scanStatus) {
                 scanStatus.textContent = '❌ Scan failed. Please try again.';
-                scanStatus.style.color = '#ff5d79';
+                scanStatus.style.color = 'var(--red)';
             }
             window._safeToast('❌ Scan failed', 'error');
         } finally {
@@ -378,16 +411,16 @@
                 countSpan.className = 'count-value';
                 countSpan.style.cssText = `
                     font-weight: ${count > 0 ? '700' : '400'};
-                    color: ${count > 0 ? '#e7e9ea' : '#71767b'};
+                    color: ${count > 0 ? 'var(--text)' : 'var(--text2)'};
                     transition: all 0.3s ease;
                 `;
                 countSpan.textContent = count >= 100 ? '100+' : count;
 
                 countSpan.style.transform = 'scale(1.3)';
-                countSpan.style.color = '#4da3ff';
+                countSpan.style.color = 'var(--accent)';
                 setTimeout(() => {
                     countSpan.style.transform = 'scale(1)';
-                    countSpan.style.color = count > 0 ? '#e7e9ea' : '#71767b';
+                    countSpan.style.color = count > 0 ? 'var(--text)' : 'var(--text2)';
                 }, 300);
 
                 if (!countCell.querySelector('.count-value')) {
@@ -398,8 +431,8 @@
                 if (cells.length >= 5) {
                     const openCell = cells[4];
                     openCell.innerHTML = count > 0 ?
-                        `<span style="color:#4da3ff;font-size:0.5rem;">↗</span>` :
-                        `<span style="color:#71767b;">—</span>`;
+                        `<span style="color:var(--accent);font-size:0.5rem;">↗</span>` :
+                        `<span style="color:var(--text2);">—</span>`;
                 }
             }
         });
@@ -428,9 +461,12 @@
 
     async function fetchKindEvents(pubkey, kind, limit = 20, until = null, since = null, relays = null) {
         // Use activeRelays if available, otherwise fallback to CONFIG.relays
-        const relayList = relays || (window.activeRelays && window.activeRelays.length ? window.activeRelays : CONFIG.relays.slice(0, 5));
+        const relayList = relays || (kind === 30023
+            ? getFastBlogRelays()
+            : (window.activeRelays && window.activeRelays.length ? window.activeRelays : CONFIG.relays.slice(0, 5)));
         const rm = new RelayManager(relayList);
         const events = [];
+        const seenIds = new Set();
     
         const filter = {
             kinds: [kind],
@@ -448,7 +484,8 @@
                 let resolved = false;
                 rm.onEvent = (ev) => {
                     if (ev.kind === kind && ev.pubkey === pubkey) {
-                        if (!events.find(e => e.id === ev.id)) {
+                        if (!seenIds.has(ev.id)) {
+                            seenIds.add(ev.id);
                             events.push(ev);
                         }
                     }
@@ -468,13 +505,27 @@
                         console.warn(`⏱️ fetchKindEvents timeout for kind ${kind}, got ${events.length} events`);
                         resolve();
                     }
-                }, CONFIG.profileInvestigationTimeout || 8000);
+                }, kind === 30023 ? 3600 : (CONFIG.profileInvestigationTimeout || 8000));
             });
         } catch (e) {
             console.error('Fetch kind events error:', e);
         }
     
         return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    }
+
+    function getFastBlogRelays() {
+        const active = (window.activeRelays && window.activeRelays.length ? window.activeRelays : []);
+        const feedRelays = Array.isArray(CONFIG.feedRelays) ? CONFIG.feedRelays : [];
+        const fallback = Array.isArray(CONFIG.relays) ? CONFIG.relays : [];
+        const primary = CONFIG.primaryRelay || 'wss://relay.bchnostr.com';
+        const avoid = new Set([
+            'wss://relay.damus.io'
+        ]);
+        const merged = [...new Set([primary, ...feedRelays, ...active, ...fallback])]
+            .filter(url => url && !avoid.has(url) && !(typeof window.isRelayInCooldown === 'function' && window.isRelayInCooldown(url)));
+        const fast = merged.slice(0, 3);
+        return fast.length ? fast : [primary];
     }
 
     
@@ -715,7 +766,7 @@
         isAccountPageLoading = true;
     
         // Show skeleton
-        profileContent.innerHTML = `
+        profileContent.innerHTML = applyAccountThemeMarkup(`
             <div style="padding:16px;">
                 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
                     <div style="width:72px;height:72px;border-radius:50%;background:#1d1f23;flex-shrink:0;animation:pulse 1.5s ease-in-out infinite;"></div>
@@ -735,7 +786,7 @@
                     50% { opacity: 0.7; }
                 }
             </style>
-        `;
+        `);
     
         try {
             // ── Stage 1: High‑priority kinds (0, 3, 10002) ──
@@ -779,12 +830,12 @@
             isAccountPageLoading = false;
         } catch (e) {
             console.error('Error loading account data:', e);
-            profileContent.innerHTML = `
+            profileContent.innerHTML = applyAccountThemeMarkup(`
                 <div style="padding:40px;text-align:center;color:#ff5d79;">
                     <p>❌ Failed to load account data.</p>
                     <button class="btn btn-primary" onclick="window.loadAccountPage(true)" style="margin-top:12px;">Retry</button>
                 </div>
-            `;
+            `);
             isAccountPageLoading = false;
         }
     }
@@ -813,8 +864,12 @@
     
         const registry = KIND_REGISTRY || getFallbackRegistry();
         const npub = npubFromHex(currentUser.publicKey);
-        const picture = profile.picture || '';
-        const banner = profile.banner || '';
+        const picture = typeof window.normalizeProfileAssetUrl === 'function'
+            ? window.normalizeProfileAssetUrl(profile.picture || '')
+            : (profile.picture || '');
+        const banner = typeof window.normalizeProfileAssetUrl === 'function'
+            ? window.normalizeProfileAssetUrl(profile.banner || '')
+            : (profile.banner || '');
         const name = profile.name || 'Unnamed';
         const about = profile.about || '';
         const nip05 = profile.nip05 || '';
@@ -825,8 +880,11 @@
         }
     
         function renderImage(src, alt) {
-            if (!src) return '<span style="color:#444;">—</span>';
-            return `<img src="${src}" alt="${alt}" style="max-width:200px;max-height:120px;border-radius:8px;border:1px solid #2f3336;object-fit:cover;" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'color:#444;\\'>Failed to load</span>';">`;
+            const safeSrc = typeof window.normalizeProfileAssetUrl === 'function'
+                ? window.normalizeProfileAssetUrl(src || '')
+                : (src || '');
+            if (!safeSrc) return '<span style="color:#444;">—</span>';
+            return `<img src="${safeSrc}" alt="${alt}" style="max-width:200px;max-height:120px;border-radius:8px;border:1px solid #2f3336;object-fit:cover;" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'color:#444;\\'>Failed to load</span>';">`;
         }
     
         const profileFields = [
@@ -905,12 +963,12 @@
                 <div id="scanStatus" style="display:none;font-size:0.6rem;color:#4da3ff;text-align:center;margin-bottom:6px;padding:4px;background:#162132;border-radius:4px;"></div>
     
                 ${banner ? `<div style="height:100px;background:linear-gradient(120deg,rgba(77,163,255,0.46),rgba(100,244,214,0.36));border-radius:10px;margin-bottom:10px;overflow:hidden;position:relative;">
-                    <img src="${banner}" alt="Banner" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.display='none';">
+                    <img src="${banner}" alt="Banner" style="width:100%;height:100%;object-fit:cover;" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';">
                 </div>` : ''}
     
                 <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(160deg,#1d1f23,#243854);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid #2f3336;font-size:1.5rem;">
-                        ${picture ? `<img src="${picture}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.display='none';this.parentElement.textContent='👤';">` : '👤'}
+                        ${picture ? `<img src="${picture}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentElement.textContent='👤';">` : '👤'}
                     </div>
                     <div style="flex:1;min-width:120px;">
                         <h2 style="font-size:1rem;margin:0;color:#e7e9ea;word-break:break-word;">${escapeHtml(name)}</h2>
@@ -920,7 +978,6 @@
                     <div style="display:flex;gap:6px;flex-shrink:0;width:100%;margin-top:4px; flex-wrap:wrap;">
                         <button class="btn btn-primary btn-sm" onclick="window.openProfileEditPopup(window._cachedProfile ? window._cachedProfile().profile || {} : {})" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">✏️ Edit</button>
                         <button class="btn btn-outline btn-sm" onclick="window.logout && window.logout()" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">🚪 Logout</button>
-                        <button class="btn btn-outline btn-sm" onclick="window.createCommunity && window.createCommunity()" style="padding:4px 12px;font-size:0.7rem;flex:1;min-width:80px;">🏘️ New Community</button>
                     </div>
                 </div>
     
@@ -976,77 +1033,41 @@
                     </div>
                 </details>
     
-                <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid #2f3336;padding-bottom:6px;">
-                    <button class="btn btn-sm btn-outline kind-tab active" data-kind="profile" style="padding:4px 10px;font-size:0.65rem;">👤 Profile</button>
-                    <button class="btn btn-sm btn-outline kind-tab" data-kind="1" style="padding:4px 10px;font-size:0.65rem;">📝 Posts</button>
-                    <button class="btn btn-sm btn-outline kind-tab" data-kind="30023" style="padding:4px 10px;font-size:0.65rem;">📄 Blog</button>
-                    <button class="btn btn-sm btn-outline kind-tab" data-kind="1808" style="padding:4px 10px;font-size:0.65rem;">🎵 Radio</button>
-                    <button class="btn btn-sm btn-outline kind-tab" data-kind="9735" style="padding:4px 10px;font-size:0.65rem;">⚡ Zaps</button>
-                    <button class="btn btn-sm btn-outline kind-tab" data-kind="30078" style="padding:4px 10px;font-size:0.65rem;">📦 App Data</button>
+                <div class="account-kind-tabs" role="tablist" aria-label="Account data tabs">
+                    <button class="kind-tab active" data-kind="1" role="tab" aria-selected="true"><span class="kind-tab-icon">📝</span><span>Posts</span></button>
+                    <button class="kind-tab" data-kind="30023" role="tab" aria-selected="false"><span class="kind-tab-icon">📄</span><span>Blog</span></button>
+                    <button class="kind-tab" data-kind="1808" role="tab" aria-selected="false"><span class="kind-tab-icon">🎵</span><span>Radio</span></button>
+                    <button class="kind-tab" data-kind="9735" role="tab" aria-selected="false"><span class="kind-tab-icon">⚡</span><span>Zaps</span></button>
+                    <button class="kind-tab" data-kind="30078" role="tab" aria-selected="false"><span class="kind-tab-icon">📦</span><span>App Data</span></button>
                 </div>
-    
-                <div id="kindTabContent" style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;padding:12px;min-height:100px;">
-                    <div id="tabLoading" style="display:none;text-align:center;color:#71767b;padding:20px;">⏳ Loading...</div>
+
+                <div id="kindTabContent" class="account-kind-panel">
+                    <div id="tabLoading" class="account-kind-loading">⏳ Loading...</div>
                     <div id="tabContent"></div>
                 </div>
     
-                <details style="background:#1d1f23;border:1px solid #2f3336;border-radius:8px;overflow:hidden;margin-top:10px;">
-                    <summary style="cursor:pointer;padding:8px 12px;font-weight:600;color:#e7e9ea;font-size:0.7rem;list-style:none;display:flex;justify-content:space-between;align-items:center;background:#16181c;">
-                        <span>📋 Profile Metadata</span>
-                        <span style="color:#71767b;font-size:0.6rem;">▼</span>
-                    </summary>
-                    <div style="padding:0 8px 8px;overflow-x:auto;">
-                        <table style="width:100%;border-collapse:collapse;font-size:0.65rem;">
-                            <tbody>${profileRows}</tbody>
-                        </table>
-                    </div>
-                </details>
             </div>
         `;
     
-        profileContent.innerHTML = html;
+        profileContent.innerHTML = applyAccountThemeMarkup(html);
         notificationBadge = null;
         updateNotificationBadge();
         loadNotifications();
     
         profileContent.querySelectorAll('.kind-tab').forEach(tab => {
             tab.addEventListener('click', function () {
-                profileContent.querySelectorAll('.kind-tab').forEach(t => t.classList.remove('active'));
+                profileContent.querySelectorAll('.kind-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-selected', 'false');
+                });
                 this.classList.add('active');
+                this.setAttribute('aria-selected', 'true');
                 const kind = this.dataset.kind;
-                if (kind === 'profile') {
-                    renderProfileTab();
-                } else {
-                    loadKindTab(parseInt(kind));
-                }
+                loadKindTab(parseInt(kind));
             });
         });
     
-        renderProfileTab();
-    }
-
-    function renderProfileTab() {
-        const container = document.getElementById('tabContent');
-        const loading = document.getElementById('tabLoading');
-        if (loading) loading.style.display = 'none';
-        if (!container) return;
-
-        container.innerHTML = `
-            <div style="display:flex;flex-direction:column;gap:10px;">
-                <div style="background:#16181c;border:1px solid #2f3336;border-radius:8px;padding:10px;">
-                    <p style="margin:0;color:#9ab1d1;font-size:0.75rem;line-height:1.5;">
-                        Profile summary is shown above. Use the tabs below to browse your notes, blog posts, media, zaps, and app data.
-                    </p>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" onclick="window.loadKindTab(0)" style="padding:4px 12px;font-size:0.7rem;">📄 View Kind 0 Raw</button>
-                    <button class="btn btn-outline btn-sm" onclick="window.showNotifications && window.showNotifications()" style="padding:4px 12px;font-size:0.7rem;">🔔 Notifications</button>
-                </div>
-                <div style="font-size:0.65rem;color:#71767b;">
-                    Tip: use the top ✏️ Edit button to update profile metadata.
-                </div>
-            </div>
-        `;
+        loadKindTab(1);
     }
 
     window.loadKindTab = async function (kind, refresh = false) {
@@ -1072,7 +1093,7 @@
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
     
         try {
-            const PAGE_SIZE = 20; // for pagination after initial load
+            const PAGE_SIZE = kind === 30023 ? 15 : 20; // faster first paint for blog
             let events = [];
             let isLoadingMore = false;
             let hasMore = true;
@@ -1084,8 +1105,9 @@
                 console.log(`📦 Using cached ${events.length} articles`);
             } else {
                 // First load – fetch initial batch
-                const initialLimit = kind === 30023 ? 50 : (kind === 1 ? PAGE_SIZE : 200);
-                events = await fetchKindEvents(currentUser.publicKey, kind, initialLimit);
+                const initialLimit = kind === 30023 ? 18 : (kind === 1 ? PAGE_SIZE : 200);
+                const fastRelays = kind === 30023 ? getFastBlogRelays() : null;
+                events = await fetchKindEvents(currentUser.publicKey, kind, initialLimit, null, null, fastRelays);
                 setCachedKindData(currentUser.publicKey, kind, events);
             }
     
@@ -1095,13 +1117,13 @@
             if (kind === 30023) {
                 const newBtnWrap = document.createElement('div');
                 newBtnWrap.style.cssText = 'margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;';
-                newBtnWrap.innerHTML = `
+                newBtnWrap.innerHTML = applyAccountThemeMarkup(`
                     <div style="display:flex; gap:8px;">
                         <button class="btn btn-primary" id="newArticleBtn" style="padding:6px 12px; font-size:0.75rem;">✏️ New Article</button>
                         <button class="btn btn-outline" id="refreshArticlesBtn" style="padding:6px 12px; font-size:0.75rem;">🔄 Check for new</button>
                     </div>
                     <span style="font-size:0.6rem; color:#71767b;" id="articleCount">${events.length} articles loaded</span>
-                `;
+                `);
                 container.prepend(newBtnWrap);
                 document.getElementById('newArticleBtn').addEventListener('click', function () {
                     if (typeof window.openArticleEditor === 'function') {
@@ -1113,10 +1135,61 @@
                 document.getElementById('refreshArticlesBtn').addEventListener('click', function () {
                     checkForNewArticles(kind, events, container);
                 });
+
+                // BCHNostr-style: render fast first, then enrich in background.
+                setTimeout(async () => {
+                    try {
+                        const enriched = await fetchKindEvents(currentUser.publicKey, 30023, 60, null, null);
+                        if (!Array.isArray(enriched) || enriched.length === 0) return;
+
+                        const known = new Set(events.map(ev => ev.id));
+                        const merged = [...events];
+                        for (const ev of enriched) {
+                            if (known.has(ev.id)) continue;
+                            known.add(ev.id);
+                            merged.push(ev);
+                        }
+                        merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+                        if (merged.length === events.length) return;
+
+                        events.splice(0, events.length, ...merged);
+                        setCachedKindData(currentUser.publicKey, 30023, merged);
+
+                        const existingList = container.querySelector('.articles-list');
+                        if (existingList) {
+                            const newListWrapper = document.createElement('div');
+                            newListWrapper.className = 'articles-list';
+                            newListWrapper.innerHTML = renderKind30023Events(merged);
+                            container.replaceChild(newListWrapper, existingList);
+                            newListWrapper.querySelectorAll('.edit-article-btn').forEach(btn => {
+                                btn.addEventListener('click', function () {
+                                    try {
+                                        const idx = Number(this.dataset.index);
+                                        const ev = Number.isInteger(idx) && idx >= 0 ? events[idx] : null;
+                                        if (!ev) throw new Error('Invalid article');
+                                        if (typeof window.openArticleEditor === 'function') {
+                                            window.openArticleEditor(ev);
+                                        } else {
+                                            window._safeToast('Editor not loaded. Please refresh.', 'error');
+                                        }
+                                    } catch (e) {
+                                        window._safeToast('Error parsing event data.', 'error');
+                                    }
+                                });
+                            });
+                        }
+
+                        const countEl = container.querySelector('#articleCount');
+                        if (countEl) countEl.textContent = `${merged.length} articles loaded`;
+                    } catch (e) {
+                        // Keep fast render even if enrichment fails.
+                    }
+                }, 120);
             }
     
             if (events.length === 0) {
-                container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`);
+                container.insertAdjacentHTML('beforeend', applyAccountThemeMarkup(`<div style="text-align:center;padding:20px;color:#71767b;font-size:0.8rem;">No ${kindInfo.name} found.</div>`));
                 return;
             }
     
@@ -1167,8 +1240,8 @@
                 const sentinel = document.createElement('div');
                 sentinel.className = 'scroll-sentinel';
                 sentinel.style.cssText = 'height:20px; width:100%; display:flex; justify-content:center; align-items:center; font-size:0.7rem; color:#71767b; padding:10px 0;';
-                sentinel.textContent = 'Loading more...';
-                sentinel.style.display = 'none'; // hidden initially
+                sentinel.textContent = kind === 30023 ? 'Scroll for older articles' : 'Scroll for older notes';
+                sentinel.style.display = 'flex';
                 container.appendChild(sentinel);
     
                 // Function to load more
@@ -1186,7 +1259,8 @@
                         isLoadingMore = false;
                         return;
                     }
-                    const more = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE, oldest);
+                    const until = oldest ? oldest - 1 : null;
+                    const more = await fetchKindEvents(currentUser.publicKey, kind, PAGE_SIZE, until);
                     if (more.length === 0) {
                         hasMore = false;
                         sentinel.textContent = 'No more articles';
@@ -1236,10 +1310,11 @@
                     // Update sentinel
                     if (more.length < PAGE_SIZE) {
                         hasMore = false;
-                        sentinel.textContent = 'No more articles';
+                        sentinel.textContent = kind === 30023 ? 'No more articles' : 'No more notes';
                         sentinel.style.display = 'flex';
                     } else {
-                        sentinel.style.display = 'none';
+                        sentinel.textContent = kind === 30023 ? 'Scroll for older articles' : 'Scroll for older notes';
+                        sentinel.style.display = 'flex';
                     }
                     isLoadingMore = false;
                 };
@@ -1261,14 +1336,7 @@
                 container._hasMore = hasMore;
     
                 // ── Initial state ──
-                if (events.length < 50 && kind === 30023) {
-                    // If we have fewer than 50, we might already have all, so check if we should show "no more"
-                    if (events.length < 50) {
-                        hasMore = false;
-                        sentinel.textContent = 'No more articles';
-                        sentinel.style.display = 'flex';
-                    }
-                } else if (kind === 1 && events.length < PAGE_SIZE) {
+                if (kind === 1 && events.length < PAGE_SIZE) {
                     hasMore = false;
                     sentinel.textContent = 'No more notes';
                     sentinel.style.display = 'flex';
@@ -1283,7 +1351,7 @@
         } catch (e) {
             console.error('Error loading kind tab:', e);
             if (loading) loading.style.display = 'none';
-            container.innerHTML = `<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`;
+            container.innerHTML = applyAccountThemeMarkup(`<div style="text-align:center;padding:20px;color:#ff5d79;font-size:0.8rem;">Error loading data.</div>`);
         }
     };
     
@@ -1746,7 +1814,7 @@
         </div>
     `;
 
-        modalContainer.innerHTML = html;
+        modalContainer.innerHTML = applyAccountThemeMarkup(html);
 
         requestAnimationFrame(() => {
             const backdrop = document.getElementById('blogModalBackdrop');
@@ -1785,9 +1853,9 @@
             bottom: 70px;
             left: 0;
             right: 0;
-            background: #16181c;
-            border-top: 1px solid #2f3336;
-            border-bottom: 1px solid #2f3336;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
             padding: 8px 12px;
             display: none;
             z-index: 9999;
@@ -1795,10 +1863,10 @@
             -webkit-backdrop-filter: blur(10px);
             align-items: center;
             gap: 10px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.28);
         `;
 
-        miniPlayer.innerHTML = `
+        miniPlayer.innerHTML = applyAccountThemeMarkup(`
             <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
                 <div style="width:40px;height:40px;border-radius:4px;background:#1d1f23;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
                     <img style="width:100%;height:100%;object-fit:cover;display:none;" id="miniPlayerCoverImg">
@@ -1819,7 +1887,7 @@
             <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:#2f3336;">
                 <div id="miniPlayerProgressBar" style="height:100%;width:0%;background:#4da3ff;transition:width 0.1s;"></div>
             </div>
-        `;
+        `);
 
         document.body.appendChild(miniPlayer);
 
@@ -2130,7 +2198,7 @@
         const kindLabel = (window.KNOWN_KINDS && window.KNOWN_KINDS[ev.kind]) ? window.KNOWN_KINDS[ev.kind] : `Kind ${ev.kind}`;
         const createdAt = new Date((ev.created_at || 0) * 1000).toLocaleString();
         const shortId = ev.id ? `${ev.id.substring(0, 12)}...` : 'N/A';
-        modalContainer.innerHTML = `
+        modalContainer.innerHTML = applyAccountThemeMarkup(`
             <div class="modal-backdrop" onclick="if(event.target===this)document.getElementById('modalContainer').innerHTML='';" style="padding:0;">
                 <div class="modal json-modal" style="margin:0;">
                     <div class="json-modal-header">
@@ -2155,7 +2223,7 @@
                     </div>
                 </div>
             </div>
-        `;
+        `);
         window._currentEventData = ev;
     };
 
@@ -2171,7 +2239,7 @@
         const registry = KIND_REGISTRY || getFallbackRegistry();
         const kindInfo = registry[kind] || { name: `Kind ${kind}`, nip: 'NIP-??', category: 'Regular' };
 
-        modalContainer.innerHTML = `
+        modalContainer.innerHTML = applyAccountThemeMarkup(`
             <div class="modal-backdrop" onclick="if(event.target===this)document.getElementById('modalContainer').innerHTML='';" style="padding:12px;">
                 <div class="modal" style="max-width:560px;margin:10px;padding:14px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -2181,7 +2249,7 @@
                     <div style="text-align:center;padding:30px;color:#71767b;">Loading data...</div>
                 </div>
             </div>
-        `;
+        `);
 
         let events = getCachedKindData(currentUser.publicKey, kind);
         if (!events) {
@@ -2226,7 +2294,7 @@
             `;
         }
 
-        modalContainer.innerHTML = `
+        modalContainer.innerHTML = applyAccountThemeMarkup(`
             <div class="modal-backdrop" onclick="if(event.target===this)document.getElementById('modalContainer').innerHTML='';" style="padding:12px;overflow-y:auto;">
                 <div class="modal" style="max-width:560px;margin:10px;padding:14px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;background:#16181c;border:1px solid #2f3336;border-radius:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px;margin-bottom:10px;flex-shrink:0;">
@@ -2244,7 +2312,7 @@
                     ${paginationHtml}
                 </div>
             </div>
-        `;
+        `);
     }
 
     window.changeKindPage = function (kind, page) {
@@ -2376,21 +2444,256 @@
     };
 
     function openProfileEditPopup(profile) {
-        const jsonStr = JSON.stringify(profile, null, 2);
+        const safeProfile = profile && typeof profile === 'object' ? profile : {};
+        const profileDraft = JSON.parse(JSON.stringify(safeProfile));
+        const pubkeyHexValue = currentUser?.publicKey ? String(currentUser.publicKey).toLowerCase() : '';
+        const npubValue = (currentUser && currentUser.publicKey && typeof npubFromHex === 'function')
+            ? npubFromHex(currentUser.publicKey)
+            : '';
+        let nsecValue = '';
+        try {
+            const privateKeyHex = currentUser?.privateKey ? String(currentUser.privateKey) : '';
+            if (/^[0-9a-fA-F]{64}$/.test(privateKeyHex) && typeof NostrTools !== 'undefined' && NostrTools?.nip19?.nsecEncode && typeof hexToBytes === 'function') {
+                nsecValue = NostrTools.nip19.nsecEncode(Uint8Array.from(hexToBytes(privateKeyHex)));
+            }
+        } catch (e) {
+            nsecValue = '';
+        }
+        const editableFields = [
+            { key: 'name', label: 'Display Name', placeholder: 'Your display name' },
+            { key: 'display_name', label: 'Name', placeholder: 'Optional name' },
+            { key: 'about', label: 'About', placeholder: 'Short bio', multiline: true },
+            { key: 'picture', label: 'Picture URL', placeholder: 'https://...' },
+            { key: 'banner', label: 'Banner URL', placeholder: 'https://...' },
+            { key: 'website', label: 'Website', placeholder: 'https://...' },
+            { key: 'nip05', label: 'NIP-05', placeholder: 'name@domain.com' },
+            { key: 'lud16', label: 'Lightning Address', placeholder: 'name@domain.com' },
+        ];
+
+        const fieldsHtml = editableFields.map((field) => {
+            const value = profileDraft[field.key] == null ? '' : String(profileDraft[field.key]);
+            if (field.multiline) {
+                return `<label style="display:grid;gap:4px;">
+                    <span style="font-size:0.62rem;color:#71767b;">${field.label}</span>
+                    <textarea data-profile-field="${field.key}" class="profile-field-input" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;min-height:72px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.7rem;padding:8px;border-radius:6px;resize:vertical;">${escapeHtml(value)}</textarea>
+                </label>`;
+            }
+            if (field.key === 'picture' || field.key === 'banner') {
+                const previewId = field.key === 'picture' ? 'profilePicturePreview' : 'profileBannerPreview';
+                const placeholderId = field.key === 'picture' ? 'profilePicturePreviewPlaceholder' : 'profileBannerPreviewPlaceholder';
+                const previewHeight = field.key === 'picture' ? '120px' : '140px';
+                return `<label style="display:grid;gap:4px;">
+                    <span style="font-size:0.62rem;color:#71767b;">${field.label}</span>
+                    <input type="text" data-profile-field="${field.key}" class="profile-field-input" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.7rem;padding:8px;border-radius:6px;">
+                    <div style="border:1px dashed #2f3336;border-radius:8px;background:#16181c;padding:6px;min-height:${previewHeight};display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                        <img id="${previewId}" alt="${escapeHtml(field.label)} preview" style="max-width:100%;max-height:${previewHeight};object-fit:cover;border-radius:6px;display:none;" loading="lazy">
+                        <span id="${placeholderId}" style="font-size:0.62rem;color:#71767b;">No image preview</span>
+                    </div>
+                </label>`;
+            }
+            return `<label style="display:grid;gap:4px;">
+                <span style="font-size:0.62rem;color:#71767b;">${field.label}</span>
+                <input type="text" data-profile-field="${field.key}" class="profile-field-input" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.7rem;padding:8px;border-radius:6px;">
+            </label>`;
+        }).join('');
+
         const popupHtml = `
         <div class="modal-backdrop" id="profileEditBackdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10001;padding:16px;">
-            <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:12px;padding:14px;max-width:460px;width:100%;color:#e7e9ea;max-height:90vh;overflow-y:auto;">
+            <div class="modal" style="background:#16181c;border:1px solid #2f3336;border-radius:12px;padding:14px;max-width:560px;width:100%;color:#e7e9ea;max-height:90vh;overflow-y:auto;">
                 <button class="modal-close" style="float:right;background:none;border:none;color:#71767b;font-size:1.2rem;cursor:pointer;" onclick="document.getElementById('profileEditBackdrop').remove();">✕</button>
-                <h3 style="font-size:0.9rem;">✏️ Edit Profile JSON</h3>
-                <p style="font-size:0.65rem;color:#71767b;margin-bottom:6px;">Edit your profile metadata. Changes will be published to the network.</p>
-                <textarea id="profileJsonEditor" style="width:100%;height:200px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-family:monospace;font-size:0.65rem;padding:6px;border-radius:6px;resize:vertical;">${escapeHtml(jsonStr)}</textarea>
+                <h3 style="font-size:0.9rem;">✏️ Edit Profile</h3>
+                <p style="font-size:0.65rem;color:#71767b;margin-bottom:8px;">Use Fields for quick edits, or JSON for full control. Both views stay in sync.</p>
+
+                <div style="display:grid;gap:6px;margin-bottom:10px;">
+                    <label style="display:grid;gap:4px;">
+                        <span style="font-size:0.62rem;color:#71767b;">npub</span>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input id="profileNpubDisplay" type="text" readonly value="${escapeHtml(npubValue)}" style="flex:1;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.66rem;padding:7px 8px;border-radius:6px;font-family:monospace;">
+                            <button type="button" class="btn btn-outline btn-sm" id="copyNpubBtn" style="padding:5px 10px;font-size:0.64rem;">Copy</button>
+                        </div>
+                    </label>
+                    <label style="display:grid;gap:4px;">
+                        <span style="font-size:0.62rem;color:#71767b;">pubkey (hex)</span>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input id="profilePubkeyHexDisplay" type="text" readonly value="${escapeHtml(pubkeyHexValue)}" style="flex:1;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.66rem;padding:7px 8px;border-radius:6px;font-family:monospace;">
+                            <button type="button" class="btn btn-outline btn-sm" id="copyPubkeyHexBtn" style="padding:5px 10px;font-size:0.64rem;">Copy</button>
+                        </div>
+                    </label>
+                    <label style="display:grid;gap:4px;">
+                        <span style="font-size:0.62rem;color:#71767b;">nsec</span>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input id="profileNsecDisplay" type="text" readonly value="${escapeHtml(nsecValue)}" style="flex:1;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-size:0.66rem;padding:7px 8px;border-radius:6px;font-family:monospace;">
+                            <button type="button" class="btn btn-outline btn-sm" id="copyNsecBtn" style="padding:5px 10px;font-size:0.64rem;">Copy</button>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="display:flex;gap:6px;margin-bottom:8px;">
+                    <button type="button" id="profileEditModeFields" class="btn btn-primary btn-sm" style="padding:5px 12px;font-size:0.68rem;">Fields</button>
+                    <button type="button" id="profileEditModeJson" class="btn btn-outline btn-sm" style="padding:5px 12px;font-size:0.68rem;">JSON</button>
+                </div>
+
+                <div id="profileFieldsEditor" style="display:grid;gap:8px;">
+                    ${fieldsHtml}
+                </div>
+
+                <div id="profileJsonEditorWrap" style="display:none;">
+                    <textarea id="profileJsonEditor" style="width:100%;height:240px;background:#1d1f23;border:1px solid #2f3336;color:#e7e9ea;font-family:monospace;font-size:0.65rem;padding:6px;border-radius:6px;resize:vertical;"></textarea>
+                    <div id="profileJsonError" style="display:none;color:#ff5d79;font-size:0.62rem;margin-top:6px;">Invalid JSON format.</div>
+                </div>
+
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                     <button class="btn btn-primary" id="saveProfileJsonBtn" style="flex:1;padding:6px;font-size:0.75rem;">💾 Save & Publish</button>
                     <button class="btn btn-outline" onclick="document.getElementById('profileEditBackdrop').remove();" style="padding:6px 14px;font-size:0.75rem;">Cancel</button>
                 </div>
             </div>
         </div>`;
-        document.body.insertAdjacentHTML('beforeend', popupHtml);
+        document.body.insertAdjacentHTML('beforeend', applyAccountThemeMarkup(popupHtml));
+
+        const modeFieldsBtn = document.getElementById('profileEditModeFields');
+        const modeJsonBtn = document.getElementById('profileEditModeJson');
+        const fieldsEditor = document.getElementById('profileFieldsEditor');
+        const jsonEditorWrap = document.getElementById('profileJsonEditorWrap');
+        const jsonEditor = document.getElementById('profileJsonEditor');
+        const jsonError = document.getElementById('profileJsonError');
+        const copyNpubBtn = document.getElementById('copyNpubBtn');
+        const copyPubkeyHexBtn = document.getElementById('copyPubkeyHexBtn');
+        const copyNsecBtn = document.getElementById('copyNsecBtn');
+
+        copyNpubBtn?.addEventListener('click', async () => {
+            if (!npubValue) return;
+            try {
+                await navigator.clipboard.writeText(npubValue);
+                window._safeToast('npub copied', 'success');
+            } catch (e) {
+                window._safeToast('Failed to copy npub', 'error');
+            }
+        });
+
+        copyPubkeyHexBtn?.addEventListener('click', async () => {
+            if (!pubkeyHexValue) return;
+            try {
+                await navigator.clipboard.writeText(pubkeyHexValue);
+                window._safeToast('pubkey hex copied', 'success');
+            } catch (e) {
+                window._safeToast('Failed to copy pubkey hex', 'error');
+            }
+        });
+
+        copyNsecBtn?.addEventListener('click', async () => {
+            if (!nsecValue) {
+                window._safeToast('nsec not available', 'info');
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(nsecValue);
+                window._safeToast('nsec copied', 'success');
+            } catch (e) {
+                window._safeToast('Failed to copy nsec', 'error');
+            }
+        });
+
+        const setFieldValue = (key, value) => {
+            const normalized = value == null ? '' : String(value).trim();
+            if (!normalized) {
+                delete profileDraft[key];
+                return;
+            }
+            profileDraft[key] = value;
+        };
+
+        const syncFieldsFromDraft = () => {
+            fieldsEditor.querySelectorAll('[data-profile-field]').forEach((input) => {
+                const key = input.dataset.profileField;
+                if (!key) return;
+                const nextValue = profileDraft[key] == null ? '' : String(profileDraft[key]);
+                if (input.value !== nextValue) input.value = nextValue;
+            });
+        };
+
+        const syncJsonFromDraft = () => {
+            if (!jsonEditor) return;
+            jsonEditor.value = JSON.stringify(profileDraft, null, 2);
+            if (jsonError) jsonError.style.display = 'none';
+        };
+
+        const setMode = (mode) => {
+            const jsonMode = mode === 'json';
+            fieldsEditor.style.display = jsonMode ? 'none' : 'grid';
+            jsonEditorWrap.style.display = jsonMode ? 'block' : 'none';
+            modeFieldsBtn.classList.toggle('btn-primary', !jsonMode);
+            modeFieldsBtn.classList.toggle('btn-outline', jsonMode);
+            modeJsonBtn.classList.toggle('btn-primary', jsonMode);
+            modeJsonBtn.classList.toggle('btn-outline', !jsonMode);
+        };
+
+        const updateImagePreview = (key) => {
+            const value = profileDraft[key] == null ? '' : String(profileDraft[key]).trim();
+            const isPicture = key === 'picture';
+            const img = document.getElementById(isPicture ? 'profilePicturePreview' : 'profileBannerPreview');
+            const placeholder = document.getElementById(isPicture ? 'profilePicturePreviewPlaceholder' : 'profileBannerPreviewPlaceholder');
+            if (!img || !placeholder) return;
+
+            if (!value) {
+                img.style.display = 'none';
+                img.removeAttribute('src');
+                placeholder.style.display = 'inline';
+                return;
+            }
+
+            img.onload = () => {
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            img.onerror = () => {
+                img.style.display = 'none';
+                placeholder.style.display = 'inline';
+                placeholder.textContent = 'Unable to load image';
+            };
+            img.src = value;
+        };
+
+        fieldsEditor.querySelectorAll('.profile-field-input').forEach((input) => {
+            input.addEventListener('input', () => {
+                const key = input.dataset.profileField;
+                if (!key) return;
+                setFieldValue(key, input.value);
+                if (key === 'picture' || key === 'banner') updateImagePreview(key);
+                syncJsonFromDraft();
+            });
+        });
+
+        if (jsonEditor) {
+            jsonEditor.addEventListener('input', () => {
+                const raw = jsonEditor.value.trim();
+                if (!raw) {
+                    if (jsonError) jsonError.style.display = 'none';
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        Object.keys(profileDraft).forEach((k) => delete profileDraft[k]);
+                        Object.assign(profileDraft, parsed);
+                        syncFieldsFromDraft();
+                        updateImagePreview('picture');
+                        updateImagePreview('banner');
+                        if (jsonError) jsonError.style.display = 'none';
+                    }
+                } catch (e) {
+                    if (jsonError) jsonError.style.display = 'block';
+                }
+            });
+        }
+
+        modeFieldsBtn?.addEventListener('click', () => setMode('fields'));
+        modeJsonBtn?.addEventListener('click', () => setMode('json'));
+
+        syncFieldsFromDraft();
+        syncJsonFromDraft();
+        updateImagePreview('picture');
+        updateImagePreview('banner');
+        setMode('fields');
 
         document.getElementById('saveProfileJsonBtn').addEventListener('click', async () => {
             const newJson = document.getElementById('profileJsonEditor').value.trim();
@@ -2399,6 +2702,7 @@
                 newProfile = JSON.parse(newJson);
             } catch (e) {
                 window._safeToast('Invalid JSON format.', 'error');
+                setMode('json');
                 return;
             }
             const event = { kind: 0, created_at: Math.floor(Date.now() / 1000), tags: [], content: JSON.stringify(newProfile) };
@@ -2450,12 +2754,12 @@
             } else {
                 const profileContent = document.getElementById('profileContent');
                 if (profileContent) {
-                    profileContent.innerHTML = `
+                    profileContent.innerHTML = applyAccountThemeMarkup(`
                         <div style="padding:40px;text-align:center;">
                             <p style="margin-bottom:12px;color:#71767b;">You are not logged in.</p>
                             <button class="btn btn-primary" style="padding:10px 20px;background:#1d9bf0;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" onclick="window.showLoginModal();">🔑 Login</button>
                         </div>
-                    `;
+                    `);
                 }
             }
         };

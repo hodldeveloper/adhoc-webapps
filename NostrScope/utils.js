@@ -214,10 +214,50 @@ function derivePublicKeyFromPrivateKey(privateKeyHex) {
 function isValidHex64(s) {
   return /^[0-9a-fA-F]{64}$/.test(s);
 }
+
+function convertBits(data, fromBits, toBits, pad) {
+  let acc = 0;
+  let bits = 0;
+  const ret = [];
+  const maxv = (1 << toBits) - 1;
+  const maxAcc = (1 << (fromBits + toBits - 1)) - 1;
+
+  for (const value of data) {
+    if (value < 0 || (value >> fromBits) !== 0) return null;
+    acc = ((acc << fromBits) | value) & maxAcc;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      ret.push((acc >> bits) & maxv);
+    }
+  }
+
+  if (pad) {
+    if (bits > 0) ret.push((acc << (toBits - bits)) & maxv);
+  } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
+    return null;
+  }
+
+  return ret;
+}
+
 function npubFromHex(pubkeyHex) {
-  const data = [0];
-  for (const b of hexToBytes(pubkeyHex)) data.push(b);
-  return bech32Encode("npub", data);
+  if (!isValidHex64(pubkeyHex)) return "";
+
+  try {
+    if (
+      typeof NostrTools !== "undefined" &&
+      NostrTools?.nip19?.npubEncode &&
+      typeof NostrTools.nip19.npubEncode === "function"
+    ) {
+      return NostrTools.nip19.npubEncode(pubkeyHex.toLowerCase());
+    }
+  } catch (e) {}
+
+  const bytes = hexToBytes(pubkeyHex.toLowerCase());
+  const words = convertBits(bytes, 8, 5, true);
+  if (!words) return "";
+  return bech32Encode("npub", words);
 }
 function escapeHtml(str) {
   const d = document.createElement("div");
@@ -347,23 +387,23 @@ function parseInput(input) {
   if (m) return parseInput(m[1]);
   // ── BCHNostr community URL (kind:pubkey:dTag) ──
   m = t.match(
-    /https?:\/\/bchnostr\.com\/community\/([0-9a-zA-Z%:]+)/i
+    /https?:\/\/bchnostr\.com\/community\/([^\/?#\s]+)/i,
   );
   if (m) {
     try {
       const decoded = decodeURIComponent(m[1]);
       const parts = decoded.split(':');
-      if (parts.length === 3) {
-        const kind = parseInt(parts[0]);
+      if (parts.length >= 3) {
+        const kind = parseInt(parts[0], 10);
         const pubkey = parts[1];
-        const dTag = parts[2];
+        const dTag = parts.slice(2).join(':');
         if (!isNaN(kind) && isValidHex64(pubkey) && dTag.length > 0) {
           return {
-            source: 'addressable',
-            kind: kind,
-            pubkey: pubkey,
-            dTag: dTag,
-            relayHints: ['wss://relay.bchnostr.com']
+            source: 'naddr',
+            kind,
+            pubkey,
+            dTag,
+            relayHints: ['wss://relay.bchnostr.com'],
           };
         }
       }
@@ -1137,21 +1177,87 @@ function loadCachedProfile() {
   return null;
 }
 
+function normalizeProfileAssetUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const raw = url.trim();
+  if (!raw) return "";
+
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^\/\//.test(raw)) return `https:${raw}`;
+
+  if (/^ipfs:\/\//i.test(raw)) {
+    const cidPath = raw.replace(/^ipfs:\/\//i, "").replace(/^\/+/, "");
+    return cidPath ? `https://ipfs.io/ipfs/${cidPath}` : "";
+  }
+
+  if (/^ipns:\/\//i.test(raw)) {
+    const namePath = raw.replace(/^ipns:\/\//i, "").replace(/^\/+/, "");
+    return namePath ? `https://ipfs.io/ipns/${namePath}` : "";
+  }
+
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/|$)/i.test(raw)) {
+    return `https://${raw}`;
+  }
+
+  return raw;
+}
+
+window.normalizeProfileAssetUrl = normalizeProfileAssetUrl;
+
 // ── Helper: media extraction ─────────
+let mediaCarouselCounter = 0;
+
+function renderMediaEntry(entry) {
+  if (!entry || !entry.url) return "";
+  if (entry.type === "image") {
+    return `<div class="media-item media-loading"><img class="lazy-media media-pending" src="${entry.url}" alt="Image" loading="lazy" style="width:100%;max-width:100%;height:auto;max-height:min(72vh,560px);object-fit:contain;border-radius:8px;display:block;margin:6px 0;cursor:zoom-in;" onclick="window._openMediaViewer('${entry.url.replace(/'/g, "\\'")}')" onload="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"></div>`;
+  }
+  return `<div class="media-item media-loading"><video class="lazy-media media-pending" controls preload="metadata" style="width:100%;max-width:100%;height:auto;max-height:min(72vh,560px);display:block;margin:6px 0;" onloadeddata="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"><source src="${entry.url}" type="video/mp4"></video></div>`;
+}
+
+function renderMediaCarousel(entries) {
+  const id = `media-carousel-${Date.now()}-${++mediaCarouselCounter}`;
+  const slides = entries
+    .map(
+      (entry, idx) =>
+        `<div class="media-slide${idx === 0 ? " active" : ""}" data-media-slide="${idx}">${renderMediaEntry(entry)}</div>`,
+    )
+    .join("");
+
+  const dots = entries
+    .map(
+      (_, idx) =>
+        `<button type="button" class="media-dot${idx === 0 ? " active" : ""}" data-media-dot="${idx}" onclick="window._mediaCarouselGo('${id}', ${idx})" aria-label="Media ${idx + 1}"></button>`,
+    )
+    .join("");
+
+  return `<div class="media-carousel" id="${id}" data-media-index="0">
+    <div class="media-slides">${slides}</div>
+    <button type="button" class="media-nav-btn prev" onclick="window._mediaCarouselGo('${id}', 'prev')" aria-label="Previous image">‹</button>
+    <button type="button" class="media-nav-btn next" onclick="window._mediaCarouselGo('${id}', 'next')" aria-label="Next image">›</button>
+    <div class="media-dots">${dots}</div>
+  </div>`;
+}
+
 function renderMediaFromContent(content) {
   if (!content) return { text: "", media: "" };
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   let html = escapeHtml(content);
-  let mediaHtml = "";
+  const mediaEntries = [];
   let match;
   while ((match = urlRegex.exec(content)) !== null) {
     const url = match[0];
     if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
-      mediaHtml += `<div class="media-item media-loading"><img class="lazy-media media-pending" src="${url}" alt="Image" loading="lazy" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:6px 0;" onload="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"></div>`;
+      mediaEntries.push({ type: "image", url });
     } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) {
-      mediaHtml += `<div class="media-item media-loading"><video class="lazy-media media-pending" controls preload="metadata" style="max-width:100%;max-height:200px;display:block;margin:6px 0;" onloadeddata="window._handleMediaLoaded(this)" onerror="window._handleMediaError(this)"><source src="${url}" type="video/mp4"></video></div>`;
+      mediaEntries.push({ type: "video", url });
     }
   }
+
+  let mediaHtml = "";
+  if (mediaEntries.length > 1) mediaHtml = renderMediaCarousel(mediaEntries);
+  else if (mediaEntries.length === 1) mediaHtml = renderMediaEntry(mediaEntries[0]);
+
   html = html.replace(urlRegex, (u) => {
     if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg)(\?.*)?$/i.test(u))
       return "";
@@ -1159,6 +1265,69 @@ function renderMediaFromContent(content) {
   });
   return { text: html, media: mediaHtml };
 }
+
+window._mediaCarouselGo = function (carouselId, action) {
+  const root = document.getElementById(carouselId);
+  if (!root) return;
+
+  const slides = Array.from(root.querySelectorAll(".media-slide"));
+  const dots = Array.from(root.querySelectorAll(".media-dot"));
+  if (!slides.length) return;
+
+  const current = Number.parseInt(root.dataset.mediaIndex || "0", 10);
+  let nextIndex = current;
+
+  if (action === "next") nextIndex = (current + 1) % slides.length;
+  else if (action === "prev") nextIndex = (current - 1 + slides.length) % slides.length;
+  else {
+    const parsed = Number.parseInt(String(action), 10);
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed < slides.length) nextIndex = parsed;
+  }
+
+  root.dataset.mediaIndex = String(nextIndex);
+  slides.forEach((slide, idx) => slide.classList.toggle("active", idx === nextIndex));
+  dots.forEach((dot, idx) => dot.classList.toggle("active", idx === nextIndex));
+};
+
+window._closeMediaViewer = function () {
+  const existing = document.getElementById("mediaViewerBackdrop");
+  if (existing) existing.remove();
+};
+
+window._openMediaViewer = function (url) {
+  if (!url) return;
+  window._closeMediaViewer();
+
+  const backdrop = document.createElement("div");
+  backdrop.id = "mediaViewerBackdrop";
+  backdrop.className = "media-viewer-backdrop";
+  backdrop.innerHTML = `
+    <button type="button" class="media-viewer-close" aria-label="Close image viewer">✕</button>
+    <img src="${url}" alt="Expanded media" class="media-viewer-image" />
+  `;
+
+  const closeBtn = backdrop.querySelector(".media-viewer-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window._closeMediaViewer();
+    });
+  }
+
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) window._closeMediaViewer();
+  });
+
+  document.body.appendChild(backdrop);
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") {
+      window._closeMediaViewer();
+      document.removeEventListener("keydown", onKeyDown);
+    }
+  };
+  document.addEventListener("keydown", onKeyDown);
+};
 
 // utils.js - add this at the end of the file
 // ── Global currentUser access ──

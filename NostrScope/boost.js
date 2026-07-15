@@ -157,9 +157,9 @@
                 <div class="modal" style="max-width:460px;">
                     <h3>${isMusic ? '🎵 Boost this Track' : '📝 Boost this Post'}</h3>
                     ${isMusic ? `
-                        <div style="background:#162132;border:1px solid #4da3ff33;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:0.7rem;color:#a0b0c0;">
+                        <div class="boost-music-note">
                             🎵 Music boost – will be published as a <code>bch-radio-promo</code> event for the radio client.
-                            <span style="display:block;margin-top:4px;font-size:0.6rem;color:#71767b;">(txid placeholder: ${SAMPLE_TXID.substring(0, 16)}...)</span>
+                            <span class="boost-music-note-sub">(txid placeholder: ${SAMPLE_TXID.substring(0, 16)}...)</span>
                         </div>
                     ` : ''}
                     <div class="warning">Set how much sats and how long the boost stays active.</div>
