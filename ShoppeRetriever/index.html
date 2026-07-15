@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Manager Pro v3 – API Edition</title>
+    <title>Shopee Manager Pro v3 – ScrapingBee</title>
     <style>
         :root {
             --bg: #f8f9fb;
@@ -96,10 +96,6 @@
         .badge-fav { color:var(--star); }
         .card-actions { display:flex; gap:3px; margin-top:4px; flex-wrap:wrap; }
         .price-history-tip { font-size:0.7rem; color:var(--accent); cursor:help; text-decoration:underline dotted; }
-        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:200; display:flex; align-items:center; justify-content:center; }
-        .modal { background:#fff; border-radius:var(--radius); padding:20px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.2); }
-        .toast { position:fixed; bottom:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:8px; font-weight:600; z-index:999; opacity:0; transform:translateY(20px); transition:0.3s; pointer-events:none; }
-        .toast.show{ opacity:1; transform:translateY(0); } .toast.success{background:var(--success);} .toast.error{background:var(--danger);}
     </style>
 </head>
 <body>
@@ -113,7 +109,7 @@
         <div class="stat-item">⚠️ Unavailable <span class="stat-value" id="statUnavail">0</span></div>
     </div>
     <div style="padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <h1 style="font-size:1.3rem;">🛒 Shopee Pro v3 (API)</h1>
+        <h1 style="font-size:1.3rem;">🛒 Shopee Pro v3 (ScrapingBee)</h1>
         <select id="sortSelect" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:0.8rem;">
             <option value="newest">Newest Added</option>
             <option value="oldest">Oldest Added</option>
@@ -157,9 +153,9 @@
                 <div class="form-group"><label>Description</label><textarea id="desc" rows="2"></textarea></div>
                 <div style="display:flex; gap:8px;"><button type="submit" class="btn btn-primary" id="submitBtn">Add</button><button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none;" onclick="cancelEdit()">Cancel</button></div>
             </form>
-            <details style="margin-top:12px;"><summary>⚙️ Proxy & Import</summary>
-                <label style="font-size:0.7rem;">Proxy base URL (Cloudflare Worker)</label>
-                <input type="text" id="proxyUrl" value="https://bold-sky-d1b7.invalidcastx.workers.dev/?url=" style="width:100%;font-size:0.8rem;">
+            <details style="margin-top:12px;"><summary>⚙️ API Key & Import</summary>
+                <label style="font-size:0.7rem;">ScrapingBee API Key</label>
+                <input type="text" id="apiKey" value="YDSZEP2SX0IXGP99E5GTDSAMOGCBDXTA2DGS6A92ZHFRRUR5PQDT1GQS1ESDW4JO335L7ALTLD3U7LCW" style="width:100%;font-size:0.8rem;">
                 <textarea id="bulkInput" rows="2" placeholder="Bulk links..."></textarea><button class="btn btn-ghost btn-sm" onclick="bulkImport()">Import</button>
             </details>
         </div>
@@ -185,7 +181,7 @@
 
     <script>
         (() => {
-            const STORAGE = 'shopee_pro_v3_api_v2';
+            const STORAGE = 'shopee_pro_v3_sbee';
             let products = [], currentTags = [], editingId = null, selectedIds = new Set();
             const $ = s => document.querySelector(s);
 
@@ -392,97 +388,85 @@
                 save(); resetForm(); renderList(); toast('Saved!');
             });
 
-            // --- Improved Fetch using the pdp/get_pc API ---
+            // ========== SCRAPINGBEE INTEGRATION ==========
+            function getApiKey() {
+                return $('#apiKey').value.trim();
+            }
+
+            async function fetchPage(url) {
+                const key = getApiKey();
+                if (!key) throw new Error('No ScrapingBee API key');
+                const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${key}&url=${encodeURIComponent(url)}&render_js=false&premium_proxy=true`;
+                const resp = await fetch(apiUrl);
+                if (!resp.ok) throw new Error(`ScrapingBee error ${resp.status}`);
+                return resp.text();
+            }
+
+            function extractProductFromHTML(html) {
+                // Try __NEXT_DATA__ first
+                const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+                if (nextDataMatch) {
+                    const json = JSON.parse(nextDataMatch[1]);
+                    const item = json.props?.pageProps?.item;
+                    if (item) return { item, shopInfo: json.props?.pageProps?.shopInfo };
+                }
+                // Fallback to __INITIAL_STATE__
+                const initStateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});/);
+                if (initStateMatch) {
+                    const state = JSON.parse(initStateMatch[1]);
+                    const item = state.product?.item;
+                    if (item) return { item, shopInfo: state.product?.shopInfo };
+                }
+                throw new Error('Could not find product data');
+            }
+
+            function populateFromItem(item, shopInfo) {
+                $('#name').value = item.name || '';
+                const price = item.price_min || item.price || 0;
+                $('#price').value = (price / 100000).toFixed(2);
+                if (item.price_before_discount) {
+                    $('#origPrice').value = (item.price_before_discount / 100000).toFixed(2);
+                } else if (item.price_max && item.price_max > price) {
+                    $('#origPrice').value = (item.price_max / 100000).toFixed(2);
+                } else {
+                    $('#origPrice').value = '';
+                }
+                $('#rating').value = item.item_rating?.rating_star || '';
+                $('#sold').value = item.historical_sold || item.sold || '';
+                const img = item.image || (item.images && item.images[0]);
+                if (img) {
+                    $('#image').value = img.startsWith('http') ? img : 'https://cf.shopee.ph/file/' + img;
+                }
+                if (shopInfo?.name) {
+                    $('#shopName').value = shopInfo.name;
+                } else if (item.shop_name) {
+                    $('#shopName').value = item.shop_name;
+                }
+            }
+
             window.fetchDetails = async () => {
                 const link = $('#link').value.trim();
                 if (!link) return toast('Enter a Shopee link', 'error');
-
-                let itemid = '', shopid = '';
+                toast('Fetching via ScrapingBee...');
                 try {
-                    const url = new URL(link);
-                    const pathParts = url.pathname.split('/');
-                    for (let part of pathParts) {
-                        if (part.startsWith('i.')) {
-                            const ids = part.replace('i.', '').split('.');
-                            if (ids.length >= 2) { shopid = ids[0]; itemid = ids[1]; }
-                            break;
-                        }
-                    }
-                    if (!itemid) {
-                        const numbers = pathParts.filter(p => /^\d+$/.test(p));
-                        if (numbers.length >= 2) { shopid = numbers[0]; itemid = numbers[1]; }
-                    }
-                } catch (e) {}
-                if (!itemid || !shopid) {
-                    return toast('Could not extract Shopee IDs. Use a full product URL.', 'error');
-                }
-
-                const apiUrl = `https://shopee.ph/api/v4/pdp/get_pc?item_id=${itemid}&shop_id=${shopid}`;
-                const proxyBase = $('#proxyUrl').value.trim() || 'https://bold-sky-d1b7.invalidcastx.workers.dev/?url=';
-                toast('Fetching product data...');
-
-                try {
-                    console.log('Fetching:', proxyBase + encodeURIComponent(apiUrl));
-                    const resp = await fetch(proxyBase + encodeURIComponent(apiUrl));
-                    const rawText = await resp.text();
-                    console.log('Raw response (first 500 chars):', rawText.substring(0, 500));
-                    let data;
-                    try {
-                        data = JSON.parse(rawText);
-                    } catch (jsonErr) {
-                        toast('Response is not valid JSON. Check console.', 'error');
-                        console.error('Invalid JSON:', rawText);
-                        return;
-                    }
-
-                    const item = data.data?.item;
-                    const shopInfo = data.data?.shop_info;
-                    if (!item) {
-                        toast('Product data missing in response. See console.', 'error');
-                        console.error('API response structure:', data);
-                        return;
-                    }
-
-                    // Populate fields
-                    $('#name').value = item.name || '';
-                    const price = item.price_min || item.price || 0;
-                    // Price is usually in 1/100000 of the currency (centavos) – adjust if needed
-                    $('#price').value = (price / 100000).toFixed(2);
-                    if (item.price_before_discount) {
-                        $('#origPrice').value = (item.price_before_discount / 100000).toFixed(2);
-                    } else if (item.price_max && item.price_max > price) {
-                        $('#origPrice').value = (item.price_max / 100000).toFixed(2);
-                    } else {
-                        $('#origPrice').value = '';
-                    }
-                    $('#rating').value = item.item_rating?.rating_star || '';
-                    $('#sold').value = item.historical_sold || item.sold || '';
-                    if (item.image) {
-                        $('#image').value = 'https://cf.shopee.ph/file/' + item.image;
-                    }
-                    if (shopInfo?.name) {
-                        $('#shopName').value = shopInfo.name;
-                    }
+                    const html = await fetchPage(link);
+                    const { item, shopInfo } = extractProductFromHTML(html);
+                    populateFromItem(item, shopInfo);
                     toast('Details loaded! ✅', 'success');
                 } catch (err) {
-                    toast('Network or proxy error: ' + err.message, 'error');
+                    toast('Fetch failed: ' + err.message, 'error');
                     console.error(err);
                 }
             };
 
             window.refreshAll = async () => {
-                if (!confirm('Refresh all products using the API? This may take time.')) return;
-                const proxyBase = $('#proxyUrl').value.trim() || 'https://bold-sky-d1b7.invalidcastx.workers.dev/?url=';
+                if (!confirm('Refresh all products via ScrapingBee? (may use API credits)')) return;
                 let count = 0;
                 for (let p of products) {
-                    if (!p.itemid || !p.shopid) continue;
-                    const apiUrl = `https://shopee.ph/api/v4/pdp/get_pc?item_id=${p.itemid}&shop_id=${p.shopid}`;
+                    if (!p.link) continue;
                     try {
-                        const resp = await fetch(proxyBase + encodeURIComponent(apiUrl));
-                        if (!resp.ok) { p.unavailable = true; continue; }
-                        const data = await resp.json();
-                        const item = data.data?.item;
-                        if (!item) { p.unavailable = true; continue; }
+                        const html = await fetchPage(p.link);
+                        const { item, shopInfo } = extractProductFromHTML(html);
                         const newPrice = (item.price_min || item.price || 0) / 100000;
                         if (newPrice && newPrice !== p.price) {
                             p.priceHistory.push({ price: p.price, date: p.lastUpdated || new Date().toISOString() });
@@ -492,8 +476,9 @@
                         if (item.price_before_discount) p.origPrice = item.price_before_discount / 100000;
                         p.rating = item.item_rating?.rating_star || p.rating;
                         p.sold = item.historical_sold || item.sold || p.sold;
-                        p.image = item.image ? 'https://cf.shopee.ph/file/' + item.image : p.image;
-                        p.shopName = data.data?.shop_info?.name || p.shopName;
+                        const img = item.image || (item.images && item.images[0]);
+                        p.image = img ? (img.startsWith('http') ? img : 'https://cf.shopee.ph/file/' + img) : p.image;
+                        if (shopInfo?.name) p.shopName = shopInfo.name;
                         p.lastUpdated = new Date().toISOString();
                         p.unavailable = false;
                         count++;
