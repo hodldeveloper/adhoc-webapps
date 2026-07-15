@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee Manager Pro v3</title>
+    <style>
+        :root {
+            --bg: #f8f9fb;
+            --card: #fff;
+            --text: #1e1e2f;
+            --text2: #6c6f85;
+            --border: #e2e5f0;
+            --accent: #ee4d2d;
+            --accent2: #d43d1f;
+            --accent-light: #fff0ed;
+            --success: #26aa99;
+            --danger: #e74c3c;
+            --warning: #f5a623;
+            --star: #f9a825;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --transition: 0.2s;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; padding-bottom:80px; }
+        .stats-bar {
+            background:var(--card); border-bottom:1px solid var(--border); padding:10px 20px;
+            display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;
+            position:sticky; top:0; z-index:50; font-size:0.82rem; box-shadow:var(--shadow);
+        }
+        .stat-item { display:flex; align-items:center; gap:4px; font-weight:500; color:var(--text2); }
+        .stat-value { font-weight:700; color:var(--text); background:#f0f0f5; padding:2px 10px; border-radius:20px; }
+        .accent-val { color:var(--accent); background:var(--accent-light); }
+        .btn {
+            display:inline-flex; align-items:center; gap:5px; padding:8px 14px; border-radius:8px;
+            font-size:0.83rem; font-weight:600; cursor:pointer; border:none; transition:var(--transition);
+            white-space:nowrap; font-family:inherit;
+        }
+        .btn-primary { background:var(--accent); color:#fff; }
+        .btn-primary:hover { background:var(--accent2); transform:translateY(-1px); }
+        .btn-outline { background:#fff; color:var(--accent); border:2px solid var(--accent); }
+        .btn-outline:hover { background:var(--accent-light); }
+        .btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); }
+        .btn-ghost:hover { background:#f5f5f5; }
+        .btn-sm { padding:5px 10px; font-size:0.75rem; }
+        .btn-xs { padding:3px 8px; font-size:0.7rem; border-radius:4px; }
+        .btn-danger { background:#fff; color:var(--danger); border:1px solid #fdd; }
+        .btn-danger:hover { background:#fff5f5; }
+        .btn-star { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#ccc; }
+        .btn-star.active { color:var(--star); }
+        .container { max-width:1400px; margin:0 auto; padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
+        @media(max-width:1050px){ .container{grid-template-columns:1fr;} }
+        .panel { background:var(--card); border-radius:var(--radius); padding:20px; border:1px solid var(--border); box-shadow:var(--shadow); }
+        .panel h2 { font-size:1rem; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+        .form-group { margin-bottom:10px; }
+        .form-group label { font-size:0.72rem; font-weight:600; color:var(--text2); text-transform:uppercase; margin-bottom:3px; display:block; }
+        .form-group input,.form-group textarea,.form-group select {
+            width:100%; padding:9px 12px; border:2px solid var(--border); border-radius:8px;
+            font-size:0.85rem; background:#fafafa; transition:var(--transition);
+        }
+        .form-group input:focus,.form-group textarea:focus,.form-group select:focus {
+            outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(238,77,45,0.08); background:#fff;
+        }
+        .form-row { display:flex; gap:8px; }
+        .form-row .form-group { flex:1; }
+        .tag-area { display:flex; flex-wrap:wrap; gap:5px; padding:6px; border:2px solid var(--border); border-radius:8px; background:#fafafa; min-height:38px; align-items:center; }
+        .tag-area:focus-within { border-color:var(--accent); }
+        .tag-pill { background:var(--accent-light); color:var(--accent); padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; }
+        .remove-tag { cursor:pointer; font-weight:700; opacity:0.6; } .remove-tag:hover { opacity:1; }
+        .tag-input { border:none; outline:none; flex:1; min-width:80px; background:transparent; font-size:0.8rem; }
+        .filter-bar { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+        .filter-chip {
+            font-size:0.7rem; padding:4px 12px; border-radius:20px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:500;
+        }
+        .filter-chip.active { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+        .product-list { display:flex; flex-direction:column; gap:8px; max-height:65vh; overflow-y:auto; padding-right:4px; }
+        .product-list::-webkit-scrollbar{ width:5px; } .product-list::-webkit-scrollbar-thumb{ background:#d0d0d0; border-radius:5px; }
+        .product-card {
+            background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px;
+            display:flex; gap:10px; align-items:flex-start; transition:var(--transition);
+        }
+        .product-card:hover { box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+        .product-card.selected { border-color:var(--accent); box-shadow:0 0 0 3px rgba(238,77,45,0.08); }
+        .card-img { width:65px; height:65px; border-radius:8px; object-fit:cover; background:#eee; border:1px solid #eee; }
+        .card-body { flex:1; min-width:0; }
+        .card-title { font-weight:700; font-size:0.88rem; margin-bottom:3px; }
+        .card-meta { font-size:0.7rem; color:var(--text2); display:flex; gap:10px; flex-wrap:wrap; margin-bottom:3px; }
+        .price-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .price { font-size:1rem; font-weight:700; color:var(--accent); }
+        .original-price { font-size:0.78rem; color:#999; text-decoration:line-through; }
+        .discount-badge { background:var(--accent-light); color:var(--accent); font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:10px; }
+        .badge { font-size:0.65rem; padding:2px 8px; border-radius:10px; font-weight:600; }
+        .badge-unavailable { background:#ffeaea; color:var(--danger); }
+        .badge-fav { color:var(--star); }
+        .card-actions { display:flex; gap:3px; margin-top:4px; flex-wrap:wrap; }
+        .price-history-tip { font-size:0.7rem; color:var(--accent); cursor:help; text-decoration:underline dotted; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:200; display:flex; align-items:center; justify-content:center; }
+        .modal { background:#fff; border-radius:var(--radius); padding:20px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 20px 40px rgba(0,0,0,0.2); }
+        .toast { position:fixed; bottom:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:8px; font-weight:600; z-index:999; opacity:0; transform:translateY(20px); transition:0.3s; pointer-events:none; }
+        .toast.show{ opacity:1; transform:translateY(0); } .toast.success{background:var(--success);} .toast.error{background:var(--danger);}
+        .progress { height:4px; background:#eee; border-radius:2px; margin-top:6px; }
+        .progress-fill { height:100%; background:var(--accent); width:0%; transition:width 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-item">📦 <span class="stat-value" id="statTotal">0</span></div>
+        <div class="stat-item">⭐ <span class="stat-value" id="statFav">0</span></div>
+        <div class="stat-item">🔥 Avg disc <span class="stat-value accent-val" id="statAvgDisc">0%</span></div>
+        <div class="stat-item">🏆 Max disc <span class="stat-value accent-val" id="statMaxDisc">0%</span></div>
+        <div class="stat-item">📂 Cat <span class="stat-value" id="statCat">0</span></div>
+        <div class="stat-item">🔄 Need refresh <span class="stat-value" id="statNeedRefresh">0</span></div>
+        <div class="stat-item">⚠️ Unavailable <span class="stat-value" id="statUnavail">0</span></div>
+    </div>
+    <div style="padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <h1 style="font-size:1.3rem;">🛒 Shopee Pro v3</h1>
+        <select id="sortSelect" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:0.8rem;">
+            <option value="newest">Newest Added</option>
+            <option value="oldest">Oldest Added</option>
+            <option value="priceAsc">Lowest Price</option>
+            <option value="priceDesc">Highest Price</option>
+            <option value="discountDesc">Highest Discount</option>
+            <option value="ratingDesc">Best Rated</option>
+            <option value="soldDesc">Most Sold</option>
+            <option value="updated">Recently Updated</option>
+            <option value="alpha">Alphabetical</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Search..." style="flex:1; min-width:200px; padding:7px 12px; border:1px solid var(--border); border-radius:6px;">
+        <button class="btn btn-outline btn-sm" onclick="copySelected()">📋 Copy Sel</button>
+        <button class="btn btn-sm" style="background:#ff9800;color:#fff;" onclick="pickRandom()">🎲 Deal</button>
+        <button class="btn btn-ghost btn-sm" onclick="refreshAll()">🔄 Refresh All</button>
+    </div>
+    <div class="container">
+        <div class="panel" id="formPanel">
+            <h2 id="formTitle">➕ Add Product</h2>
+            <form id="productForm" autocomplete="off"><input type="hidden" id="editId">
+                <div class="form-group"><label>Shopee Link *</label><div style="display:flex; gap:6px;"><input type="url" id="link" required placeholder="https://..."><button type="button" class="btn btn-outline btn-sm" onclick="fetchDetails()">🔍 Fetch</button></div></div>
+                <div class="form-group"><label>Name</label><input type="text" id="name" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Price ₱</label><input type="number" id="price" step="0.01"></div>
+                    <div class="form-group"><label>Orig Price</label><input type="number" id="origPrice" step="0.01"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Rating</label><input type="number" id="rating" step="0.1" min="0" max="5"></div>
+                    <div class="form-group"><label>Sold</label><input type="number" id="sold"></div>
+                </div>
+                <div class="form-group"><label>Image URL</label><input type="url" id="image"></div>
+                <div class="form-group"><label>Affiliate Link</label><input type="url" id="affLink"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Category</label><select id="category"><option value="">None</option><option>Electronics</option><option>Fashion</option><option>Food</option><option>Home</option><option>Pets</option><option>Gaming</option><option>Health</option><option>Automotive</option></select></div>
+                    <div class="form-group"><label>Campaign</label><input type="text" id="campaign" placeholder="e.g. 9.9 Sale"></div>
+                </div>
+                <div class="form-group"><label>Tags</label><div class="tag-area" onclick="document.getElementById('tagInput').focus()"><span id="tagPills"></span><input class="tag-input" id="tagInput" placeholder="Press Enter"></div></div>
+                <div class="form-group"><label>Description</label><textarea id="desc" rows="2"></textarea></div>
+                <div style="display:flex; gap:8px;"><button type="submit" class="btn btn-primary" id="submitBtn">Add</button><button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none;" onclick="cancelEdit()">Cancel</button></div>
+            </form>
+            <details style="margin-top:12px;"><summary>⚙️ Proxy & Import</summary>
+                <input type="text" id="proxyUrl" value="https://api.allorigins.win/raw?url=" style="width:100%;font-size:0.8rem;" placeholder="CORS proxy for Shopee API">
+                <textarea id="bulkInput" rows="2" placeholder="Bulk links..."></textarea><button class="btn btn-ghost btn-sm" onclick="bulkImport()">Import</button>
+            </details>
+        </div>
+        <div class="panel">
+            <div class="filter-bar" id="filterBar">
+                <span class="filter-chip active" data-filter="all">All</span>
+                <span class="filter-chip" data-filter="Electronics">Electronics</span>
+                <span class="filter-chip" data-filter="Fashion">Fashion</span>
+                <span class="filter-chip" data-filter="Home">Home</span>
+                <span class="filter-chip" data-filter="Gaming">Gaming</span>
+                <span class="filter-chip" data-filter="Pets">Pets</span>
+                <span class="filter-chip" data-filter="disc20">20%+ off</span>
+                <span class="filter-chip" data-filter="disc30">30%+ off</span>
+                <span class="filter-chip" data-filter="disc40">40%+ off</span>
+                <span class="filter-chip" data-filter="needRefresh">Needs Refresh</span>
+                <span class="filter-chip" data-filter="noAff">No Aff Link</span>
+                <span class="filter-chip" data-filter="favorite">⭐ Favorites</span>
+            </div>
+            <div class="product-list" id="productList"></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="modal-overlay" id="modal" style="display:none;"><div class="modal" id="modalContent"></div></div>
+
+    <script>
+        (() => {
+            const STORAGE = 'shopee_pro_v3';
+            let products = [], currentTags = [], editingId = null, selectedIds = new Set();
+            const $ = s => document.querySelector(s);
+            const $$ = s => document.querySelectorAll(s);
+
+            // Load
+            function load() {
+                try { products = JSON.parse(localStorage.getItem(STORAGE)) || []; } catch { products = []; }
+                products = products.map(p => ({
+                    id: p.id || crypto.randomUUID(), itemid: p.itemid || '', shopid: p.shopid || '',
+                    name: p.name || '', price: p.price || 0, origPrice: p.origPrice || '',
+                    rating: p.rating || '', sold: p.sold || '', image: p.image || '',
+                    link: p.link || '', affLink: p.affLink || '', category: p.category || '',
+                    campaign: p.campaign || '', tags: p.tags || [], desc: p.desc || '',
+                    favorite: p.favorite || false, unavailable: p.unavailable || false,
+                    lastUpdated: p.lastUpdated || '', priceHistory: p.priceHistory || [],
+                    addedAt: p.addedAt || new Date().toISOString()
+                }));
+            }
+            function save() { localStorage.setItem(STORAGE, JSON.stringify(products)); }
+
+            function toast(msg, type='') {
+                const t = $('#toast'); t.textContent = msg; t.className = 'toast '+type+' show';
+                setTimeout(() => t.className = 'toast', 2000);
+            }
+
+            // Tags
+            function renderTags() {
+                $('#tagPills').innerHTML = currentTags.map((t,i) => `<span class="tag-pill">${esc(t)}<span class="remove-tag" data-index="${i}">&times;</span></span>`).join('');
+            }
+            function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+            // Stats
+            function updateStats() {
+                const total = products.length;
+                let fav=0, sumDisc=0, maxDisc=0, cats=new Set(), needRefresh=0, unavail=0;
+                const now = Date.now();
+                products.forEach(p => {
+                    if(p.favorite) fav++;
+                    if(p.unavailable) unavail++;
+                    if(p.origPrice && p.price && p.origPrice>p.price) {
+                        const d = Math.round((1-p.price/p.origPrice)*100);
+                        sumDisc += d; if(d>maxDisc) maxDisc=d;
+                    }
+                    if(p.category) cats.add(p.category);
+                    if(!p.lastUpdated || (now - new Date(p.lastUpdated).getTime()) > 86400000) needRefresh++;
+                });
+                $('#statTotal').textContent = total;
+                $('#statFav').textContent = fav;
+                $('#statAvgDisc').textContent = total ? Math.round(sumDisc/total)+'%' : '0%';
+                $('#statMaxDisc').textContent = maxDisc+'%';
+                $('#statCat').textContent = cats.size;
+                $('#statNeedRefresh').textContent = needRefresh;
+                $('#statUnavail').textContent = unavail;
+            }
+
+            // Sorting & filtering
+            function getFilteredAndSorted() {
+                const filter = document.querySelector('.filter-chip.active')?.dataset.filter || 'all';
+                const sort = $('#sortSelect').value;
+                const search = $('#searchInput').value.toLowerCase().trim();
+                let filtered = [...products];
+                // filter
+                if (filter === 'favorite') filtered = filtered.filter(p => p.favorite);
+                else if (filter === 'needRefresh') filtered = filtered.filter(p => !p.lastUpdated || (Date.now() - new Date(p.lastUpdated).getTime()) > 86400000);
+                else if (filter === 'noAff') filtered = filtered.filter(p => !p.affLink);
+                else if (filter.startsWith('disc')) {
+                    const min = parseInt(filter.replace('disc',''));
+                    filtered = filtered.filter(p => p.origPrice && p.price && p.origPrice>p.price && Math.round((1-p.price/p.origPrice)*100) >= min);
+                } else if (filter !== 'all') filtered = filtered.filter(p => p.category === filter);
+                // search
+                if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search) || p.link.includes(search) || (p.tags||[]).some(t=>t.toLowerCase().includes(search)));
+                // sort
+                switch(sort) {
+                    case 'newest': filtered.sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt)); break;
+                    case 'oldest': filtered.sort((a,b) => new Date(a.addedAt) - new Date(b.addedAt)); break;
+                    case 'priceAsc': filtered.sort((a,b) => a.price - b.price); break;
+                    case 'priceDesc': filtered.sort((a,b) => b.price - a.price); break;
+                    case 'discountDesc': filtered.sort((a,b) => {
+                        const da = a.origPrice&&a.price&&a.origPrice>a.price ? (1-a.price/a.origPrice) : 0;
+                        const db = b.origPrice&&b.price&&b.origPrice>b.price ? (1-b.price/b.origPrice) : 0;
+                        return db-da;
+                    }); break;
+                    case 'ratingDesc': filtered.sort((a,b) => (b.rating||0) - (a.rating||0)); break;
+                    case 'soldDesc': filtered.sort((a,b) => (b.sold||0) - (a.sold||0)); break;
+                    case 'updated': filtered.sort((a,b) => new Date(b.lastUpdated||0) - new Date(a.lastUpdated||0)); break;
+                    case 'alpha': filtered.sort((a,b) => a.name.localeCompare(b.name)); break;
+                }
+                return filtered;
+            }
+
+            function renderList() {
+                const list = getFilteredAndSorted();
+                if (!list.length) {
+                    $('#productList').innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No products.</div>';
+                } else {
+                    $('#productList').innerHTML = list.map(p => {
+                        const idx = products.indexOf(p);
+                        const sel = selectedIds.has(idx);
+                        const disc = p.origPrice && p.price && p.origPrice>p.price ? Math.round((1-p.price/p.origPrice)*100) : 0;
+                        const img = p.image || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="65" height="65" fill="%23ddd"%3E%3Crect width="65" height="65"/%3E%3C/svg%3E';
+                        const priceHistoryStr = p.priceHistory?.length ? `title="Price history: ${p.priceHistory.map(h=>'₱'+h.price+' ('+new Date(h.date).toLocaleDateString()+')').join(' → ')}"` : '';
+                        return `
+                        <div class="product-card ${sel?'selected':''}" data-index="${idx}">
+                            <input type="checkbox" class="sel-cb" data-index="${idx}" ${sel?'checked':''}>
+                            <img class="card-img" src="${esc(img)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2265%22 height=%2265%22%3E%3Crect width=%2265%22 height=%2265%22 fill=%22%23eee%22/%3E%3C/svg%3E'">
+                            <div class="card-body">
+                                <div class="card-title">${esc(p.name)} ${p.unavailable ? '<span class="badge badge-unavailable">⚠️ Unavailable</span>' : ''}</div>
+                                <div class="card-meta">
+                                    ${p.rating?`⭐${p.rating}`:''} ${p.sold?`📦${Number(p.sold).toLocaleString()}`:''} ${p.shopName?`🏪${esc(p.shopName)}`:''}
+                                </div>
+                                <div class="price-row">
+                                    <span class="price">₱${Number(p.price).toLocaleString('en-PH',{minimumFractionDigits:2})}</span>
+                                    ${p.origPrice?`<span class="original-price">₱${Number(p.origPrice).toLocaleString('en-PH',{minimumFractionDigits:2})}</span>`:''}
+                                    ${disc>0?`<span class="discount-badge">-${disc}%</span>`:''}
+                                    <span class="price-history-tip" ${priceHistoryStr}>📉</span>
+                                </div>
+                                <div style="font-size:0.7rem;">${(p.tags||[]).map(t=>`<span class="tag-pill" style="font-size:0.65rem;">${esc(t)}</span>`).join('')} ${p.campaign?`<span style="background:#e8f5e9;color:#2e7d32;padding:2px 6px;border-radius:10px;font-size:0.65rem;">📅 ${esc(p.campaign)}</span>`:''}</div>
+                                <div class="card-actions">
+                                    <button class="btn-star ${p.favorite?'active':''}" onclick="toggleFav(${idx})">⭐</button>
+                                    <button class="btn btn-outline btn-xs" onclick="copySingle(${idx})">📋</button>
+                                    <button class="btn btn-ghost btn-xs" onclick="editProduct(${idx})">✏️</button>
+                                    <button class="btn btn-danger btn-xs" onclick="deleteProduct(${idx})">🗑</button>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+                updateStats();
+            }
+
+            // Selection
+            document.addEventListener('change', e => {
+                if (e.target.classList.contains('sel-cb')) {
+                    const idx = parseInt(e.target.dataset.index);
+                    e.target.checked ? selectedIds.add(idx) : selectedIds.delete(idx);
+                    renderList();
+                }
+            });
+            document.querySelector('#filterBar').addEventListener('click', e => {
+                if (e.target.classList.contains('filter-chip')) {
+                    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    renderList();
+                }
+            });
+            $('#sortSelect').addEventListener('change', renderList);
+            $('#searchInput').addEventListener('input', renderList);
+
+            // Form
+            function resetForm() {
+                $('#productForm').reset(); $('#editId').value=''; editingId=null; currentTags=[];
+                $('#submitBtn').textContent='Add'; $('#cancelBtn').style.display='none';
+                $('#formTitle').textContent='➕ Add Product'; renderTags();
+            }
+            function populateForm(p) {
+                $('#link').value = p.link; $('#name').value = p.name;
+                $('#price').value = p.price; $('#origPrice').value = p.origPrice||'';
+                $('#rating').value = p.rating||''; $('#sold').value = p.sold||'';
+                $('#image').value = p.image||''; $('#affLink').value = p.affLink||'';
+                $('#category').value = p.category||''; $('#campaign').value = p.campaign||'';
+                $('#desc').value = p.desc||''; currentTags = [...(p.tags||[])];
+                editingId = products.indexOf(p); $('#editId').value = editingId;
+                $('#submitBtn').textContent='Update'; $('#cancelBtn').style.display='inline-flex';
+                $('#formTitle').textContent='✏️ Edit'; renderTags();
+            }
+            window.editProduct = idx => { if(products[idx]) populateForm(products[idx]); };
+            window.cancelEdit = () => resetForm();
+            window.deleteProduct = idx => { if(!confirm('Delete?'))return; products.splice(idx,1); save(); resetForm(); renderList(); };
+            window.toggleFav = idx => { products[idx].favorite = !products[idx].favorite; save(); renderList(); };
+
+            $('#productForm').addEventListener('submit', e => {
+                e.preventDefault();
+                const link = $('#link').value.trim();
+                if (!link) return toast('Link required','error');
+                const prod = {
+                    id: editingId!==null ? products[editingId]?.id : crypto.randomUUID(),
+                    itemid: '', shopid: '', // will be extracted from link
+                    name: $('#name').value.trim(), price: parseFloat($('#price').value)||0,
+                    origPrice: $('#origPrice').value ? parseFloat($('#origPrice').value) : '',
+                    rating: $('#rating').value || '', sold: $('#sold').value || '',
+                    image: $('#image').value.trim(), link, affLink: $('#affLink').value.trim(),
+                    category: $('#category').value, campaign: $('#campaign').value.trim(),
+                    tags: [...currentTags], desc: $('#desc').value.trim(),
+                    favorite: editingId!==null ? products[editingId].favorite : false,
+                    unavailable: false, lastUpdated: new Date().toISOString(),
+                    priceHistory: editingId!==null ? products[editingId].priceHistory || [] : [],
+                    addedAt: editingId!==null ? products[editingId].addedAt : new Date().toISOString()
+                };
+                // Extract ids
+                try {
+                    const url = new URL(link);
+                    const path = url.pathname.split('/');
+                    const idPart = path.find(p => p.includes('i.')) || path[path.length-1];
+                    if (idPart) {
+                        const ids = idPart.replace('i.','').split('.');
+                        if (ids.length >= 2) { prod.itemid = ids[0]; prod.shopid = ids[1]; }
+                        else if (ids.length === 1) prod.itemid = ids[0];
+                    }
+                } catch(e) {}
+                // duplicate check
+                if (prod.itemid && products.some((p,i) => p.itemid === prod.itemid && i !== editingId)) {
+                    if (!confirm('Product with same itemid exists. Add anyway?')) return;
+                }
+                // price history
+                if (editingId!==null && products[editingId] && products[editingId].price !== prod.price) {
+                    prod.priceHistory = [...(prod.priceHistory || []), { price: prod.price, date: new Date().toISOString() }];
+                }
+                if (editingId!==null) products[editingId] = prod;
+                else products.push(prod);
+                save(); resetForm(); renderList(); toast('Saved!');
+            });
+
+            // Fetch via proxy
+            window.fetchDetails = async () => {
+                const link = $('#link').value.trim();
+                if (!link) return toast('Enter link','error');
+                const proxy = $('#proxyUrl').value.trim() || 'https://api.allorigins.win/raw?url=';
+                toast('Fetching...');
+                try {
+                    const resp = await fetch(proxy + encodeURIComponent(link));
+                    if (!resp.ok) throw new Error('Proxy error');
+                    const html = await resp.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const json = doc.querySelector('script[type="application/ld+json"]');
+                    if (json) {
+                        const d = JSON.parse(json.textContent);
+                        if (d.name) $('#name').value = d.name;
+                        if (d.image) $('#image').value = Array.isArray(d.image) ? d.image[0] : d.image;
+                        if (d.offers) {
+                            const off = Array.isArray(d.offers) ? d.offers[0] : d.offers;
+                            if (off.price) $('#price').value = off.price;
+                        }
+                        if (d.aggregateRating) {
+                            $('#rating').value = d.aggregateRating.ratingValue || '';
+                            $('#sold').value = d.aggregateRating.reviewCount || '';
+                        }
+                    }
+                    toast('Fetched. Verify data.','success');
+                } catch (e) {
+                    toast('Fetch failed. Try different proxy.','error');
+                }
+            };
+
+            window.refreshAll = async () => {
+                if (!confirm('Refresh all prices? This may take time.')) return;
+                const proxy = $('#proxyUrl').value.trim() || 'https://api.allorigins.win/raw?url=';
+                let count = 0;
+                for (let p of products) {
+                    if (!p.link) continue;
+                    try {
+                        const resp = await fetch(proxy + encodeURIComponent(p.link));
+                        const html = await resp.text();
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const json = doc.querySelector('script[type="application/ld+json"]');
+                        if (json) {
+                            const d = JSON.parse(json.textContent);
+                            if (d.offers) {
+                                const off = Array.isArray(d.offers) ? d.offers[0] : d.offers;
+                                if (off.price && off.price != p.price) {
+                                    p.priceHistory.push({ price: p.price, date: p.lastUpdated || new Date().toISOString() });
+                                    p.price = off.price;
+                                }
+                            }
+                            p.lastUpdated = new Date().toISOString();
+                            p.unavailable = false;
+                            count++;
+                        }
+                    } catch { p.unavailable = true; }
+                }
+                save(); renderList(); toast(`Updated ${count} products.`);
+            };
+
+            // Copy formats
+            function format(p) {
+                const link = p.affLink || p.link;
+                let t = `🛒 ${p.name}\n💰 ₱${p.price}`;
+                if(p.origPrice) t += ` (was ₱${p.origPrice})`;
+                if(p.rating) t += ` ⭐${p.rating}`;
+                if(p.sold) t += ` 📦${Number(p.sold).toLocaleString()}`;
+                if(p.desc) t += `\n📝 ${p.desc}`;
+                t += `\n🔗 ${link}`;
+                // auto hashtags
+                const tags = [...(p.tags||[]), p.category, p.campaign].filter(Boolean).map(t=>'#'+t.replace(/\s+/g,''));
+                if(tags.length) t += '\n'+tags.join(' ');
+                return t;
+            }
+            window.copySingle = idx => { navigator.clipboard.writeText(format(products[idx])); toast('Copied!'); };
+            window.copySelected = () => {
+                const sel = [...selectedIds].sort((a,b)=>a-b);
+                if (!sel.length) return toast('None selected','error');
+                const texts = sel.map(i=>format(products[i]));
+                navigator.clipboard.writeText(texts.join('\n\n---\n\n'));
+                toast(`Copied ${sel.length}`);
+            };
+            window.pickRandom = () => {
+                if (!products.length) return;
+                const p = products[Math.floor(Math.random()*products.length)];
+                navigator.clipboard.writeText(format(p));
+                toast(`🎲 ${p.name}`);
+            };
+
+            // Bulk import
+            window.bulkImport = () => {
+                const raw = $('#bulkInput').value.trim();
+                if (!raw) return;
+                const lines = raw.split(/[\n\r]+/).filter(l=>l.trim());
+                lines.forEach(link => {
+                    if (!link.startsWith('http')) return;
+                    products.push({
+                        id: crypto.randomUUID(), itemid:'', shopid:'', name:'Imported', price:0,
+                        origPrice:'', rating:'', sold:'', image:'', link, affLink:'',
+                        category:'', campaign:'', tags:[], desc:'', favorite:false, unavailable:false,
+                        lastUpdated:'', priceHistory:[], addedAt: new Date().toISOString()
+                    });
+                });
+                save(); renderList(); $('#bulkInput').value=''; toast('Imported');
+            };
+
+            window.exportAll = () => {
+                const blob = new Blob([JSON.stringify(products,null,2)], {type:'application/json'});
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = 'shopee_pro_backup.json'; a.click();
+            };
+            window.clearAll = () => { if(confirm('Delete all?')){ products=[]; save(); renderList(); }};
+
+            // Tag input
+            $('#tagInput').addEventListener('keydown', e => {
+                if (e.key==='Enter') { e.preventDefault(); const v=$('#tagInput').value.trim(); if(v&&!currentTags.includes(v)){currentTags.push(v); renderTags();} $('#tagInput').value=''; }
+            });
+            $('#tagPills').addEventListener('click', e => {
+                if(e.target.classList.contains('remove-tag')){ const i=parseInt(e.target.dataset.index); currentTags.splice(i,1); renderTags(); }
+            });
+
+            // Init
+            load(); renderList();
+        })();
+    </script>
+</body>
+</html>
