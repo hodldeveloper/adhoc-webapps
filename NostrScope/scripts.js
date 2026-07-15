@@ -524,7 +524,8 @@
         if (parsed.error) { showError(parsed.error); safeToast(parsed.error, 'error'); return; }
         if (parsed.pubkey) { await investigateUser(parsed.pubkey, parsed.relayHints || []); return; }
         if (parsed.source === 'naddr') {
-            const filter = { kinds: [parsed.kind], authors: [parsed.pubkey], '#d': [parsed.dTag], limit: 1 };
+            const kind = Number(parsed.kind); // ← ensure it's a number
+            const filter = { kinds: [kind], authors: [parsed.pubkey], '#d': [parsed.dTag], limit: 1 };
             const allUrls = [...new Set([...activeRelays, ...(parsed.relayHints || [])])];
             const tempRm = new RelayManager(allUrls);
             window._relayManager = tempRm;
@@ -534,7 +535,7 @@
                 if (inv.events.length > 0) {
                     const ev = inv.events[0];
                     // ── If it's a community (kind 34550), render community view ──
-                    if (parsed.kind === 34550) {
+                    if (kind === 34550) {
                         renderCommunityView(ev);
                         hideLoading();
                         switchScreen('analysis');
@@ -547,7 +548,7 @@
                     hideLoading();
                 }
             };
-            const label = parsed.kind === 34550 ? 'community' : 'event';
+            const label = kind === 34550 ? 'community' : 'event';
             showLoading(`Fetching ${label} by naddr...`);
             await tempInv.rm.connectAll(CONFIG.relayConnectTimeout);
             tempInv.rm.subscribe([filter]);
@@ -635,6 +636,10 @@
         if (titleEl) {
             titleEl.textContent = '🏘️ Community';
         }
+    
+        // ── Hide any leftover panels (just in case) ──
+        const panels = document.querySelectorAll('#panel-thread, #panel-timeline, #panel-stats, #panel-json, #panel-relays, #panel-bch, #panel-profile');
+        panels.forEach(p => p.style.display = 'none');
     
         // ── Ensure the analysis screen is active (already done by caller) ──
     }
