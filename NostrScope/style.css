@@ -486,6 +486,9 @@ body {
 }
 
 .editor-screen .editor-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     overflow-x: hidden;
 }
 
@@ -533,7 +536,7 @@ body {
     border: 1px solid #2f405c;
     border-radius: 0 0 8px 8px;
     min-height: 260px;
-    max-height: 56vh;
+    max-height: none;
     -webkit-touch-callout: default;
     touch-action: pan-y;
     pointer-events: auto;
@@ -597,7 +600,7 @@ body {
 }
 
 .editor-screen .CodeMirror-scroll {
-    max-height: 56vh;
+    max-height: none;
     overflow-y: auto !important;
 }
 

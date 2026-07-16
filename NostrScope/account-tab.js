@@ -193,13 +193,57 @@
         } catch { }
     }
 
+    function getAddressableDTag(ev) {
+        if (!ev || !Array.isArray(ev.tags)) return null;
+        const tag = ev.tags.find((t) => Array.isArray(t) && t[0] === 'd' && typeof t[1] === 'string' && t[1].trim());
+        return tag ? tag[1].trim() : null;
+    }
+
+    function dedupeKindEvents(kind, events) {
+        const list = Array.isArray(events) ? events.slice() : [];
+        if (list.length <= 1) return list;
+
+        // Always dedupe exact duplicates by event id first.
+        const byId = [];
+        const seenIds = new Set();
+        for (const ev of list) {
+            if (!ev || !ev.id || seenIds.has(ev.id)) continue;
+            seenIds.add(ev.id);
+            byId.push(ev);
+        }
+
+        if (kind !== 30023) {
+            return byId.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        }
+
+        // NIP-23 addressable events: keep only latest event per (pubkey,d).
+        const sorted = byId.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        const latestByAddress = new Map();
+        const fallback = [];
+
+        for (const ev of sorted) {
+            const dTag = getAddressableDTag(ev);
+            if (!dTag) {
+                fallback.push(ev);
+                continue;
+            }
+            const key = `${ev.pubkey || ''}:${dTag}`;
+            if (!latestByAddress.has(key)) {
+                latestByAddress.set(key, ev);
+            }
+        }
+
+        return [...latestByAddress.values(), ...fallback]
+            .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    }
+
     function getCachedKindData(pubkey, kind) {
         const key = CACHE_KEYS.KIND_DATA + pubkey + '_' + kind;
         const data = getCachedData(key);
         if (data) {
             const age = Date.now() - data.timestamp;
             if (age < 5 * 60 * 1000) {
-                return data.events;
+                return dedupeKindEvents(kind, data.events);
             }
         }
         return null;
@@ -207,7 +251,7 @@
 
     function setCachedKindData(pubkey, kind, events) {
         const key = CACHE_KEYS.KIND_DATA + pubkey + '_' + kind;
-        setCachedData(key, { timestamp: Date.now(), events });
+        setCachedData(key, { timestamp: Date.now(), events: dedupeKindEvents(kind, events) });
     }
 
     async function scanKindCounts(pubkey, onProgress) {
@@ -511,7 +555,7 @@
             console.error('Fetch kind events error:', e);
         }
     
-        return events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        return dedupeKindEvents(kind, events);
     }
 
     function getFastBlogRelays() {
@@ -1101,7 +1145,7 @@
             // ── Get cached data ──
             const cached = getCachedKindData(currentUser.publicKey, kind);
             if (cached && cached.length > 0) {
-                events = cached;
+                events = dedupeKindEvents(kind, cached);
                 console.log(`📦 Using cached ${events.length} articles`);
             } else {
                 // First load – fetch initial batch
@@ -1142,14 +1186,7 @@
                         const enriched = await fetchKindEvents(currentUser.publicKey, 30023, 60, null, null);
                         if (!Array.isArray(enriched) || enriched.length === 0) return;
 
-                        const known = new Set(events.map(ev => ev.id));
-                        const merged = [...events];
-                        for (const ev of enriched) {
-                            if (known.has(ev.id)) continue;
-                            known.add(ev.id);
-                            merged.push(ev);
-                        }
-                        merged.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+                        const merged = dedupeKindEvents(30023, [...events, ...enriched]);
 
                         if (merged.length === events.length) return;
 
@@ -1269,7 +1306,7 @@
                         return;
                     }
                     // Merge and deduplicate
-                    const merged = [...events, ...more.filter(e => !events.find(ev => ev.id === e.id))];
+                    const merged = dedupeKindEvents(kind, [...events, ...more]);
                     setCachedKindData(currentUser.publicKey, kind, merged);
                     events.splice(0, events.length, ...merged);
     
@@ -1379,7 +1416,7 @@
         }
     
         // Merge: new ones at the top (they are already sorted by fetchKindEvents)
-        const merged = [...fresh, ...currentEvents];
+        const merged = dedupeKindEvents(kind, [...fresh, ...currentEvents]);
         setCachedKindData(currentUser.publicKey, kind, merged);
         // Update the local array reference
         currentEvents.splice(0, currentEvents.length, ...merged);

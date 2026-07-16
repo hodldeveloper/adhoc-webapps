@@ -8,16 +8,31 @@
     let editingEvent = null;
     let currentDtag = null;
     let currentEditorTab = 'write';
+    let markdownEscapedView = false;
 
-    function getEditorHeightPx() {
-        const vhBased = Math.floor(window.innerHeight * 0.56);
-        return Math.max(260, Math.min(vhBased, 640));
+    function getEditorHeightPx(topPx) {
+        const actionBar = document.getElementById('editorActionBar');
+        const actionBarHeight = actionBar ? Math.ceil(actionBar.getBoundingClientRect().height) : 56;
+        const reservedBottom = actionBarHeight + 42;
+        const available = Math.floor(window.innerHeight - topPx - reservedBottom);
+        return Math.max(260, Math.min(available, 1400));
     }
 
     function applyEditorHeight() {
-        if (!simplemde || !simplemde.codemirror) return;
-        simplemde.codemirror.setSize(null, getEditorHeightPx());
-        simplemde.codemirror.refresh();
+        if (simplemde && simplemde.codemirror) {
+            const wrapper = simplemde.codemirror.getWrapperElement();
+            const top = wrapper ? wrapper.getBoundingClientRect().top : Math.floor(window.innerHeight * 0.22);
+            simplemde.codemirror.setSize(null, getEditorHeightPx(top));
+            simplemde.codemirror.refresh();
+        }
+
+        const rawEl = document.getElementById('articleMarkdownRaw');
+        if (rawEl) {
+            const top = rawEl.getBoundingClientRect().top;
+            const hint = document.getElementById('editorMarkdownHint');
+            const hintHeight = hint ? Math.ceil(hint.getBoundingClientRect().height) + 10 : 0;
+            rawEl.style.height = `${Math.max(220, getEditorHeightPx(top) - hintHeight)}px`;
+        }
     }
 
     function applyStickyOffsets() {
@@ -153,6 +168,65 @@
         return textarea ? textarea.value || '' : '';
     }
 
+    function decodeHtmlEntities(input) {
+        if (!input || typeof input !== 'string') return '';
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = input;
+        return textarea.value;
+    }
+
+    function normalizeMarkdownForPublishing(raw) {
+        if (!raw) return '';
+
+        let text = String(raw).replace(/\r\n?/g, '\n');
+
+        // Convert pasted HTML code blocks into fenced markdown blocks.
+        text = text.replace(/<pre[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi, (match, code) => {
+            const decoded = decodeHtmlEntities(code)
+                .replace(/^\n+/, '')
+                .replace(/\n+$/, '');
+            return `\n\`\`\`\n${decoded}\n\`\`\`\n`;
+        });
+
+        // Convert inline HTML code tags into markdown inline code.
+        text = text.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (match, code) => {
+            const decoded = decodeHtmlEntities(code).replace(/`/g, '\\`');
+            return `\`${decoded}\``;
+        });
+
+        // BCHNostr is more consistent with plain markdown links than raw media tags.
+        text = text.replace(/<iframe[^>]*src=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) => {
+            const safe = sanitizeMediaUrl(src);
+            return safe ? `\n[Embedded media](${safe})\n` : '';
+        });
+        text = text.replace(/<video[^>]*src=["']([^"']+)["'][^>]*><\/video>/gi, (match, src) => {
+            const safe = sanitizeMediaUrl(src);
+            return safe ? `\n[Video](${safe})\n` : '';
+        });
+        text = text.replace(/<audio[^>]*src=["']([^"']+)["'][^>]*><\/audio>/gi, (match, src) => {
+            const safe = sanitizeMediaUrl(src);
+            return safe ? `\n[Audio](${safe})\n` : '';
+        });
+
+        text = text.replace(/<br\s*\/?>/gi, '\n');
+
+        // Some clients/renderers preserve accidental doubled blank rows inside fences.
+        // Collapse only separator-style double breaks between non-empty lines in code blocks.
+        text = text.replace(/```([^\n`]*)\n([\s\S]*?)```/g, (match, lang, body) => {
+            let normalizedBody = body;
+            let prev = '';
+            while (normalizedBody !== prev) {
+                prev = normalizedBody;
+                normalizedBody = normalizedBody.replace(/([^\n])\n\n(?=[^\n])/g, '$1\n');
+            }
+            return `\`\`\`${lang}\n${normalizedBody}\`\`\``;
+        });
+
+        text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+        return text;
+    }
+
     function renderArticleMarkdownLikeReadFull(text) {
         if (!text) return '<p style="color:#8fa6c7;">Nothing to preview yet. Start writing your article.</p>';
 
@@ -213,17 +287,125 @@
         const previewEl = document.getElementById('articlePreviewContent');
         if (!previewEl) return;
 
-        const markdown = getEditorMarkdown();
+        const markdown = normalizeMarkdownForPublishing(getEditorMarkdown());
         previewEl.innerHTML = renderArticleMarkdownLikeReadFull(markdown);
     }
 
+    function syncRawMarkdownFromEditor() {
+        const rawEl = document.getElementById('articleMarkdownRaw');
+        if (!rawEl) return;
+
+        if (markdownEscapedView) {
+            // Show exactly how content looks inside JSON event payload strings.
+            rawEl.value = JSON.stringify(getEditorMarkdown());
+            rawEl.readOnly = true;
+            rawEl.style.opacity = '0.9';
+            return;
+        }
+
+        rawEl.readOnly = false;
+        rawEl.style.opacity = '1';
+        rawEl.value = getEditorMarkdown();
+    }
+
+    function syncEditorFromRawMarkdown() {
+        const rawEl = document.getElementById('articleMarkdownRaw');
+        if (!rawEl) return;
+        if (markdownEscapedView) return;
+        const value = rawEl.value || '';
+        if (simplemde) {
+            simplemde.value(value);
+        } else {
+            const textarea = document.getElementById('articleContent');
+            if (textarea) textarea.value = value;
+        }
+    }
+
+    function setMarkdownEscapedView(enabled) {
+        markdownEscapedView = !!enabled;
+        const toggleBtn = document.getElementById('editorToggleEscaped');
+        const hint = document.getElementById('editorMarkdownHint');
+
+        if (toggleBtn) {
+            toggleBtn.style.background = markdownEscapedView ? '#1c2f49' : 'transparent';
+            toggleBtn.style.color = markdownEscapedView ? '#eaf3ff' : '#9ab1d1';
+            toggleBtn.style.borderColor = markdownEscapedView ? '#456792' : '#2f405c';
+            toggleBtn.textContent = markdownEscapedView ? 'Escaped View: ON' : 'Escaped View: OFF';
+        }
+
+        if (hint) {
+            hint.textContent = markdownEscapedView
+                ? 'Showing JSON-escaped content (read-only), including literal \\n sequences.'
+                : 'Raw markdown view: every character/newline is preserved.';
+        }
+
+        syncRawMarkdownFromEditor();
+    }
+
+    function parseFlowNodes(raw) {
+        if (!raw) return [];
+        return String(raw)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+    }
+
+    function buildVerticalAsciiFlow(nodes, useArrows) {
+        if (!nodes.length) return '';
+        const out = [];
+        for (let i = 0; i < nodes.length; i++) {
+            out.push(nodes[i]);
+            if (i < nodes.length - 1) {
+                out.push(' |');
+                if (useArrows) out.push(' v');
+            }
+        }
+        return out.join('\n');
+    }
+
+    function buildHorizontalAsciiFlow(nodes, useArrows) {
+        if (!nodes.length) return '';
+        const connector = useArrows ? ' -> ' : ' - ';
+        return nodes.join(connector);
+    }
+
+    function createAsciiFlowchartFromPrompt() {
+        const raw = prompt(
+            'Enter flow steps, one per line.\nExample:\nYou\nRelay A\nRelay B\nRelay C',
+            'You\nRelay A\nRelay B\nRelay C',
+        );
+        if (raw === null) return null;
+
+        const nodes = parseFlowNodes(raw);
+        if (!nodes.length) return null;
+
+        const layoutRaw = (prompt('Layout: vertical or horizontal?', 'vertical') || '').trim().toLowerCase();
+        const layout = layoutRaw === 'horizontal' ? 'horizontal' : 'vertical';
+
+        const arrowRaw = (prompt('Connector: arrow or plain?', 'plain') || '').trim().toLowerCase();
+        const useArrows = arrowRaw === 'arrow' || arrowRaw === 'arrows';
+
+        const chart = layout === 'horizontal'
+            ? buildHorizontalAsciiFlow(nodes, useArrows)
+            : buildVerticalAsciiFlow(nodes, useArrows);
+
+        if (!chart) return null;
+        return `\n\`\`\`\n${chart}\n\`\`\`\n`;
+    }
+
     function setEditorTab(tabName) {
-        currentEditorTab = tabName === 'preview' ? 'preview' : 'write';
+        const nextTab = tabName === 'preview' || tabName === 'markdown' ? tabName : 'write';
+        if (currentEditorTab === 'markdown' && nextTab !== 'markdown') {
+            syncEditorFromRawMarkdown();
+        }
+        currentEditorTab = nextTab;
 
         const writeTab = document.getElementById('editorTabWrite');
         const previewTab = document.getElementById('editorTabPreview');
+        const markdownTab = document.getElementById('editorTabMarkdown');
         const writeWrap = document.getElementById('editorWriteWrap');
         const previewWrap = document.getElementById('editorPreviewWrap');
+        const markdownWrap = document.getElementById('editorMarkdownWrap');
 
         if (writeTab) {
             writeTab.style.background = currentEditorTab === 'write' ? '#1c2f49' : 'transparent';
@@ -235,12 +417,24 @@
             previewTab.style.color = currentEditorTab === 'preview' ? '#eaf3ff' : '#9ab1d1';
             previewTab.style.borderColor = currentEditorTab === 'preview' ? '#456792' : '#2f405c';
         }
+        if (markdownTab) {
+            markdownTab.style.background = currentEditorTab === 'markdown' ? '#1c2f49' : 'transparent';
+            markdownTab.style.color = currentEditorTab === 'markdown' ? '#eaf3ff' : '#9ab1d1';
+            markdownTab.style.borderColor = currentEditorTab === 'markdown' ? '#456792' : '#2f405c';
+        }
         if (writeWrap) writeWrap.style.display = currentEditorTab === 'write' ? 'block' : 'none';
         if (previewWrap) previewWrap.style.display = currentEditorTab === 'preview' ? 'block' : 'none';
+        if (markdownWrap) markdownWrap.style.display = currentEditorTab === 'markdown' ? 'block' : 'none';
 
         if (currentEditorTab === 'preview') {
             renderPreviewContent();
         }
+
+        if (currentEditorTab === 'markdown') {
+            syncRawMarkdownFromEditor();
+        }
+
+        applyEditorHeight();
     }
 
     function ensureSimpleMDE(textarea) {
@@ -341,7 +535,7 @@
     // ── Build the UI ──
     function buildEditorUI() {
         editorContent.innerHTML = `
-            <div class="editor-form" style="padding:12px; max-width:100%;">
+            <div class="editor-form" style="padding:12px; max-width:100%; min-height:100%; display:flex; flex-direction:column; gap:10px;">
                 <details id="editorMetaDetails" style="margin-bottom:12px;background:#131e2f;border:1px solid #2f405c;border-radius:8px;overflow:hidden;">
                     <summary style="list-style:none;cursor:pointer;padding:10px 12px;font-size:0.8rem;font-weight:700;color:#d8e7ff;display:flex;align-items:center;justify-content:space-between;">
                         <span>Article Details</span>
@@ -370,21 +564,29 @@
                         </div>
                     </div>
                 </details>
-                <div>
+                <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
                     <label style="font-size:0.75rem;color:#71767b;">Content (markdown)</label>
                     <div class="editor-tab-row" style="display:flex;gap:6px;margin:8px 0 10px;">
                         <button type="button" id="editorTabWrite" style="padding:6px 12px;font-size:0.75rem;border:1px solid #2f405c;border-radius:7px;background:#1c2f49;color:#eaf3ff;cursor:pointer;">Write</button>
                         <button type="button" id="editorTabPreview" style="padding:6px 12px;font-size:0.75rem;border:1px solid #2f405c;border-radius:7px;background:transparent;color:#9ab1d1;cursor:pointer;">Preview</button>
+                        <button type="button" id="editorTabMarkdown" style="padding:6px 12px;font-size:0.75rem;border:1px solid #2f405c;border-radius:7px;background:transparent;color:#9ab1d1;cursor:pointer;">Markdown Code</button>
                     </div>
-                    <div id="editorWriteWrap">
+                    <div id="editorWriteWrap" style="flex:1;min-height:0;">
                         <textarea id="articleContent" style="width:100%;min-height:220px;padding:10px;background:#0f1724;border:1px solid #2f3336;color:#e7e9ea;border-radius:8px;"></textarea>
                         <div id="simplemde-container"></div>
                     </div>
-                    <div id="editorPreviewWrap" style="display:none;background:#0f1724;border:1px solid #2f405c;border-radius:8px;padding:14px;min-height:260px;">
+                    <div id="editorPreviewWrap" style="display:none;background:#0f1724;border:1px solid #2f405c;border-radius:8px;padding:14px;min-height:260px;overflow:auto;">
                         <div id="articlePreviewContent" class="article-rich-content" style="font-size:0.9rem;line-height:1.65;color:#e7efff;"></div>
                     </div>
+                    <div id="editorMarkdownWrap" style="display:none;background:#0f1724;border:1px solid #2f405c;border-radius:8px;padding:10px;min-height:260px;overflow:hidden;">
+                        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                            <button type="button" id="editorToggleEscaped" style="padding:5px 10px;font-size:0.72rem;border:1px solid #2f405c;border-radius:7px;background:transparent;color:#9ab1d1;cursor:pointer;">Escaped View: OFF</button>
+                        </div>
+                        <textarea id="articleMarkdownRaw" spellcheck="false" wrap="off" style="width:100%;min-height:320px;padding:12px;background:#0b1422;border:1px solid #2f405c;color:#e7efff;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,monospace;font-size:0.78rem;line-height:1.45;white-space:pre;overflow-x:auto;overflow-y:auto;resize:none;"></textarea>
+                        <div id="editorMarkdownHint" style="margin-top:6px;font-size:0.68rem;color:#8fa6c7;">Raw markdown view: every character/newline is preserved.</div>
+                    </div>
                 </div>
-                <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                <div id="editorActionBar" style="position:sticky;bottom:0;z-index:40;display:flex;gap:8px;justify-content:flex-end;padding:10px 0 calc(10px + env(safe-area-inset-bottom));background:linear-gradient(to top,#0b1321 72%,rgba(11,19,33,0));border-top:1px solid rgba(47,64,92,0.7);">
                     <button class="btn btn-outline" id="editorDiscardBtn">Discard</button>
                     <button class="btn btn-primary" id="editorSaveBtn">Publish Article</button>
                 </div>
@@ -400,6 +602,27 @@
         document.getElementById('editorSaveBtn').addEventListener('click', handlePublish);
         document.getElementById('editorTabWrite').addEventListener('click', () => setEditorTab('write'));
         document.getElementById('editorTabPreview').addEventListener('click', () => setEditorTab('preview'));
+        document.getElementById('editorTabMarkdown').addEventListener('click', () => setEditorTab('markdown'));
+        const escapedToggle = document.getElementById('editorToggleEscaped');
+        if (escapedToggle) {
+            escapedToggle.addEventListener('click', function () {
+                setMarkdownEscapedView(!markdownEscapedView);
+            });
+        }
+        const rawMd = document.getElementById('articleMarkdownRaw');
+        if (rawMd) {
+            rawMd.addEventListener('input', function () {
+                if (currentEditorTab === 'markdown') {
+                    if (markdownEscapedView) return;
+                    if (simplemde) {
+                        simplemde.value(rawMd.value || '');
+                    } else {
+                        const articleContent = document.getElementById('articleContent');
+                        if (articleContent) articleContent.value = rawMd.value || '';
+                    }
+                }
+            });
+        }
         const imageInput = document.getElementById('articleImage');
         if (imageInput) {
             imageInput.addEventListener('input', updateCoverImagePreview);
@@ -410,8 +633,10 @@
 
         applyMetaSectionDefaultState();
         updateCoverImagePreview();
+        setMarkdownEscapedView(false);
 
         setEditorTab('write');
+        requestAnimationFrame(applyEditorHeight);
     }
 
     function initSimpleMDE(textarea) {
@@ -428,16 +653,41 @@
                 'link', 'image', '|',
                 'preview', 'side-by-side', 'fullscreen', '|',
                 {
+                    name: 'codeblock',
+                    action: function(editor) {
+                        const language = (prompt('Code language (optional, e.g. js, json, bash):') || '').trim();
+                        const selection = editor.codemirror.getSelection() || 'your code here';
+                        const fenceHead = language ? `\`\`\`${language}` : '```';
+                        const block = `\n${fenceHead}\n${selection}\n\`\`\`\n`;
+                        editor.codemirror.replaceSelection(block);
+                    },
+                    className: 'fa fa-code',
+                    title: 'Insert Code Block',
+                },
+                {
+                    name: 'flowchart',
+                    action: function(editor) {
+                        const chartBlock = createAsciiFlowchartFromPrompt();
+                        if (!chartBlock) {
+                            window._safeToast('Flowchart not created.', 'info');
+                            return;
+                        }
+                        editor.codemirror.replaceSelection(chartBlock);
+                    },
+                    className: 'fa fa-sitemap',
+                    title: 'Insert ASCII Flowchart',
+                },
+                {
                     name: 'video',
                     action: function(editor) {
                         const url = prompt('Enter video URL (MP4, WebM, etc.):');
                         if (url) {
-                            const embed = buildVideoEmbedHtml(url);
-                            if (!embed) {
+                            const safe = sanitizeMediaUrl(url);
+                            if (!safe) {
                                 window._safeToast('Please enter a valid http/https video URL.', 'error');
                                 return;
                             }
-                            editor.codemirror.replaceSelection(embed);
+                            editor.codemirror.replaceSelection(`[Video](${safe})`);
                         }
                     },
                     className: 'fa fa-video-camera',
@@ -448,12 +698,12 @@
                     action: function(editor) {
                         const url = prompt('Enter audio URL (MP3, etc.):');
                         if (url) {
-                            const embed = buildAudioEmbedHtml(url);
-                            if (!embed) {
+                            const safe = sanitizeMediaUrl(url);
+                            if (!safe) {
                                 window._safeToast('Please enter a valid http/https audio URL.', 'error');
                                 return;
                             }
-                            editor.codemirror.replaceSelection(embed);
+                            editor.codemirror.replaceSelection(`[Audio](${safe})`);
                         }
                     },
                     className: 'fa fa-music',
@@ -471,6 +721,9 @@
         });
 
         simplemde.codemirror.on('change', function () {
+            if (currentEditorTab === 'markdown') {
+                syncRawMarkdownFromEditor();
+            }
             if (currentEditorTab === 'preview') {
                 renderPreviewContent();
             }
@@ -506,7 +759,8 @@
         const summary = document.getElementById('articleSummary').value.trim();
         const image = document.getElementById('articleImage').value.trim();
         const tagsRaw = document.getElementById('articleTags').value.trim();
-        const content = simplemde ? simplemde.value() : '';
+        const rawContent = simplemde ? simplemde.value() : '';
+        const content = normalizeMarkdownForPublishing(rawContent);
 
         if (!title) {
             window._safeToast('Title is required.', 'error');
